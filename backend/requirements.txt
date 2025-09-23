@@ -1,3 +1,22 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Database
+SQLAlchemy==2.0.34
+psycopg2-binary==2.9.9   # if using PostgreSQL
+# or use below if SQLite (default in dev)
+aiosqlite==0.20.0
+
+# Environment variables
+python-dotenv==1.0.1
+
+# OpenAI API (Whisper STT + TTS)
+openai==1.47.0
+httpx==0.27.2
+
+# For file uploads
+python-multipart==0.0.9
+
+ffmpeg-python==0.2.0
+

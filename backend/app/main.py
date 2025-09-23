@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import users, posts
+from app.routers import voice
+
 from app.database.connection import engine, Base
 import os
 
@@ -26,6 +28,7 @@ app.add_middleware(
 # Include routers
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(posts.router, prefix="/api/v1")
+app.include_router(voice.router)
 
 
 @app.get("/")

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    #chat { border: 1px solid #ccc; padding: 10px; width: 500px; min-height: 200px; }
+    .you { color: blue; }
+    .system { color: green; margin-left: 20px; }
+    .alternatives { color: purple; margin-left: 40px; font-style: italic; }
+    .original { color: gray; margin-left: 40px; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h2>🎤 Voice Interaction</h2>
+
+  <!-- Language dropdown -->
+  <select id="languageSelect">
+    <option value="en">English</option>
+    <option value="es">Spanish</option>
+    <option value="fr">French</option>
+    <option value="de">German</option>
+    <option value="th">Thai</option>
+    <!-- Add more as needed -->
+  </select>
+  <button id="recordBtn">Start Recording</button>
+
+  <div id="chat"></div>
+
+  <script>
+    const recordBtn = document.getElementById("recordBtn");
+    const chat = document.getElementById("chat");
+    const languageSelect = document.getElementById("languageSelect");
+    let mediaRecorder, audioChunks = [];
+
+    recordBtn.onclick = async () => {
+      if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+          const formData = new FormData();
+          formData.append("file", audioBlob, "input.webm");
+          formData.append("language", languageSelect.value);
+
+          try {
+            const res = await fetch("http://127.0.0.1:3000/voice/transcribe", {
+              method: "POST",
+              body: formData
+            });
+
+            const data = await res.json();
+
+            // Original transcription in selected language
+            const originalText = data.original || "";
+            // English transcription
+            const englishText = data.text || `[Error: ${data.error || "Unknown"}]`;
+            const systemText = englishText ? `You said: ${englishText}` : "System could not transcribe";
+
+            chat.innerHTML += `<div class="you">You - ${englishText}</div>`;
+            if (originalText && originalText !== englishText) {
+              chat.innerHTML += `<div class="original">Original (${languageSelect.value}) - ${originalText}</div>`;
+            }
+            chat.innerHTML += `<div class="system">System - ${systemText}</div>`;
+
+            // Show alternatives
+            if (data.alternatives && data.alternatives.length > 0) {
+              chat.innerHTML += `<div class="alternatives">Alternatives:<br>${data.alternatives.join("<br>")}</div>`;
+            }
+
+          } catch (err) {
+            chat.innerHTML += `<div class="system">System - Error: ${err.message}</div>`;
+          }
+        };
+
+        mediaRecorder.start();
+        recordBtn.innerText = "Stop Recording";
+      } else {
+        mediaRecorder.stop();
+        recordBtn.innerText = "Start Recording";
+      }
+    };
+  </script>
+</body>
+</html>
