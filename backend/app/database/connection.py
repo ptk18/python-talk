@@ -1,28 +1,24 @@
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
-from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Database URL - Using SQLite for simplicity
-DATABASE_URL = "sqlite:///./pytalk.db"
+# Use env var if present, otherwise default to sqlite file
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./pytalk.db")
 
-# Create SQLAlchemy engine - with check_same_thread=False for SQLite
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# For sqlite we need connect_args
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
-# Create SessionLocal class
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create Base class for models
 Base = declarative_base()
-
-# Metadata for migrations
 metadata = MetaData()
 
-# Dependency to get database session
 def get_db():
     db = SessionLocal()
     try:

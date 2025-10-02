@@ -13,7 +13,7 @@
   </style>
 </head>
 <body>
-  <h2>🎤 Voice Interaction</h2>
+  <h2>Voice Interaction</h2>
 
   <!-- Language dropdown -->
   <select id="languageSelect">
@@ -32,6 +32,25 @@
     const recordBtn = document.getElementById("recordBtn");
     const chat = document.getElementById("chat");
     const languageSelect = document.getElementById("languageSelect");
+    const urlParams = new URLSearchParams(window.location.search);
+    const conversationId = urlParams.get("conversationId");
+
+    async function loadMessages() {
+        const res = await fetch(`http://127.0.0.1:8000/api/v1/messages/${conversationId}`);
+        const msgs = await res.json();
+        chat.innerHTML = "";
+        msgs.forEach(m => {
+            if (m.sender === "user") {
+            chat.innerHTML += `<div class="you">You - ${m.content}</div>`;
+            } else {
+            chat.innerHTML += `<div class="system">System - ${m.content}</div>`;
+            }
+        });
+    }
+
+    // Load history immediately
+    loadMessages();
+
     let mediaRecorder, audioChunks = [];
 
     recordBtn.onclick = async () => {
@@ -49,7 +68,7 @@
           formData.append("language", languageSelect.value);
 
           try {
-            const res = await fetch("http://127.0.0.1:3000/voice/transcribe", {
+            const res = await fetch("http://127.0.0.1:8000/voice/transcribe", {
               method: "POST",
               body: formData
             });
@@ -72,6 +91,13 @@
             if (data.alternatives && data.alternatives.length > 0) {
               chat.innerHTML += `<div class="alternatives">Alternatives:<br>${data.alternatives.join("<br>")}</div>`;
             }
+
+            await fetch(`http://127.0.0.1:8000/api/v1/messages/${conversationId}?sender=user&content=${encodeURIComponent(englishText)}`, {
+                method: "POST"
+            });
+            await fetch(`http://127.0.0.1:8000/api/v1/messages/${conversationId}?sender=system&content=${encodeURIComponent(systemText)}`, {
+                method: "POST"
+            });
 
           } catch (err) {
             chat.innerHTML += `<div class="system">System - Error: ${err.message}</div>`;
