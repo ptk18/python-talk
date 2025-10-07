@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Users</title>
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    .user { padding: 8px; border: 1px solid #ccc; margin: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>Users</h2>
+  <button onclick="showUserForm()">Add User</button>
+  <div id="userForm" style="display:none;">
+    <input type="text" id="username" placeholder="Enter username"/>
+    <button onclick="createUser()">Save</button>
+  </div>
+  <div id="users"></div>
+
+  <script>
+    async function fetchUsers() {
+      const res = await fetch("http://127.0.0.1:8000/api/v1/users/");
+      const users = await res.json();
+      const div = document.getElementById("users");
+      div.innerHTML = "";
+      users.forEach(u => {
+        div.innerHTML += `<div class="user" onclick="goToConversations(${u.id})">${u.username}</div>`;
+      });
+    }
+
+    function showUserForm() {
+      document.getElementById("userForm").style.display = "block";
+    }
+
+    async function createUser() {
+      const username = document.getElementById("username").value;
+      await fetch("http://127.0.0.1:8000/api/v1/users/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username })
+      });
+      fetchUsers();
+    }
+
+    function goToConversations(userId) {
+      window.location.href = `conversations.html?userId=${userId}`;
+    }
+
+    fetchUsers();
+  </script>
+</body>
+</html>

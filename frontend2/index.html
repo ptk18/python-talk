@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Py-Talk Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+        
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.2rem;
+        }
+        
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+        }
+        
+        .status-indicator.connected {
+            background: #27ae60;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .feature-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐍 Py-Talk</h1>
+            <p class="subtitle">FastAPI + PostgreSQL Application</p>
+        </header>
+        
+        <main class="content">
+            <div class="api-status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Checking API connection...</span>
+            </div>
+            
+            <button class="button" onclick="checkAPIConnection()">Test API Connection</button>
+            
+            <div class="features">
+                <div class="feature-card">
+                    <div class="feature-title">FastAPI Backend</div>
+                    <p>Modern, fast web framework for building APIs with Python 3.7+</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-title">PostgreSQL Database</div>
+                    <p>Powerful, open-source relational database system</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-title">Modern Frontend</div>
+                    <p>Clean, responsive HTML interface with modern styling</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-title">RESTful API</div>
+                    <p>Well-structured REST endpoints for data operations</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <footer>
+        <p>&copy; 2025 Py-Talk Application. Built with FastAPI and PostgreSQL.</p>
+    </footer>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        async function checkAPIConnection() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            
+            statusText.textContent = 'Checking connection...';
+            statusIndicator.classList.remove('connected');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                if (response.ok) {
+                    statusIndicator.classList.add('connected');
+                    statusText.textContent = 'API Connected Successfully!';
+                } else {
+                    throw new Error('API responded with error');
+                }
+            } catch (error) {
+                statusIndicator.classList.remove('connected');
+                statusText.textContent = 'API Connection Failed. Make sure the backend is running.';
+            }
+        }
+        
+        // Check API connection on page load
+        window.addEventListener('load', checkAPIConnection);
+    </script>
+</body>
+</html>
