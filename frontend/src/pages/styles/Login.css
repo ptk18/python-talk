@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+
+:root{
+  --bg: #b8c7b4;    /* page background */
+  --text: #0e3b1e;  /* deep green */
+  --muted: #2e4f2e;
+  --white: #ffffff;
+  --input-border: #e7e7e7;
+  --shadow: 0 20px 60px rgba(0,0,0,.08);
+}
+
+/* Full-viewport canvas (1920x1080 design → scale to any screen) */
+.login__viewport{
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg);
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* Top-left logo */
+.login__logo{
+  position: absolute;
+  top: 36px;
+  left: 64px;
+  font-weight: 800;
+  font-size: 28px;
+}
+
+/* Center Card */
+.login__card{
+  width: min(560px, 88vw);
+  background: var(--white);
+  border-radius: 14px;
+  padding: 56px;
+  box-shadow: var(--shadow);
+}
+
+.login__title{
+  margin: 0 0 28px 0;
+  text-align: center;
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* Form */
+.login__form{
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login__field input{
+  width: 100%;
+  height: 48px;
+  border: 1.5px solid var(--input-border);
+  border-radius: 8px;
+  outline: none;
+  padding: 0 16px;
+  font-size: 14px;
+  letter-spacing: .5px;
+  background: #fff;
+  color: #1c1c1c;
+}
+.login__field input::placeholder{
+  color: #bdbdbd;
+  text-transform: uppercase;
+}
+.login__field input:focus{
+  border-color: #b5d2bf;
+  box-shadow: 0 0 0 4px rgba(32, 87, 52, .12);
+}
+
+/* Meta / link line */
+.login__meta{
+  text-align: center;
+  margin: 10px 0 6px;
+  font-size: 14px;
+  color: #333;
+}
+.login__link{
+  color: #b30000;         /* red like mock */
+  text-decoration: none;
+}
+.login__link:hover{ text-decoration: underline; }
+
+/* Submit button */
+.login__button{
+  margin: 10px auto 0;
+  display: inline-block;
+  background: var(--text);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  height: 40px;
+  padding: 0 36px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: transform .06s ease, opacity .2s ease;
+}
+.login__button:hover{ opacity: .92; }
+.login__button:active{ transform: translateY(1px); }
+
+/* Optional: keep proportions on very tall screens */
+@media (min-aspect-ratio: 16/9){
+  .login__card{ padding: 56px; }
+}
+@media (max-width: 520px){
+  .login__card{ padding: 40px 28px; }
+  .login__title{ font-size: 40px; }
+}

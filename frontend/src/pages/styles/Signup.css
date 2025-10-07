@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+
+:root{
+  --bg: #b8c7b4;    /* page background */
+  --text: #0e3b1e;  /* deep green */
+  --white: #ffffff;
+  --input-border: #eeeeee;
+  --shadow: 0 20px 60px rgba(0,0,0,.08);
+}
+
+.signup__viewport{
+  width: 100vw;
+  height: 100vh;                  /* 1920x1080 design feel */
+  background: var(--bg);
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.signup__logo{
+  position: absolute;
+  top: 36px;
+  left: 64px;
+  font-weight: 800;
+  font-size: 28px;
+}
+
+.signup__card{
+  width: min(560px, 88vw);
+  background: var(--white);
+  border-radius: 14px;
+  padding: 56px;
+  box-shadow: var(--shadow);
+}
+
+.signup__title{
+  margin: 0 0 28px 0;
+  text-align: center;
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* Form */
+.signup__form{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.signup__field input{
+  width: 100%;
+  height: 48px;
+  border: 1.5px solid var(--input-border);
+  border-radius: 8px;
+  outline: none;
+  padding: 0 16px;
+  font-size: 14px;
+  letter-spacing: .4px;
+  background: #fff;
+  color: #1c1c1c;
+}
+.signup__field input::placeholder{
+  color: #c5c5c5;
+  text-transform: uppercase;
+}
+.signup__field input:focus{
+  border-color: #b5d2bf;
+  box-shadow: 0 0 0 4px rgba(32, 87, 52, .12);
+}
+
+/* Submit */
+.signup__button{
+  margin: 18px auto 0;
+  display: inline-block;
+  background: var(--text);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  height: 40px;
+  padding: 0 36px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: transform .06s ease, opacity .2s ease;
+}
+.signup__button:hover{ opacity: .92; }
+.signup__button:active{ transform: translateY(1px); }
+
+@media (max-width: 520px){
+  .signup__card{ padding: 40px 28px; }
+  .signup__title{ font-size: 40px; }
+}
