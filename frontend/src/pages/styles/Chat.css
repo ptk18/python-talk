@@ -1,0 +1,209 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+
+:root {
+  --bg: #b8c7b4;
+  --panel: #e8eee9;
+  --deep: #1b4e2b;
+  --white: #ffffff;
+  --shadow: 0 20px 60px rgba(0, 0, 0, .08);
+  --radius: 14px;
+}
+
+/* 1920×1080 canvas */
+.chat__viewport {
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg);
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--deep);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+/* Top bar */
+.chat__navbar {
+  width: 90%;
+  max-width: 1600px;
+  margin: 18px auto 0;
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.chat__logo {
+  font-weight: 800;
+  font-size: 28px;
+  position: absolute;
+  left: 28px;
+}
+
+.chat__links {
+  display: flex;
+  gap: 64px;
+  font-weight: 700;
+}
+
+.chat__links a {
+  color: var(--deep);
+  text-decoration: none;
+  opacity: .95;
+}
+
+/* Main chat panel */
+.chat__panel {
+  width: 86%;
+  max-width: 1600px;
+  height: 550px;
+  margin: 16px auto 0;
+  background: var(--panel);
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  gap: 24px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+/* Scroll area */
+.chat__scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px 12px;
+}
+
+.chat__scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.chat__scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, .15);
+  border-radius: 10px;
+}
+
+/* ← fixed stray brace bug */
+
+/* Side columns */
+.chat__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  user-select: none;
+}
+
+.chat__avatar {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+}
+
+.chat__name {
+  font-weight: 800;
+}
+
+.chat__name--right {
+  color: #0f6c3b;
+}
+
+.chat__name--left {
+  color: var(--deep);
+}
+
+.chat__side--right {
+  align-self: end;
+}
+
+/* Message rows */
+.chat__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.chat__row--left {
+  justify-content: flex-start;
+}
+
+.chat__row--right {
+  justify-content: flex-end;
+}
+
+.chat__bubble {
+  width: min(540px, 70%);
+  min-height: 120px;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .06);
+}
+
+.chat__time {
+  color: #8b8b8b;
+  font-size: 12px;
+}
+
+.chat__time--left {
+  order: -1;
+}
+
+/* Footer actions (bottom-right) */
+.chat__footer {
+  width: 90%;
+  max-width: 1600px;
+  margin: 12px auto 24px;
+  display: flex;
+  justify-content: flex-end;
+  position: relative;
+}
+
+.chat__actions {
+  display: flex;
+  gap: 14px;
+}
+
+.btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 14px;
+  border: 2px solid var(--deep);
+  background: var(--white);
+  color: var(--deep);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.btn img {
+  height: 18px;
+  width: auto;
+  display: block;
+}
+
+.btn--run {
+  background: #0f6c3b;
+  color: #fff;
+  border-color: #0f6c3b;
+}
+
+/* Floating voice button (SVG image) */
+.chat__mic {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  /* centered above footer */
+  transform: translateX(-50%);
+  width: 110px;
+  height: auto;
+  /* voice.svg is a round button asset */
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .25));
+  pointer-events: auto;
+  /* clickable */
+  user-select: none;
+}

@@ -1,14 +1,17 @@
 import { type FormEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./styles/Login.css";
 
 export default function Login() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const navigate = useNavigate();
 
     function onSubmit(e: FormEvent) {
         e.preventDefault();
         // TODO: replace with your auth call
         console.log({ username, password });
+        navigate("/chat");
     }
 
     return (
@@ -28,7 +31,7 @@ export default function Login() {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             aria-label="Username"
-                            required
+                            // required
                         />
                     </label>
 
@@ -39,7 +42,7 @@ export default function Login() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             aria-label="Password"
-                            required
+                            // required
                         />
                     </label>
 
