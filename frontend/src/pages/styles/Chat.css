@@ -76,6 +76,11 @@
   box-shadow: var(--shadow);
 }
 
+/* Keep chat card white in dark mode as in light mode */
+html[data-theme="dark"] .chat__panel {
+  background: #ffffff;
+}
+
 /* Scroll area */
 .chat__scroll {
   height: 100%;
