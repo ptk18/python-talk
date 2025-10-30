@@ -62,8 +62,8 @@
 
 .home__login {
   background: var(--white);
-  color: var(--deep);
-  border: 2px solid var(--deep);
+  color: var(--panel-text);
+  border: 2px solid var(--panel-text);
   padding: 10px 26px;
   border-radius: 8px;
   font-weight: 800;
@@ -73,7 +73,7 @@
 }
 
 .home__login:hover {
-  background: var(--deep);
+  background: var(--panel-text);
   color: var(--white);
 }
 
@@ -81,6 +81,7 @@
 .home__hero {
   width: 90%;
   max-width: 1600px;
+  border: none;
   height: 650px;
   /* keep similar proportion to screenshot */
   margin-top: 45px;

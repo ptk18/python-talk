@@ -19,6 +19,7 @@
   --panel: #e8eee9;
   --deep: #1b4e2b;
   --white: #ffffff;
+  --panel-text: #1b4e2b;
 }
 
 /* Dark theme overrides (higher specificity beats per-page :root) */
@@ -32,6 +33,7 @@ html[data-theme="dark"] {
   /* light text on dark bg */
   --white: #e8eee9;
   /* elements previously using white match panel */
+  --panel-text: #1b4e2b;
 }
 
 a {

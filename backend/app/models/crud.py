@@ -1,12 +1,17 @@
 # app/models/crud.py
 from sqlalchemy.orm import Session
 from app.models import models
+from sqlalchemy.exc import IntegrityError
 
 # ----- USERS -----
-def create_user(db: Session, username: str, email: str, full_name: str = None):
-    user = models.User(username=username, email=email, full_name=full_name)
+def create_user(db: Session, username: str, email: str, password_hash: str, full_name: str | None = None):
+    user = models.User(username=username, email=email, password_hash=password_hash, full_name=full_name)
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
     db.refresh(user)
     return user
 
@@ -15,6 +20,12 @@ def get_user(db: Session, user_id: int):
 
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
+
+def get_user_by_username(db: Session, username: str):
+    return db.query(models.User).filter(models.User.username == username).first()
 
 
 # ----- CONVERSATION -----

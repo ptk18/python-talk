@@ -47,10 +47,10 @@
 
 .navbar__button-link {
     padding: 8px 18px;
-    border: 2px solid var(--deep);
+    border: 2px solid var(--panel-text);
     border-radius: 8px;
     background: var(--white);
-    color: var(--deep);
+    color: var(--panel-text);
     font-family: "Jaldi", sans-serif;
     font-weight: 800;
     font-size: 18px;
@@ -62,16 +62,16 @@
 }
 
 .navbar__button-link:hover {
-    background: var(--deep);
+    background: var(--panel-text);
     color: var(--white);
 }
 
 .navbar__button-btn {
     padding: 8px 18px;
-    border: 2px solid var(--deep);
+    border: 2px solid var(--panel-text);
     border-radius: 8px;
     background: var(--white);
-    color: var(--deep);
+    color: var(--panel-text);
     font-family: "Jaldi", sans-serif;
     font-weight: 800;
     font-size: 18px;
@@ -81,6 +81,6 @@
 }
 
 .navbar__button-btn:hover {
-    background: var(--deep);
+    background: var(--panel-text);
     color: var(--white);
 }
