@@ -1,3 +1,4 @@
+import Navbar from "../components/Navbar";
 import "./styles/Chat.css";
 import Snake from "../assets/scorpio.svg";
 import User from "../assets/user.svg";
@@ -10,52 +11,79 @@ export default function Chat() {
     return (
         <div className="chat__viewport">
             {/* Top bar */}
-            <header className="chat__navbar">
-                <div className="chat__logo">PyTalk</div>
-                <nav className="chat__links">
-                    <a href="/" className="is-active">Home</a>
-                    <a href="/setting">Setting</a>
-                    <a href="/profile">Profile</a>
-                </nav>
-            </header>
+            <Navbar />
 
             {/* Chat panel */}
             <main className="chat__panel">
-                {/* Left assistant column */}
-                <div className="chat__side chat__side--left">
-                    <img src={Snake} alt="Scorpio" className="chat__avatar" />
-                    <div className="chat__name chat__name--left">Scorpio</div>
-                </div>
-
                 {/* Scroll area with messages */}
                 <section className="chat__scroll">
-                    {/* Assistant bubble (left) */}
+                    {/* Assistant message 1 */}
                     <div className="chat__row chat__row--left">
+                        <div className="chat__avatar-container">
+                            <img src={Snake} alt="Scorpio" className="chat__avatar" />
+                            <div className="chat__name chat__name--left">Scorpio</div>
+                        </div>
                         <div className="chat__bubble">{/* assistant text */}</div>
                         <span className="chat__time">23.10</span>
                     </div>
 
-                    <div style={{ height: 140 }} />
-
-                    {/* User bubble (right) */}
+                    {/* User message 1 */}
                     <div className="chat__row chat__row--right">
                         <span className="chat__time chat__time--left">23.12</span>
                         <div className="chat__bubble">{/* user text */}</div>
+                        <div className="chat__avatar-container">
+                            <img src={User} alt="User" className="chat__avatar" />
+                            <div className="chat__name chat__name--right">User</div>
+                        </div>
+                    </div>
+
+                    {/* Assistant message 2 */}
+                    <div className="chat__row chat__row--left">
+                        <div className="chat__avatar-container">
+                            <img src={Snake} alt="Scorpio" className="chat__avatar" />
+                            <div className="chat__name chat__name--left">Scorpio</div>
+                        </div>
+                        <div className="chat__bubble">{/* assistant text */}</div>
+                        <span className="chat__time">23.15</span>
+                    </div>
+
+                    {/* User message 2 */}
+                    <div className="chat__row chat__row--right">
+                        <span className="chat__time chat__time--left">23.18</span>
+                        <div className="chat__bubble">{/* user text */}</div>
+                        <div className="chat__avatar-container">
+                            <img src={User} alt="User" className="chat__avatar" />
+                            <div className="chat__name chat__name--right">User</div>
+                        </div>
+                    </div>
+
+                    {/* Assistant message 3 */}
+                    <div className="chat__row chat__row--left">
+                        <div className="chat__avatar-container">
+                            <img src={Snake} alt="Scorpio" className="chat__avatar" />
+                            <div className="chat__name chat__name--left">Scorpio</div>
+                        </div>
+                        <div className="chat__bubble">{/* assistant text */}</div>
+                        <span className="chat__time">23.20</span>
+                    </div>
+
+                    {/* User message 3 */}
+                    <div className="chat__row chat__row--right">
+                        <span className="chat__time chat__time--left">23.22</span>
+                        <div className="chat__bubble">{/* user text */}</div>
+                        <div className="chat__avatar-container">
+                            <img src={User} alt="User" className="chat__avatar" />
+                            <div className="chat__name chat__name--right">User</div>
+                        </div>
                     </div>
                 </section>
-
-                {/* Right user column */}
-                <div className="chat__side chat__side--right">
-                    <img src={User} alt="User" className="chat__avatar" />
-                    <div className="chat__name chat__name--right">User</div>
-                </div>
             </main>
 
             {/* Footer actions */}
             <footer className="chat__footer">
                 <div className="chat__actions">
                     <button className="btn btn--run">
-                        run <img src={RunIcon} alt="" />
+                        Run <img src={RunIcon} alt="" />
                     </button>
                     <button className="btn">
                         Chat <img src={ChatIcon} alt="" />

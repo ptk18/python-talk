@@ -1,21 +1,11 @@
-import { Link } from "react-router-dom";
+import Navbar from "../components/Navbar";
 import "./styles/Home.css";
 
 export default function Home() {
     return (
         <div className="home__container">
             {/* NAVBAR */}
-            <header className="home__navbar">
-                <h1 className="home__logo">PyTalk</h1>
-
-                <nav className="home__links">
-                    <a href="#" className="is-active">Home</a>
-                    <a href="#">Setting</a>
-                    <a href="#">Profile</a>
-                </nav>
-
-                <Link to="/login" className="home__login">LOGIN</Link>
-            </header>
+            <Navbar rightButton={{ text: "LOGIN", to: "/login" }} />
 
             {/* HERO */}
             <section className="home__hero">

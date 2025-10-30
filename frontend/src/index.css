@@ -13,11 +13,33 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* App theme variables (defaults: light) */
+:root {
+  --bg: #b8c7b4;
+  --panel: #e8eee9;
+  --deep: #1b4e2b;
+  --white: #ffffff;
+}
+
+/* Dark theme overrides (higher specificity beats per-page :root) */
+html[data-theme="dark"] {
+  /* Use brand colors instead of black */
+  --bg: #1b4e2b;
+  /* deep green background */
+  --panel: #e8eee9;
+  /* light panel */
+  --deep: #e8eee9;
+  /* light text on dark bg */
+  --white: #e8eee9;
+  /* elements previously using white match panel */
+}
+
 a {
   font-weight: 500;
   color: #646cff;
   text-decoration: inherit;
 }
+
 a:hover {
   color: #535bf2;
 }
@@ -28,6 +50,8 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--bg);
+  color: var(--deep);
 }
 
 h1 {
@@ -37,18 +61,21 @@ h1 {
 
 button {
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--deep);
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--white);
+  color: var(--deep);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, background-color .25s, color .25s;
 }
+
 button:hover {
   border-color: #646cff;
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -59,11 +86,12 @@ button:focus-visible {
     color: #213547;
     background-color: #ffffff;
   }
+
   a:hover {
     color: #747bff;
   }
+
   button {
     background-color: #f9f9f9;
   }
 }
-

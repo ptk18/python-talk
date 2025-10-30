@@ -4,6 +4,8 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Chat from "./pages/Chat";
+import Profile from "./pages/Profile";
+import Setting from "./pages/Setting";
 
 export default function App() {
   return (
@@ -13,6 +15,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/setting" element={<Setting />} />
       </Routes>
     </BrowserRouter>
   );

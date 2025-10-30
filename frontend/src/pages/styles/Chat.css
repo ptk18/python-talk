@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Jaro&family=Jaldi:wght@400;700&display=swap');
 
 :root {
   --bg: #b8c7b4;
@@ -12,12 +12,12 @@
 /* 1920×1080 canvas */
 .chat__viewport {
   width: 100vw;
-  height: 100vh;
+  min-height: 100vh;
   background: var(--bg);
   font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--deep);
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Top bar */
@@ -33,8 +33,9 @@
 }
 
 .chat__logo {
-  font-weight: 800;
-  font-size: 28px;
+  font-family: "Jaro", sans-serif;
+  font-weight: 400;
+  font-size: 40px;
   position: absolute;
   left: 28px;
 }
@@ -42,27 +43,34 @@
 .chat__links {
   display: flex;
   gap: 64px;
+  font-family: "Jaldi", sans-serif;
+  font-size: 22px;
+  margin-top: 30px;
   font-weight: 700;
 }
 
 .chat__links a {
   color: var(--deep);
   text-decoration: none;
-  opacity: .95;
+  /* font-weight: 600;
+  opacity: .95; */
+}
+
+.chat__links a:hover,
+.chat__links a.is-active {
+  font-weight: 600;
+  opacity: .85;
 }
 
 /* Main chat panel */
 .chat__panel {
-  width: 86%;
+  width: 90%;
   max-width: 1600px;
-  height: 550px;
-  margin: 16px auto 0;
-  background: var(--panel);
+  height: 580px;
+  margin: 20px auto 0;
+  background: var(--white);
   border-radius: 10px;
-  display: grid;
-  grid-template-columns: 200px 1fr 200px;
-  gap: 24px;
-  padding: 32px;
+  /* padding: 20px; */
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -86,23 +94,24 @@
 
 /* ← fixed stray brace bug */
 
-/* Side columns */
-.chat__side {
+/* Avatar containers */
+.chat__avatar-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   user-select: none;
 }
 
 .chat__avatar {
-  width: 160px;
-  height: 160px;
+  width: 120px;
+  height: 120px;
   object-fit: contain;
 }
 
 .chat__name {
   font-weight: 800;
+  font-size: 14px;
 }
 
 .chat__name--right {
@@ -113,14 +122,10 @@
   color: var(--deep);
 }
 
-.chat__side--right {
-  align-self: end;
-}
-
 /* Message rows */
 .chat__row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
   margin: 24px 0;
 }
@@ -138,6 +143,7 @@
   min-height: 120px;
   background: var(--white);
   border-radius: var(--radius);
+  border: 1px solid #afcab9;
   box-shadow: 0 2px 0 rgba(0, 0, 0, .06);
 }
 
@@ -154,7 +160,7 @@
 .chat__footer {
   width: 90%;
   max-width: 1600px;
-  margin: 12px auto 24px;
+  margin: 20px auto;
   display: flex;
   justify-content: flex-end;
   position: relative;
@@ -170,7 +176,7 @@
   padding: 0 14px;
   border-radius: 10px;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 16px;
   border: 2px solid var(--deep);
   background: var(--white);
   color: var(--deep);
@@ -178,6 +184,7 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  font-family: "Jaldi", sans-serif;
 }
 
 .btn img {
@@ -187,9 +194,9 @@
 }
 
 .btn--run {
-  background: #0f6c3b;
-  color: #fff;
-  border-color: #0f6c3b;
+  background: var(--deep);
+  color: var(--white);
+  border-color: var(--deep);
 }
 
 /* Floating voice button (SVG image) */
