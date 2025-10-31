@@ -128,6 +128,12 @@
   transform: translateY(1px);
 }
 
+/* Keep button same in dark mode as in light mode */
+html[data-theme="dark"] .login__button {
+  background: #1b4e2b;
+  color: #fff;
+}
+
 /* Optional: keep proportions on very tall screens */
 @media (min-aspect-ratio: 16/9) {
   .login__card {

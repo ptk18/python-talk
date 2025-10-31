@@ -192,25 +192,25 @@
 /* Dark mode: slider colors */
 html[data-theme="dark"] .range {
     /* base track with filled portion approximation */
-    background: #1c5c34;
+    background: linear-gradient(90deg, #dfe6df 0%, #dfe6df 70%, #a9d8a9 100%);
 }
 
 html[data-theme="dark"] .range::-webkit-slider-runnable-track {
-    background: #789f86;
+    background: #ffffff;
 }
 
 html[data-theme="dark"] .range::-moz-range-track {
-    background: var(--deep);
+    background: #ffffff;
 }
 
 html[data-theme="dark"] .range::-webkit-slider-thumb {
-    background: var(--deep);
-    border: 1px solid var(--deep);
+    background: #1b4e2b;
+    border: 1px solid #3d7b4f;
 }
 
 html[data-theme="dark"] .range::-moz-range-thumb {
-    background: var(--deep);
-    border: 2px solid var(--deep);
+    background: #1b4e2b;
+    border: 2px solid #3d7b4f;
 }
 
 /* Select */
@@ -245,13 +245,14 @@ html[data-theme="dark"] .range::-moz-range-thumb {
 /* Radios */
 .row__control--radio {
     gap: 28px;
+    color: var(--panel);
 }
 
 .radio {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    color: var(--panel-text);
+    color: var(--panel);
 }
 
 .radio input {
@@ -260,6 +261,11 @@ html[data-theme="dark"] .range::-moz-range-thumb {
     /* accent-color: var(--deep); */
     accent-color: var(--panel-text);
     /* modern browsers */
+}
+
+/* Dark mode: radio label text (On/Off) */
+html[data-theme="dark"] .radio span {
+    color: #1b4e2b;
 }
 
 /* Toggle (mode) */

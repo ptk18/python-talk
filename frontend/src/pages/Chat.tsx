@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Navbar from "../components/Navbar";
 import "./styles/Chat.css";
 import Snake from "../assets/scorpio.svg";
@@ -6,9 +7,29 @@ import RunIcon from "../assets/run.svg";
 import ChatIcon from "../assets/chat.svg";
 import UploadIcon from "../assets/upload_file.svg";
 import Voice from "../assets/voice.svg";
+import VoiceWhite from "../assets/voice-white.svg";
+import { useTheme } from "../theme/ThemeProvider";
 
 export default function Chat() {
+    const { theme } = useTheme();
+    const [isChatActive, setIsChatActive] = useState(false);
+    const [message, setMessage] = useState("");
     const codeSnippet = `def reverse_string(s: str) -> str:\n    """Return the reverse of the input string."""\n    return s[::-1]\n\nif __name__ == "__main__":\n    print(reverse_string("scorpio"))  # oiprocos`;
+    const voiceIcon = theme === "dark" ? VoiceWhite : Voice;
+
+    const handleChatToggle = () => {
+        setIsChatActive(!isChatActive);
+    };
+
+    const handleSend = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (message.trim()) {
+            console.log("Sending message:", message);
+            // TODO: Send message logic
+            setMessage("");
+        }
+    };
+
     return (
         <div className="chat__viewport">
             {/* Top bar */}
@@ -104,7 +125,10 @@ export default function Chat() {
                     <button className="btn btn--run">
                         Run <img src={RunIcon} alt="" />
                     </button>
-                    <button className="btn">
+                    <button
+                        className={`btn ${isChatActive ? "btn--active" : ""}`}
+                        onClick={handleChatToggle}
+                    >
                         Chat <img src={ChatIcon} alt="" />
                     </button>
                     <button className="btn btn--upload">
@@ -113,12 +137,41 @@ export default function Chat() {
                 </div>
             </footer>
 
-            {/* Floating voice button */}
-            <img
-                src={Voice}
-                alt="Start voice input"
-                className="chat__mic"
-            />
+            {/* Chat input container (shown when chat is active) */}
+            {isChatActive && (
+                <div className="chat__input-container">
+                    <img
+                        src={voiceIcon}
+                        alt="Start voice input"
+                        className="chat__mic chat__mic--small"
+                    />
+                    <form className="chat__input-form" onSubmit={handleSend}>
+                        <input
+                            type="text"
+                            className="chat__input"
+                            placeholder="Type your message..."
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            autoFocus
+                        />
+                        <button
+                            type="submit"
+                            className="chat__send-btn"
+                        >
+                            Send
+                        </button>
+                    </form>
+                </div>
+            )}
+
+            {/* Floating voice button (shown when chat is inactive) */}
+            {!isChatActive && (
+                <img
+                    src={voiceIcon}
+                    alt="Start voice input"
+                    className="chat__mic"
+                />
+            )}
         </div>
     );
 }

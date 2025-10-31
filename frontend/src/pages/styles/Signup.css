@@ -105,6 +105,12 @@
   transform: translateY(1px);
 }
 
+/* Keep button same in dark mode as in light mode */
+html[data-theme="dark"] .signup__button {
+  background: #1b4e2b;
+  color: #fff;
+}
+
 @media (max-width: 520px) {
   .signup__card {
     padding: 40px 28px;
