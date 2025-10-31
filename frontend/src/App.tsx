@@ -6,6 +6,7 @@ import Signup from "./pages/Signup";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Setting from "./pages/Setting";
+import Run from "./pages/Run";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/chat" element={<Chat />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/setting" element={<Setting />} />
+        <Route path="/run" element={<Run />} />
       </Routes>
     </BrowserRouter>
   );

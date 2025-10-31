@@ -252,7 +252,7 @@ html[data-theme="dark"] .range::-moz-range-thumb {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    color: var(--panel);
+    color: #1b4e2b;
 }
 
 .radio input {

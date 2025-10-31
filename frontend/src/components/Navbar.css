@@ -21,6 +21,10 @@
     color: var(--deep);
 }
 
+.navbar__logo:hover {
+    color: #0e391c;
+}
+
 .navbar__links {
     display: flex;
     gap: 64px;
