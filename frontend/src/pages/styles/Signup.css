@@ -111,12 +111,75 @@ html[data-theme="dark"] .signup__button {
   color: #fff;
 }
 
+@media (max-width: 768px) {
+  .signup__logo {
+    top: 30px;
+    left: 30px;
+    font-size: 32px;
+  }
+
+  .signup__card {
+    width: 90vw;
+    padding: 40px 32px;
+  }
+
+  .signup__title {
+    font-size: 40px;
+  }
+
+  .signup__field input {
+    height: 44px;
+    font-size: 13px;
+  }
+
+  .signup__button {
+    height: 38px;
+    font-size: 20px;
+  }
+}
+
 @media (max-width: 520px) {
+  .signup__logo {
+    top: 20px;
+    left: 20px;
+    font-size: 28px;
+  }
+
   .signup__card {
     padding: 40px 28px;
   }
 
   .signup__title {
-    font-size: 40px;
+    font-size: 36px;
+  }
+
+  .signup__field input {
+    height: 42px;
+    font-size: 12px;
+  }
+
+  .signup__button {
+    height: 36px;
+    font-size: 18px;
+    padding: 0 28px;
+  }
+}
+
+@media (max-width: 380px) {
+  .signup__card {
+    padding: 32px 20px;
+  }
+
+  .signup__title {
+    font-size: 32px;
+  }
+
+  .signup__field input {
+    height: 40px;
+  }
+
+  .signup__button {
+    font-size: 16px;
+    padding: 0 24px;
   }
 }

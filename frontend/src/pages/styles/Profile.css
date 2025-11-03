@@ -218,3 +218,104 @@ html[data-theme="dark"] .profile__edit:hover {
 .profile__field textarea {
     height: 70px;
 }
+
+/* Responsive Design */
+@media (max-width: 1280px) {
+    .profile__main {
+        width: 90%;
+        padding: 32px 36px;
+    }
+
+    .profile__panel {
+        gap: 32px;
+    }
+
+    .profile__picBox {
+        width: 200px;
+        height: 180px;
+    }
+}
+
+@media (max-width: 768px) {
+    .profile__main {
+        width: 95%;
+        padding: 24px;
+        height: auto;
+        min-height: 400px;
+    }
+
+    .profile__panel {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+
+    .profile__sidebar {
+        justify-content: center;
+    }
+
+    .profile__picBox {
+        width: 180px;
+        height: 160px;
+    }
+
+    .profile__header h1 {
+        font-size: 32px;
+    }
+
+    .profile__edit {
+        font-size: 14px;
+        padding: 3px 12px;
+    }
+
+    .profile__field {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .profile__field label {
+        width: auto;
+        margin-top: 0;
+        font-size: 18px;
+    }
+
+    .profile__field input,
+    .profile__field textarea {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile__main {
+        padding: 20px;
+    }
+
+    .profile__header h1 {
+        font-size: 28px;
+    }
+
+    .profile__picBox {
+        width: 150px;
+        height: 140px;
+        font-size: 18px;
+    }
+
+    .profile__field label {
+        font-size: 16px;
+    }
+
+    .profile__field input,
+    .profile__field textarea {
+        font-size: 14px;
+        height: 34px;
+    }
+
+    .profile__field textarea {
+        height: 60px;
+    }
+
+    .profile__edit {
+        font-size: 12px;
+        padding: 2px 10px;
+    }
+}
