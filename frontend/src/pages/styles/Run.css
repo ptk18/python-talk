@@ -1,0 +1,424 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Jaro&family=Jaldi:wght@400;700&display=swap');
+
+:root {
+    --bg: #b8c7b4;
+    --panel: #e8eee9;
+    --deep: #1b4e2b;
+    --white: #ffffff;
+    --shadow: 0 20px 60px rgba(0, 0, 0, .08);
+    --radius: 14px;
+}
+
+.run__viewport {
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg);
+    font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color: var(--deep);
+    display: flex;
+    flex-direction: column;
+    margin-top: 20px;
+}
+
+/* Header */
+.run__header {
+    width: 90%;
+    max-width: 1600px;
+    margin: 18px auto 0;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+.run__back-btn {
+    padding: 8px 18px;
+    border: 2px solid var(--deep);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--deep);
+    font-weight: 700;
+    font-size: 18px;
+    font-family: "Jaldi", sans-serif;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.run__back-btn:hover {
+    background: #f2f6f3;
+}
+
+.run__execute-btn {
+    padding: 6px 16px;
+    border: 2px solid var(--deep);
+    border-radius: 8px;
+    background: var(--deep);
+    color: var(--white);
+    font-weight: 700;
+    font-size: 14px;
+    font-family: "Jaldi", sans-serif;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    height: fit-content;
+}
+
+.run__execute-btn:hover:not(:disabled) {
+    background: #0f3d1e;
+}
+
+.run__execute-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Main content area */
+.run__main {
+    width: 90%;
+    max-width: 1600px;
+    height: calc(100vh - 220px);
+    margin: 20px auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* Editor section */
+.run__editor-section {
+    display: flex;
+    flex-direction: column;
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.run__editor-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #afcab9;
+    background: #f5f7f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.run__editor-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--deep);
+    font-family: "Jaldi", sans-serif;
+}
+
+.run__editor-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.run__editor-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 8px;
+    background: #f5f7f6;
+    border-right: 1px solid #afcab9;
+    align-items: center;
+}
+
+.run__toolbar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #afcab9;
+    background: var(--white);
+    color: var(--deep);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.run__toolbar-btn:hover {
+    background: #f2f6f3;
+}
+
+.run__toolbar-btn:active {
+    transform: scale(0.95);
+}
+
+.run__editor {
+    flex: 1;
+    width: 100%;
+    padding: 20px;
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--deep);
+    background: var(--white);
+}
+
+/* Output section */
+.run__output-section {
+    display: flex;
+    flex-direction: column;
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.run__output-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #afcab9;
+    background: #f5f7f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.run__output-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--deep);
+    font-family: "Jaldi", sans-serif;
+}
+
+.run__clear-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--deep);
+    border-radius: 6px;
+    background: var(--white);
+    color: var(--deep);
+    font-weight: 600;
+    font-size: 14px;
+    font-family: "Jaldi", sans-serif;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.run__clear-btn:hover {
+    background: #f2f6f3;
+}
+
+.run__output {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+.run__output pre {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.run__output:has(pre:only-child:empty) pre {
+    color: #888;
+}
+
+/* Dark mode overrides */
+html[data-theme="dark"] .run__viewport {
+    background: var(--bg);
+}
+
+html[data-theme="dark"] .run__editor-section,
+html[data-theme="dark"] .run__output-section {
+    background: #ffffff;
+}
+
+html[data-theme="dark"] .run__editor-header,
+html[data-theme="dark"] .run__output-header {
+    background: var(--white);
+}
+
+html[data-theme="dark"] .run__editor-header h2,
+html[data-theme="dark"] .run__output-header h2 {
+    color: #1b4e2b;
+}
+
+html[data-theme="dark"] .run__editor-toolbar {
+    background: #f5f7f6;
+    border-right-color: #afcab9;
+}
+
+html[data-theme="dark"] .run__toolbar-btn {
+    background: #ffffff;
+    color: #1b4e2b;
+    border-color: #afcab9;
+}
+
+html[data-theme="dark"] .run__toolbar-btn:hover {
+    background: #f2f6f3;
+}
+
+html[data-theme="dark"] .run__editor {
+    background: #ffffff;
+    color: #1b4e2b;
+}
+
+html[data-theme="dark"] .run__back-btn {
+    background: #ffffff;
+    color: #1b4e2b;
+    border-color: #ffffff;
+}
+
+html[data-theme="dark"] .run__back-btn:hover {
+    background: #f2f6f3;
+}
+
+html[data-theme="dark"] .run__execute-btn {
+    background: #1b4e2b;
+    color: #ffffff;
+    border-color: #ffffff;
+}
+
+html[data-theme="dark"] .run__execute-btn:hover:not(:disabled) {
+    background: #0f3d1e;
+}
+
+html[data-theme="dark"] .run__clear-btn {
+    background: #ffffff;
+    color: #1b4e2b;
+    border-color: #1b4e2b;
+}
+
+html[data-theme="dark"] .run__clear-btn:hover {
+    background: #f2f6f3;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+    .run__main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .run__header {
+        width: 95%;
+        padding: 12px 16px;
+    }
+
+    .run__back-btn {
+        font-size: 14px;
+        padding: 6px 14px;
+    }
+
+    .run__execute-btn {
+        font-size: 13px;
+        padding: 5px 14px;
+    }
+
+    .run__main {
+        width: 95%;
+        height: calc(100vh - 100px);
+        gap: 16px;
+    }
+
+    .run__editor-header,
+    .run__output-header {
+        padding: 12px 16px;
+    }
+
+    .run__editor-header h2,
+    .run__output-header h2 {
+        font-size: 18px;
+    }
+
+    .run__editor-toolbar {
+        padding: 10px 6px;
+    }
+
+    .run__toolbar-btn {
+        width: 28px;
+        height: 28px;
+    }
+
+    .run__toolbar-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .run__editor {
+        padding: 16px;
+        font-size: 13px;
+    }
+
+    .run__output {
+        padding: 16px;
+    }
+
+    .run__output pre {
+        font-size: 13px;
+    }
+
+    .run__clear-btn {
+        font-size: 12px;
+        padding: 5px 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .run__header {
+        width: 98%;
+        padding: 10px 12px;
+    }
+
+    .run__back-btn {
+        font-size: 12px;
+        padding: 5px 12px;
+    }
+
+    .run__execute-btn {
+        font-size: 12px;
+        padding: 4px 12px;
+    }
+
+    .run__main {
+        width: 98%;
+        height: calc(100vh - 90px);
+        margin: 10px auto;
+        gap: 12px;
+    }
+
+    .run__editor-header,
+    .run__output-header {
+        padding: 10px 12px;
+    }
+
+    .run__editor-header h2,
+    .run__output-header h2 {
+        font-size: 16px;
+    }
+
+    .run__editor {
+        padding: 12px;
+        font-size: 12px;
+    }
+
+    .run__output {
+        padding: 12px;
+    }
+
+    .run__output pre {
+        font-size: 12px;
+    }
+
+    .run__toolbar-btn {
+        width: 26px;
+        height: 26px;
+    }
+}

@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-10-08T19:47:29.825940",
+  "input": {
+    "raw_text": "turn off the ac"
+  },
+  "step1_semantic_parsing": {
+    "target_class": null,
+    "action_verb": "turn",
+    "intent_type": "action",
+    "extracted_slots": {
+      "patient": "the ac",
+      "state": false
+    }
+  },
+  "step2_method_resolution": {
+    "matched_method": "SmartHome.turn_ac_off",
+    "confidence": 95.0,
+    "matched_phrase": "turn",
+    "alternatives": [
+      {
+        "method": "turn_ac_on",
+        "score": 95.0
+      },
+      {
+        "method": "turn_all_off",
+        "score": 95.0
+      }
+    ]
+  },
+  "step3_parameter_binding": {
+    "parameters": {}
+  }
+}

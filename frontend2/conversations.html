@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Conversations</title>
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    #conversationForm { margin-bottom: 20px; }
+    #conversations div { 
+      padding: 8px; 
+      border: 1px solid #ccc; 
+      margin: 5px; 
+      cursor: pointer; 
+    }
+  </style>
+</head>
+<body>
+  <h2>Conversations</h2>
+
+  <!-- Form to create new conversation -->
+  <div id="conversationForm">
+    <input type="text" id="conversationTitle" placeholder="Enter conversation title"/>
+    <input type="file" id="pythonFile" accept=".py"/>
+    <button onclick="createConversation()">Create Conversation</button>
+  </div>
+
+  <div id="conversations"></div>
+
+  <script>
+    const userId = new URLSearchParams(window.location.search).get("userId");
+
+    async function fetchConversations() {
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/conversations/${userId}`);
+        const convs = await res.json();
+        const div = document.getElementById("conversations");
+        div.innerHTML = "";
+        convs.forEach(c => {
+          div.innerHTML += `
+            <div onclick="goToChat(${c.id})">
+              <strong>${c.title || 'Conversation ' + c.id}</strong><br>
+              <small>File: ${c.file_name || 'N/A'}</small>
+            </div>`;
+        });
+      } catch (err) {
+        console.error(err);
+        alert("Failed to fetch conversations.");
+      }
+    }
+
+    async function createConversation() {
+      const title = document.getElementById("conversationTitle").value.trim();
+      const fileInput = document.getElementById("pythonFile");
+      const file = fileInput.files[0];
+
+      if (!title || !file) {
+        alert("Please enter a title and select a Python file.");
+        return;
+      }
+
+      // Read file content
+      const code = await file.text();
+      const payload = {
+        title,
+        user_id: parseInt(userId),
+        file_name: file.name,
+        code: code
+      };
+
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/conversations/${userId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+        document.getElementById("conversationTitle").value = "";
+        document.getElementById("pythonFile").value = "";
+        fetchConversations();
+      } catch (err) {
+        console.error(err);
+        alert("Failed to create conversation.");
+      }
+    }
+
+    function goToChat(convId) {
+      window.location.href = `test.html?conversationId=${convId}`;
+    }
+
+    fetchConversations();
+  </script>
+</body>
+</html>

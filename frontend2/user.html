@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Users</title>
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    .form-box { border: 1px solid #ccc; padding: 10px; width: 300px; margin-bottom: 20px; border-radius: 8px; }
+    input { display: block; margin: 8px 0; width: 95%; padding: 6px; }
+    button { padding: 6px 10px; margin-right: 6px; }
+    .user { padding: 8px; border: 1px solid #ccc; margin: 5px; cursor: pointer; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h2>User Management</h2>
+
+  <!-- Register Section -->
+  <div class="form-box">
+    <h3>Register</h3>
+    <input type="text" id="regUsername" placeholder="Username" />
+    <input type="password" id="regPassword" placeholder="Password" />
+    <select id="regGender">
+      <option value="">Select Gender</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
+    <button onclick="registerUser()">Register</button>
+  </div>
+
+  <!-- Login Section -->
+  <div class="form-box">
+    <h3>Login</h3>
+    <input type="text" id="loginUsername" placeholder="Username" />
+    <input type="password" id="loginPassword" placeholder="Password" />
+    <button onclick="loginUser()">Login</button>
+  </div>
+
+  <!-- List of all users -->
+  <h3>All Users</h3>
+  <div id="users"></div>
+
+  <script>
+    const baseUrl = "http://127.0.0.1:8000/users";
+
+    async function fetchUsers() {
+      const res = await fetch(`${baseUrl}/`);
+      const users = await res.json();
+      const div = document.getElementById("users");
+      div.innerHTML = "";
+      users.forEach(u => {
+        div.innerHTML += `<div class="user" onclick="goToConversations(${u.id})">
+          👤 ${u.username} (${u.gender})
+        </div>`;
+      });
+    }
+
+    async function registerUser() {
+      const username = document.getElementById("regUsername").value.trim();
+      const password = document.getElementById("regPassword").value.trim();
+      const gender = document.getElementById("regGender").value;
+
+      if (!username || !password || !gender) {
+        alert("Please fill in all fields!");
+        return;
+      }
+
+      const res = await fetch(`${baseUrl}/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, gender })
+      });
+
+      if (res.ok) {
+        alert("User registered successfully!");
+        fetchUsers();
+      } else {
+        alert("Error registering user (username may already exist).");
+      }
+    }
+
+    async function loginUser() {
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+
+      if (!username || !password) {
+        alert("Please enter both username and password.");
+        return;
+      }
+
+      const res = await fetch(`${baseUrl}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (res.ok) {
+        const user = await res.json();
+        alert(`Welcome, ${user.username}!`);
+        goToConversations(user.id);
+      } else {
+        alert("Invalid username or password.");
+      }
+    }
+
+    function goToConversations(userId) {
+      window.location.href = `conversations.html?userId=${userId}`;
+    }
+
+    fetchUsers();
+  </script>
+</body>
+</html>

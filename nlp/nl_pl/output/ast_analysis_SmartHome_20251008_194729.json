@@ -1,0 +1,481 @@
+{
+  "timestamp": "2025-10-08T19:47:29.702699",
+  "class_name": "SmartHome",
+  "methods": [
+    {
+      "name": "are_all_devices_off",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Check if all devices are off",
+      "is_query": false,
+      "surface_forms": [
+        "check if all devices are off",
+        "are all",
+        "off",
+        "devices",
+        "are all devices",
+        "all device",
+        "are all device",
+        "all devices",
+        "checked if all devices are off",
+        "are all device off",
+        "are",
+        "checking if all devices are off",
+        "device",
+        "all device off",
+        "are all devices off",
+        "device off",
+        "all",
+        "check if all device are off",
+        "all devices off",
+        "devices off"
+      ]
+    },
+    {
+      "name": "count_devices_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Count how many devices are currently on",
+      "is_query": true,
+      "surface_forms": [
+        "count devices",
+        "devices  devices on",
+        "device  device on",
+        "devices on",
+        "count  devices on",
+        "count device",
+        "count",
+        "count  device on",
+        "devices",
+        "how many device are currently on",
+        "device on",
+        "count devices on",
+        "how many devices are currently on",
+        "count device on",
+        "device"
+      ]
+    },
+    {
+      "name": "decrease_temperature",
+      "parameters": {
+        "amount": "Any"
+      },
+      "required_parameters": [],
+      "docstring": "Decrease temperature by specified amount (default: 1)",
+      "is_query": false,
+      "surface_forms": [
+        "temperature",
+        "decrease temperature",
+        "decrease"
+      ]
+    },
+    {
+      "name": "get_temperature",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Get the current temperature setting",
+      "is_query": false,
+      "surface_forms": [
+        "get temperature",
+        "get the current temperature sett",
+        "temperature",
+        "geting",
+        "get the current temperature setting",
+        "geting temperature",
+        "get",
+        "geting the current temperature setting"
+      ]
+    },
+    {
+      "name": "increase_temperature",
+      "parameters": {
+        "amount": "Any"
+      },
+      "required_parameters": [],
+      "docstring": "Increase temperature by specified amount (default: 1)",
+      "is_query": false,
+      "surface_forms": [
+        "temperature",
+        "increase temperature",
+        "increase"
+      ]
+    },
+    {
+      "name": "is_ac_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Check if the AC is currently on",
+      "is_query": false,
+      "surface_forms": [
+        "ac on",
+        "is ac",
+        "is ac on"
+      ]
+    },
+    {
+      "name": "is_any_device_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Check if any device is on",
+      "is_query": false,
+      "surface_forms": [
+        "is any device on",
+        "any device",
+        "checked if any device is on",
+        "checking if any device is on",
+        "device on",
+        "is any",
+        "any",
+        "check if any device is on",
+        "device",
+        "any device on",
+        "is any device"
+      ]
+    },
+    {
+      "name": "is_cold",
+      "parameters": {
+        "threshold": "Any"
+      },
+      "required_parameters": [],
+      "docstring": "Check if temperature is below threshold (default: 20)",
+      "is_query": false,
+      "surface_forms": [
+        "cold",
+        "checking if temperature is below threshold",
+        "is cold",
+        "check if temperature is below threshold",
+        "checked if temperature is below threshold"
+      ]
+    },
+    {
+      "name": "is_comfortable",
+      "parameters": {
+        "min_temp": "Any",
+        "max_temp": "Any"
+      },
+      "required_parameters": [],
+      "docstring": "Check if temperature is in comfortable range (default: 20-26)",
+      "is_query": false,
+      "surface_forms": [
+        "comfortable",
+        "is comfortable"
+      ]
+    },
+    {
+      "name": "is_hot",
+      "parameters": {
+        "threshold": "Any"
+      },
+      "required_parameters": [],
+      "docstring": "Check if temperature is above threshold (default: 26)",
+      "is_query": false,
+      "surface_forms": [
+        "is hot",
+        "checking if temperature is above threshold",
+        "check if temperature is above threshold",
+        "checked if temperature is above threshold",
+        "hot"
+      ]
+    },
+    {
+      "name": "is_light_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Check if the light is currently on",
+      "is_query": false,
+      "surface_forms": [
+        "is light",
+        "is light on",
+        "light on",
+        "light"
+      ]
+    },
+    {
+      "name": "is_tv_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Check if the TV is currently on",
+      "is_query": false,
+      "surface_forms": [
+        "is tv",
+        "is tv on",
+        "tv on"
+      ]
+    },
+    {
+      "name": "set_temperature",
+      "parameters": {
+        "value": "Any"
+      },
+      "required_parameters": [
+        "value"
+      ],
+      "docstring": "Set the target temperature",
+      "is_query": false,
+      "surface_forms": [
+        "get temperature",
+        "set the target temperature",
+        "temperature",
+        "set temperature",
+        "set",
+        "geting temperature"
+      ]
+    },
+    {
+      "name": "status",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Get complete system status",
+      "is_query": false,
+      "surface_forms": [
+        "geting complete system status",
+        "status",
+        "statu",
+        "get complete system status",
+        "get complete system statu"
+      ]
+    },
+    {
+      "name": "toggle_ac",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Toggle the AC state",
+      "is_query": false,
+      "surface_forms": [
+        "toggle ac",
+        "toggle the ac state",
+        "toggle"
+      ]
+    },
+    {
+      "name": "toggle_light",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Toggle the light state",
+      "is_query": false,
+      "surface_forms": [
+        "toggle light",
+        "toggle the light state",
+        "toggle",
+        "light"
+      ]
+    },
+    {
+      "name": "toggle_tv",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Toggle the TV state",
+      "is_query": false,
+      "surface_forms": [
+        "toggle tv",
+        "toggle the tv state",
+        "toggle"
+      ]
+    },
+    {
+      "name": "turn_ac_off",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Turn the AC off",
+      "is_query": false,
+      "surface_forms": [
+        "ac off",
+        "turn the ac off",
+        "turn ac",
+        "off",
+        "turned ac",
+        "turn ac off",
+        "turning ac off",
+        "turned",
+        "turning",
+        "turning the ac off",
+        "turning ac",
+        "turned ac off",
+        "turned the ac off",
+        "turn"
+      ]
+    },
+    {
+      "name": "turn_ac_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Turn the AC on",
+      "is_query": false,
+      "surface_forms": [
+        "turn ac on",
+        "turning the ac on",
+        "turn ac",
+        "turn the ac on",
+        "turned ac",
+        "turned the ac on",
+        "turned",
+        "turning",
+        "turning ac",
+        "turning ac on",
+        "ac on",
+        "turned ac on",
+        "turn"
+      ]
+    },
+    {
+      "name": "turn_all_off",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Turn all devices off",
+      "is_query": false,
+      "surface_forms": [
+        "turned all off",
+        "off",
+        "turn all",
+        "turned all devices off",
+        "all off",
+        "turn all device off",
+        "turn all devices off",
+        "turn all off",
+        "turning all off",
+        "turned",
+        "turning all",
+        "turning",
+        "all",
+        "turned all",
+        "turning all devices off",
+        "turn"
+      ]
+    },
+    {
+      "name": "turn_all_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Turn all devices on",
+      "is_query": false,
+      "surface_forms": [
+        "all on",
+        "turning all on",
+        "turned all devices on",
+        "turn all",
+        "turned all on",
+        "turned",
+        "turning all",
+        "turning",
+        "turn all devices on",
+        "all",
+        "turning all devices on",
+        "turn all on",
+        "turned all",
+        "turn all device on",
+        "turn"
+      ]
+    },
+    {
+      "name": "turn_light_off",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Turn the light off",
+      "is_query": false,
+      "surface_forms": [
+        "off",
+        "light off",
+        "turn the light off",
+        "turning the light off",
+        "turn light off",
+        "turning light off",
+        "light",
+        "turning light",
+        "turned light off",
+        "turn light",
+        "turned",
+        "turning",
+        "turned the light off",
+        "turned light",
+        "turn"
+      ]
+    },
+    {
+      "name": "turn_light_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Turn the light on",
+      "is_query": false,
+      "surface_forms": [
+        "turned light on",
+        "turn light on",
+        "turning light on",
+        "light",
+        "turning the light on",
+        "turning light",
+        "turn light",
+        "turned",
+        "turning",
+        "turned the light on",
+        "light on",
+        "turn the light on",
+        "turned light",
+        "turn"
+      ]
+    },
+    {
+      "name": "turn_tv_off",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Turn the TV off",
+      "is_query": false,
+      "surface_forms": [
+        "off",
+        "turn the tv off",
+        "tv off",
+        "turning the tv off",
+        "turn tv off",
+        "turning tv",
+        "turned tv off",
+        "turn tv",
+        "turned",
+        "turning",
+        "turning tv off",
+        "turned the tv off",
+        "turned tv",
+        "turn"
+      ]
+    },
+    {
+      "name": "turn_tv_on",
+      "parameters": {},
+      "required_parameters": [],
+      "docstring": "Turn the TV on",
+      "is_query": false,
+      "surface_forms": [
+        "turn tv on",
+        "turned tv on",
+        "turning tv",
+        "turning the tv on",
+        "turned the tv on",
+        "turn tv",
+        "turned",
+        "turning",
+        "turn the tv on",
+        "turned tv",
+        "turning tv on",
+        "tv on",
+        "turn"
+      ]
+    }
+  ],
+  "properties": [],
+  "object_analysis": {
+    "has_main_function": true,
+    "object_instances": [
+      {
+        "variable_name": "home",
+        "class_name": "SmartHome",
+        "instantiation_type": "direct"
+      }
+    ],
+    "main_function_objects": [
+      {
+        "variable_name": "home",
+        "class_name": "SmartHome",
+        "instantiation_type": "direct"
+      }
+    ]
+  }
+}

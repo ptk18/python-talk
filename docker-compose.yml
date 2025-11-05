@@ -1,0 +1,23 @@
+services:
+  backend:
+    build: ./backend
+    platform: linux/amd64
+    ports:
+      - "3005:3005"
+    volumes:
+      - ./backend:/app
+    networks:
+      - python_talk_net
+
+  frontend:
+    build: ./frontend
+    platform: linux/amd64
+    ports:
+      - "1643:1643"
+    depends_on:
+      - backend
+    networks:
+      - python_talk_net
+
+networks:
+  python_talk_net:

@@ -1,0 +1,14 @@
+protobuf>=3.20.0
+fastapi==0.121.0
+python-multipart==0.0.9
+openai_whisper==20250625
+pydantic==2.12.3
+python-dotenv==1.2.1
+pyttsx3==2.99
+Requests==2.32.5
+spacy==3.8.7
+SQLAlchemy==2.0.44
+torch==2.8.0
+transformers==4.48.2
+uvicorn==0.38.0
+sentencepiece
