@@ -211,11 +211,11 @@ export default function Chat() {
 
             {/* Floating voice button (shown when chat is inactive) */}
             {!isChatActive && (
-                <img
+            <img
                     src={voiceIcon}
-                    alt="Start voice input"
-                    className="chat__mic"
-                />
+                alt="Start voice input"
+                className="chat__mic"
+            />
             )}
         </div>
     );

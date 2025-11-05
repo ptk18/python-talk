@@ -12,12 +12,15 @@
 /* 1920×1080 canvas */
 .chat__viewport {
   width: 100vw;
+  height: 100vh;
   min-height: 100vh;
+  max-height: 100vh;
   background: var(--bg);
   font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--deep);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Top bar */
@@ -74,6 +77,7 @@
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow);
+  transition: height 0.3s ease;
 }
 
 /* Keep chat card white in dark mode as in light mode */
@@ -124,6 +128,7 @@ html[data-theme="dark"] .chat__copy-btn:hover {
 .chat__scroll {
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0px 12px;
 }
 
@@ -255,7 +260,9 @@ html[data-theme="dark"] .chat__copy-btn:hover {
   margin: 20px auto;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   position: relative;
+  min-height: 60px;
 }
 
 .chat__actions {
@@ -312,6 +319,7 @@ html[data-theme="dark"] .chat__copy-btn:hover {
   /* clickable */
   user-select: none;
   transition: all 0.3s ease;
+  z-index: 10;
 }
 
 /* Small voice button in input container */
@@ -428,21 +436,162 @@ html[data-theme="dark"] .btn--active {
   }
 }
 
-@media (max-width: 768px) {
+/* Fix for 770px - 480px range when sidebar is open */
+@media (max-width: 770px) and (min-width: 481px) {
+  .chat__viewport {
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
   .chat__panel {
     width: 95%;
-    height: 450px;
-    margin: 15px auto 0;
+    max-width: 600px;
+    height: calc(100vh - 250px);
+    min-height: 400px;
+    max-height: calc(100vh - 250px);
+    margin: 30px auto 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  /* Adjust panel when input container is visible */
+  .chat__viewport:has(.chat__input-container) .chat__panel {
+    height: calc(100vh - 320px);
+    min-height: 350px;
+    max-height: calc(100vh - 320px);
   }
 
   .chat__footer {
     width: 95%;
-    margin: 15px auto;
+    max-width: 600px;
+    margin: 5px auto;
+    box-sizing: border-box;
+    padding-bottom: 10px;
+  }
+
+  /* Add spacing when input container is visible */
+  .chat__viewport:has(.chat__input-container) .chat__footer {
+    margin-bottom: 0;
+    padding-bottom: 10px;
+  }
+
+  .chat__input-container {
+    width: 95%;
+    max-width: 600px;
+    bottom: 70px;
+    box-sizing: border-box;
+    z-index: 5;
+    position: fixed;
+  }
+
+  .chat__mic {
+    position: fixed;
+    left: 50%;
+    bottom: 110px;
+    transform: translateX(-50%);
+    width: 100px;
+    margin-bottom: 20px;
   }
 
   .chat__actions {
     gap: 10px;
     flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    font-size: 14px;
+    padding: 0 12px;
+    height: 32px;
+  }
+
+  /* Adjust panel when sidebar is open to prevent overlap */
+  :has(.navbar__sidebar--open) .chat__panel {
+    width: calc(95% - 260px - 20px);
+    margin-left: calc(260px + 2.5% + 20px);
+    max-width: calc(600px - 260px - 20px);
+    height: calc(100vh - 250px);
+    min-height: 400px;
+    max-height: calc(100vh - 250px);
+  }
+
+  /* Adjust panel when sidebar is open AND input is visible */
+  :has(.navbar__sidebar--open) .chat__viewport:has(.chat__input-container) .chat__panel {
+    height: calc(100vh - 320px);
+    min-height: 350px;
+    max-height: calc(100vh - 320px);
+  }
+
+  /* Fallback: adjust panel when input is visible (works for both with and without sidebar) */
+  .chat__viewport:has(.chat__input-container) .chat__panel {
+    height: calc(100vh - 320px);
+    min-height: 350px;
+    max-height: calc(100vh - 320px);
+  }
+
+  :has(.navbar__sidebar--open) .chat__footer {
+    width: calc(95% - 260px - 20px);
+    margin-left: calc(260px + 2.5% + 20px);
+    max-width: calc(600px - 260px - 20px);
+  }
+
+  :has(.navbar__sidebar--open) .chat__input-container {
+    width: calc(95vw - 260px - 20px);
+    max-width: calc(600px - 260px - 20px);
+    left: calc(260px + 2.5vw + 20px);
+    transform: none;
+  }
+
+  :has(.navbar__sidebar--open) .chat__mic {
+    position: fixed;
+    left: calc(50vw + 140px);
+    transform: translateX(-50%);
+    bottom: 110px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .chat__viewport {
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .chat__panel {
+    width: 95%;
+    max-width: 600px;
+    height: calc(100vh - 250px);
+    min-height: 450px;
+    max-height: calc(100vh - 250px);
+    margin: 40px auto 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    transition: height 0.3s ease, min-height 0.3s ease;
+  }
+
+  /* Increase panel height when sidebar is open */
+  :has(.navbar__sidebar--open) .chat__panel {
+    min-height: calc(100vh - 180px);
+    max-height: 700px;
+  }
+
+  .chat__footer {
+    width: 95%;
+    max-width: 600px;
+    margin: 5px auto;
+    box-sizing: border-box;
+  }
+
+  .chat__actions {
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .btn {
@@ -452,8 +601,8 @@ html[data-theme="dark"] .btn--active {
   }
 
   .chat__avatar {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
   }
 
   .chat__name {
@@ -470,9 +619,16 @@ html[data-theme="dark"] .btn--active {
     font-size: 11px;
   }
 
+  .chat__row {
+    margin: 18px 0;
+    gap: 8px;
+  }
+
   .chat__input-container {
     width: 95%;
+    max-width: 600px;
     bottom: 70px;
+    box-sizing: border-box;
   }
 
   .chat__input {
@@ -486,24 +642,92 @@ html[data-theme="dark"] .btn--active {
     padding: 0 16px;
   }
 
+  .chat__footer {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }
+
+  /* Make mic button responsive and move with footer */
   .chat__mic {
+    position: relative !important;
     width: 90px;
-    bottom: 70px;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin: 8px auto 0;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .2));
   }
 
   .chat__mic--small {
     width: 50px;
   }
+
+  .chat__actions {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .chat__scroll {
+    padding: 0px 10px;
+  }
 }
 
 @media (max-width: 480px) {
+  .chat__viewport {
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
   .chat__panel {
-    height: 400px;
+    width: 95%;
+    max-width: 100%;
+    height: calc(100vh - 280px);
+    min-height: 300px;
+    max-height: calc(100vh - 280px);
+    margin: 30px auto 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  /* Don't adjust panel height when input container is visible */
+
+  /* Increase panel height when sidebar is open on mobile */
+  :has(.navbar__sidebar--open) .chat__panel {
+    min-height: calc(100vh - 120px);
+    max-height: 800px;
+  }
+
+  .chat__footer {
+    width: 95%;
+    max-width: 100%;
+    margin: 12px auto;
+  }
+
+  .chat__actions {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    font-size: 12px;
+    padding: 0 10px;
+    height: 30px;
+  }
+
+  .btn img {
+    height: 14px;
   }
 
   .chat__avatar {
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: 50px;
   }
 
   .chat__name {
@@ -517,32 +741,78 @@ html[data-theme="dark"] .btn--active {
     min-height: auto;
   }
 
-  .chat__actions {
-    gap: 8px;
+  .chat__row {
+    margin: 14px 0;
+    gap: 6px;
   }
 
-  .btn {
-    font-size: 12px;
-    padding: 0 10px;
-    height: 30px;
-  }
-
-  .btn img {
-    height: 14px;
+  .chat__time {
+    font-size: 10px;
   }
 
   .chat__input-container {
+    width: 95%;
+    max-width: 100%;
     gap: 8px;
+    bottom: 70px;
+    z-index: 5;
+    position: fixed;
+  }
+
+  /* Make input container closer to footer buttons */
+  .chat__viewport:has(.chat__input-container) .chat__footer {
+    margin-bottom: 0;
+    padding-bottom: 10px;
   }
 
   .chat__input {
     height: 40px;
     font-size: 13px;
+    padding: 0 12px;
   }
 
   .chat__send-btn {
     height: 40px;
     font-size: 13px;
     padding: 0 14px;
+  }
+
+  .chat__footer {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+    min-height: auto;
+    margin-bottom: 15px;
+  }
+
+  /* Make mic button responsive and move with footer on mobile */
+  .chat__mic {
+    position: relative !important;
+    width: 80px;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin: 6px auto 0;
+    filter: drop-shadow(0 3px 10px rgba(0, 0, 0, .2));
+  }
+
+  .chat__mic--small {
+    width: 45px;
+  }
+
+  .chat__actions {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .chat__scroll {
+    padding: 0px 8px;
+  }
+
+  .chat__copy-btn {
+    height: 20px;
+    width: 20px;
   }
 }

@@ -93,16 +93,18 @@
 /* Mobile hamburger menu button */
 .navbar__menu-btn {
     display: none;
+    /* Hidden by default on desktop */
     position: absolute;
     left: 28px;
-    top: 40%;
-    transform: translateY(-50%) translateY(4px);
+    top: 50%;
+    transform: translateY(-50%);
     background: none;
     border: none;
     color: var(--deep);
     cursor: pointer;
     padding: 8px;
     z-index: 1001;
+    align-items: center;
 }
 
 .navbar__menu-btn svg {
@@ -124,6 +126,7 @@
 /* Slide-out sidebar */
 .navbar__sidebar {
     display: none;
+    flex-direction: column;
     position: fixed;
     top: 0;
     left: -280px;
@@ -145,7 +148,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 20px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: none;
 }
 
 .navbar__sidebar-logo {
@@ -155,6 +158,8 @@
     text-decoration: none;
     color: var(--deep);
     margin-left: 50px;
+    display: none;
+    /* Hide logo in sidebar */
 }
 
 .navbar__sidebar-close {
@@ -176,6 +181,7 @@
     display: flex;
     flex-direction: column;
     padding: 20px 0;
+    margin-top: 20px;
 }
 
 .navbar__sidebar-links a {
@@ -202,12 +208,15 @@
 .navbar__sidebar-button {
     padding: 20px;
     border-top: 1px solid #e0e0e0;
+    margin-top: auto;
 }
 
 /* Mobile responsive - hide navbar links, show hamburger */
 @media (max-width: 768px) {
     .navbar__menu-btn {
-        display: block;
+        display: flex;
+        /* Show hamburger button on mobile */
+        align-items: center;
     }
 
     .navbar__links {
@@ -216,15 +225,22 @@
 
     .navbar__logo {
         left: 50%;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         font-size: 32px;
         transition: left 0.3s ease, transform 0.3s ease;
+        top: 50%;
     }
 
-    /* Move logo right when sidebar is open */
+    /* Align logo and hamburger on same line when sidebar is open */
     .navbar--sidebar-open .navbar__logo {
-        left: 50%;
-        transform: translateX(-50%) translateX(30px);
+        left: auto;
+        right: 50%;
+        transform: translate(50%, -50%);
+    }
+
+    .navbar--sidebar-open .navbar__menu-btn {
+        top: 50%;
+        transform: translateY(-50%);
     }
 
     .navbar__overlay {
@@ -232,7 +248,8 @@
     }
 
     .navbar__sidebar {
-        display: block;
+        display: flex;
+        flex-direction: column;
     }
 
     /* Hide button on mobile when hamburger is visible */
@@ -255,18 +272,28 @@
     .navbar__logo {
         font-size: 28px;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
+        top: 50%;
         transition: left 0.3s ease, transform 0.3s ease;
     }
 
-    /* Move logo right when sidebar is open on small screens */
+    /* Align logo and hamburger on same line when sidebar is open */
     .navbar--sidebar-open .navbar__logo {
-        left: 50%;
-        transform: translateX(-50%) translateX(30px);
+        left: auto;
+        right: 50%;
+        transform: translate(50%, -50%);
     }
 
     .navbar__menu-btn {
         left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    /* Ensure both are on same line when sidebar is open */
+    .navbar--sidebar-open .navbar__menu-btn {
+        top: 50%;
+        transform: translateY(-50%);
     }
 
     .navbar__button {

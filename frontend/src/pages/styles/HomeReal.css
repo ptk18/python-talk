@@ -12,11 +12,14 @@
 .homeReal__viewport {
     width: 100vw;
     height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
     background: var(--bg);
     font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     color: var(--deep);
     display: grid;
     grid-template-rows: auto auto 1fr;
+    overflow: hidden;
 }
 
 /* Navbar */
@@ -58,23 +61,30 @@
 .homeReal__headerRow {
     width: 86%;
     max-width: 1600px;
-    margin: 45px auto 18px;
-    display: grid;
-    grid-template-columns: minmax(300px, 1fr) auto auto;
-    gap: 18px;
+    margin: 45px auto 10px;
+    display: flex;
+    gap: 10px;
     align-items: center;
 }
 
 .homeReal__titleWrapper {
     display: flex;
     align-items: center;
-    width: 100%;
-    min-width: 0;
+    flex: 1;
+    min-width: 300px;
     height: 48px;
     border-radius: 8px;
     background: #e8eee9;
     padding: 0 14px;
     box-sizing: border-box;
+    position: relative;
+    gap: 8px;
+}
+
+/* Hide mobile buttons on desktop - titleActions container hidden by default */
+/* Show desktop buttons outside on desktop */
+.homeReal__btn--desktop {
+    display: inline-flex;
 }
 
 .homeReal__titleLabel {
@@ -87,7 +97,7 @@
 
 .homeReal__titleInput {
     height: 100%;
-    width: 100%;
+    flex: 1;
     min-width: 0;
     border-radius: 0;
     border: none;
@@ -98,6 +108,14 @@
     font-size: 18px;
     outline: none;
     box-sizing: border-box;
+}
+
+.homeReal__titleActions {
+    display: none;
+    /* Hidden by default on desktop */
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .homeReal__btn {
@@ -113,11 +131,13 @@
     gap: 10px;
     cursor: pointer;
     box-shadow: 0 2px 0 rgba(0, 0, 0, .06);
+    position: relative;
 }
 
 .homeReal__btn img {
     height: 18px;
     width: auto;
+    flex-shrink: 0;
 }
 
 .homeReal__btn--create {
@@ -134,9 +154,16 @@
     box-shadow: var(--shadow);
     padding: 26px;
     height: 560px;
-    /* match other pages’ inner panel height */
+    /* match other pages' inner panel height */
     display: flex;
     flex-direction: column;
+    transition: height 0.3s ease;
+}
+
+/* Increase panel height when sidebar is open */
+:has(.navbar__sidebar--open) .homeReal__panel {
+    height: calc(100vh - 200px);
+    max-height: 800px;
 }
 
 /* Search */
@@ -208,20 +235,35 @@
 /* Small tweaks for narrower windows */
 @media (max-width:1280px) {
     .homeReal__headerRow {
-        grid-template-columns: 1fr auto;
-        grid-auto-flow: row;
+        flex-wrap: wrap;
+    }
+
+    .homeReal__titleWrapper {
+        min-width: 250px;
     }
 }
 
 @media (max-width: 768px) {
+    .homeReal__viewport {
+        height: 100vh;
+        min-height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
+    }
+
     .homeReal__headerRow {
         width: 95%;
-        grid-template-columns: 1fr;
-        gap: 12px;
-        margin: 30px auto 15px;
+        max-width: 600px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 40px auto;
+        box-sizing: border-box;
     }
 
     .homeReal__titleWrapper {
+        flex: 1;
+        min-width: 200px;
         height: 44px;
     }
 
@@ -233,16 +275,89 @@
         font-size: 16px;
     }
 
-    .homeReal__btn {
-        height: 44px;
+    /* Show mobile buttons inside title input on tablet */
+    .homeReal__titleActions {
+        display: flex;
+    }
+
+    .homeReal__btn--mobile {
+        display: inline-flex;
+    }
+
+    /* Hide desktop buttons on tablet */
+    .homeReal__btn--desktop {
+        display: none;
+    }
+
+    .homeReal__titleActions {
+        gap: 3px;
+    }
+
+    .homeReal__btn--mobile {
+        height: 36px;
         font-size: 16px;
-        padding: 0 16px;
+        padding: 0;
+        width: 36px;
+        justify-content: center;
+        gap: 0;
+    }
+
+    /* Hide button text on tablet, show only icons */
+    .homeReal__btn--mobile {
+        font-size: 0;
+        color: transparent;
+    }
+
+    .homeReal__btn img {
+        height: 20px;
+        width: 20px;
+        display: block;
+    }
+
+    .homeReal__btn--create {
+        position: relative;
+    }
+
+    .homeReal__btn--create::before {
+        content: "+";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--deep);
+        line-height: 1;
+    }
+
+    /* Remove border and background from icon-only buttons on tablet */
+    .homeReal__btn--mobile {
+        border: none;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .homeReal__btn--mobile:hover {
+        background: transparent;
+        transform: scale(1.05);
     }
 
     .homeReal__panel {
         width: 95%;
+        max-width: 600px;
         padding: 20px;
-        height: 500px;
+        height: auto;
+        min-height: 500px;
+        max-height: calc(100vh - 250px);
+        margin: 0 auto 24px;
+        box-sizing: border-box;
+        transition: height 0.3s ease, min-height 0.3s ease;
+    }
+
+    /* Increase panel height when sidebar is open on tablet */
+    :has(.navbar__sidebar--open) .homeReal__panel {
+        min-height: calc(100vh - 180px);
+        max-height: 700px;
     }
 
     .homeReal__search {
@@ -257,12 +372,26 @@
 }
 
 @media (max-width: 480px) {
+    .homeReal__viewport {
+        height: 100vh;
+        min-height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
+    }
+
     .homeReal__headerRow {
-        width: 98%;
-        margin: 20px auto 12px;
+        width: 95%;
+        max-width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 30px auto;
+        box-sizing: border-box;
     }
 
     .homeReal__titleWrapper {
+        flex: 1;
+        min-width: 150px;
         height: 40px;
         padding: 0 12px;
     }
@@ -276,20 +405,73 @@
         font-size: 14px;
     }
 
-    .homeReal__btn {
-        height: 40px;
-        font-size: 14px;
-        padding: 0 14px;
+    /* Show mobile buttons inside title input on mobile */
+    .homeReal__titleActions {
+        display: flex;
     }
 
+    .homeReal__btn--mobile {
+        display: inline-flex;
+    }
+
+    /* Hide desktop buttons on mobile */
+    .homeReal__btn--desktop {
+        display: none;
+    }
+
+    .homeReal__titleActions {
+        gap: 2px;
+    }
+
+    .homeReal__btn--mobile {
+        height: 32px;
+        width: 32px;
+        padding: 0;
+        font-size: 0;
+        justify-content: center;
+        gap: 0;
+        color: transparent;
+    }
+
+    /* Hide button text on mobile, show only icons */
     .homeReal__btn img {
-        height: 14px;
+        height: 16px;
+        width: 16px;
+        display: block;
+    }
+
+    .homeReal__btn--create::before {
+        font-size: 18px;
+    }
+
+    /* Remove border and background from icon-only buttons */
+    .homeReal__btn--mobile {
+        border: none;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .homeReal__btn--mobile:hover {
+        background: transparent;
+        transform: scale(1.05);
     }
 
     .homeReal__panel {
-        width: 98%;
-        padding: 16px;
-        height: 450px;
+        width: 95%;
+        max-width: 100%;
+        padding: 18px 14px;
+        height: auto;
+        min-height: 450px;
+        max-height: calc(100vh - 200px);
+        margin: 0 auto 20px;
+        box-sizing: border-box;
+        transition: height 0.3s ease, min-height 0.3s ease;
+    }
+
+    /* Increase panel height when sidebar is open on mobile */
+    :has(.navbar__sidebar--open) .homeReal__panel {
+        min-height: calc(100vh - 120px);
+        max-height: 800px;
     }
 
     .homeReal__searchWrap {
