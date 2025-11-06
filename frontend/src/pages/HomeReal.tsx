@@ -8,6 +8,7 @@ import type { Conversation } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 import { API_BASE_URL } from "../config/api.ts"
+import { speak, getGreeting } from "../utils/tts";
 
 export default function HomeReal() {
     const navigate = useNavigate();
@@ -17,10 +18,11 @@ export default function HomeReal() {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [hasGreeted, setHasGreeted] = useState(false);
 
     useEffect(() => {
         console.log("API_BASE", API_BASE_URL)
-        
+
     console.log("import.meta.env.VITE_API_BASE_URL", import.meta.env.VITE_API_BASE_URL)
   console.log("Current user:", user);
   if (user) {
@@ -29,6 +31,14 @@ export default function HomeReal() {
     console.warn("No user found, skipping fetch.");
   }
 }, [user]);
+
+    useEffect(() => {
+        if (!hasGreeted) {
+            const greeting = getGreeting();
+            speak(greeting);
+            setHasGreeted(true);
+        }
+    }, [hasGreeted]);
 
     const fetchConversations = async () => {
         if (!user) return;

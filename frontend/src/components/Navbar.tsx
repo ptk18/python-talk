@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import "./Navbar.css";
+import { useTTS } from "../context/TTSContext";
 
 interface NavbarProps {
     rightButton?: {
@@ -13,6 +14,7 @@ interface NavbarProps {
 export default function Navbar({ rightButton }: NavbarProps) {
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const { ttsEnabled, toggleTTS } = useTTS();
 
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
@@ -59,6 +61,13 @@ export default function Navbar({ rightButton }: NavbarProps) {
                     >
                         Profile
                     </Link>
+                    <button
+                        className="navbar__tts-toggle"
+                        onClick={toggleTTS}
+                        title={ttsEnabled ? "Disable Voice" : "Enable Voice"}
+                    >
+                        {ttsEnabled ? "🔊" : "🔇"}
+                    </button>
                 </nav>
                 {rightButton && (
                     <div className="navbar__button">
@@ -119,6 +128,13 @@ export default function Navbar({ rightButton }: NavbarProps) {
                     >
                         Profile
                     </Link>
+                    <button
+                        className="navbar__tts-toggle"
+                        onClick={toggleTTS}
+                        title={ttsEnabled ? "Disable Voice" : "Enable Voice"}
+                    >
+                        {ttsEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
+                    </button>
                 </nav>
                 {rightButton && (
                     <div className="navbar__sidebar-button">

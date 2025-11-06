@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 import "./styles/Run.css";
+import { speak } from "../utils/tts";
 
 const DEFAULT_CODE = `# Write your Python code here
 def hello_world():
@@ -129,9 +130,11 @@ setOutput("Output will appear here...");
             const data = await res.json();
             console.log("Turtle execute response:", data);
             setOutput("Turtle graphics execution completed.\n");
+            speak("Your output is ready, Sir");
         } catch (err) {
             console.error("Failed to execute turtle graphics:", err);
             setOutput("Error executing turtle graphics.\n");
+            speak("Please try again");
         } finally {
             setIsRunning(false);
         }
@@ -160,9 +163,11 @@ setOutput("Output will appear here...");
             } else {
                 setOutput("No output returned from execute_command.\n");
             }
+            speak("Your output is ready, Sir");
         } catch (err) {
             console.error("Failed to execute command:", err);
             setOutput("Error executing command.\n");
+            speak("Please try again");
         } finally {
             setIsRunning(false);
         }
@@ -170,13 +175,16 @@ setOutput("Output will appear here...");
 
     const handleRun = async () => {
         if (!code.trim()) {
-            setOutput("Error: Code editor is empty. Please enter some Python code.\n");
+            const errorMsg = "Error: Code editor is empty. Please enter some Python code.";
+            setOutput(errorMsg + "\n");
+            speak("Code editor is empty. Please enter some Python code");
             return;
         }
 
         // Show turtle code prompt if user hasn't decided yet
         if (isTurtleCode === null) {
             setShowTurtlePrompt(true);
+            speak("Is this turtle code?");
             return;
         }
 
@@ -302,6 +310,7 @@ setOutput("Output will appear here...");
                     onClick={() => {
                         setIsTurtleCode(null);
                         setShowTurtlePrompt(true);
+                        speak("Is this turtle code?");
                     }}
                 >
                     Is this turtle code?

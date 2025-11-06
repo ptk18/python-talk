@@ -18,6 +18,7 @@ import { analyzeAPI, voiceAPI } from "../services/api";
 
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config/api.ts"
+import { speak, getGreeting } from "../utils/tts";
 
 export default function Chat() {
     const { theme } = useTheme();
@@ -37,6 +38,7 @@ export default function Chat() {
 
     const [executionInfo, setExecutionInfo] = useState<any>(null);
     const [availableMethods, setAvailableMethods] = useState<AvailableMethodsResponse | null>(null);
+    const [hasGreeted, setHasGreeted] = useState(false);
 
 
     useEffect(() => {
@@ -47,6 +49,13 @@ export default function Chat() {
             initializeSession();
         }
     }, [conversationId]);
+
+    useEffect(() => {
+        if (conversationId && !hasGreeted) {
+            speak("Hello Sir, May I help you?");
+            setHasGreeted(true);
+        }
+    }, [conversationId, hasGreeted]);
 
     const initializeSession = async () => {
         if (!conversationId) return;
@@ -101,6 +110,9 @@ export default function Chat() {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }, 100);
 
+    // Voice feedback: analyzing
+    speak("Analyzing your command");
+
     // Analyze command
     const data = await analyzeAPI.analyzeCommand(Number(conversationId), msgText);
     const r = data.result || {};
@@ -136,13 +148,17 @@ export default function Chat() {
       file_name: data.file_name,
     });
 
-    // Ask user to append command
+    // Voice feedback: command processed successfully
     if (executable) {
+      speak("Your command has been successfully processed");
+
       const confirmed = window.confirm(
         `Do you want to append the command(s) to the runner file?\n\n${executable}`
       );
 
       if (confirmed) {
+        speak("Appending to file");
+
         const appendData = await executeAPI.appendCommand(
           Number(conversationId),
           executable
@@ -155,14 +171,19 @@ export default function Chat() {
           `Command(s) appended successfully.`
         );
 
+        speak("Command appended successfully");
+
         await fetchMessages();
         setTimeout(() => {
           window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
         }, 100);
       }
+    } else {
+      speak("I couldn't process that command. Could you please try again?");
     }
   } catch (err: any) {
     console.error("Failed to send or analyze message:", err);
+    speak("I encountered an error. Please try again");
     alert("Error: " + err.message);
   }
 };
@@ -239,6 +260,8 @@ const handleMicClick = async () => {
   if (!isRecording) {
     // --- Start Recording ---
     try {
+      speak("Listening");
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       audioChunks.current = [];
@@ -251,11 +274,19 @@ const handleMicClick = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
 
         try {
+          speak("Processing your voice");
+
           // Use your unified voiceAPI function
           const result = await voiceAPI.transcribe(audioBlob as File, "en");
 
           const text = result.text || `[Error: ${result.error || "Unknown"}]`;
           console.log("Transcribed text:", text);
+
+          if (text.includes("[Error")) {
+            speak("I couldn't understand that. Please try again");
+          } else {
+            speak("Voice command received");
+          }
 
           // Instead of appendMessage or sendTypedMessage,
           // just set the transcribed text into the chat input box
@@ -268,6 +299,7 @@ const handleMicClick = async () => {
           // then press Send (handleSend) to process it as usual.
         } catch (err: any) {
           console.error("Voice transcription error:", err);
+          speak("Voice transcription error");
           alert("Error transcribing voice: " + err.message);
         }
       };
@@ -278,6 +310,7 @@ const handleMicClick = async () => {
       console.log("🎙️ Recording started...");
     } catch (err) {
       console.error("Microphone access denied:", err);
+      speak("Microphone access denied");
       alert("Microphone access denied or unavailable.");
     }
   } else {
