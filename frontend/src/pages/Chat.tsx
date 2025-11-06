@@ -255,7 +255,7 @@ const handleMicClick = async () => {
           const result = await voiceAPI.transcribe(audioBlob as File, "en");
 
           const text = result.text || `[Error: ${result.error || "Unknown"}]`;
-          console.log("🎧 Transcribed text:", text);
+          console.log("Transcribed text:", text);
 
           // Instead of appendMessage or sendTypedMessage,
           // just set the transcribed text into the chat input box
@@ -284,7 +284,7 @@ const handleMicClick = async () => {
     // --- Stop Recording ---
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.stop();
-      console.log("🛑 Recording stopped.");
+      console.log("Recording stopped.");
     }
     setIsRecording(false);
   }
@@ -303,7 +303,9 @@ const handleMicClick = async () => {
                 {/* Left sidebar - Available Methods */}
                 {availableMethods && (
                     <aside className="chat__sidebar">
-                        <h3 className="chat__sidebar-title">Available Methods</h3>
+                        <h3 className="chat__sidebar-title">
+                            {availableMethods.file_name || "Available Methods"}
+                        </h3>
                         <div className="chat__sidebar-content">
                             {Object.entries(availableMethods.classes).map(([className, classInfo]) => (
                                 <div key={className} className="chat__methods-list">

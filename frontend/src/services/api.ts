@@ -297,7 +297,6 @@ export const executeAPI = {
   getRunnerCode: async (conversation_id: number): Promise<GetRunnerCodeResponse> => {
     const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
     return apiCall(`/get_runner_code?${params}`, {
-    return apiCall(`/get_runner_code?${params}`, {
       method: "GET",
     });
   },

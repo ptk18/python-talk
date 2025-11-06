@@ -65,12 +65,112 @@
   opacity: .85;
 }
 
-/* Main chat panel */
-.chat__panel {
+/* Chat container with sidebar */
+.chat__container {
   width: 90%;
   max-width: 1600px;
   height: 580px;
   margin: 20px auto 0;
+  display: flex;
+  gap: 20px;
+  position: relative;
+}
+
+/* Left sidebar for available methods */
+.chat__sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat__sidebar-title {
+  padding: 20px 20px 16px;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--deep);
+  border-bottom: 2px solid #afcab9;
+  background: #f5f7f6;
+}
+
+.chat__sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.chat__sidebar-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat__sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, .15);
+  border-radius: 10px;
+}
+
+.chat__methods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat__method-item {
+  padding: 12px 14px;
+  background: #f9fafa;
+  border: 1px solid #d4dfd7;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.chat__method-item:hover {
+  background: #eef5f0;
+  border-color: #afcab9;
+  transform: translateX(2px);
+}
+
+.chat__method-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--deep);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  word-break: break-word;
+}
+
+/* Dark mode styles for sidebar */
+html[data-theme="dark"] .chat__sidebar {
+  background: #ffffff;
+}
+
+html[data-theme="dark"] .chat__sidebar-title {
+  background: #f5f7f6;
+  color: #1b4e2b;
+}
+
+html[data-theme="dark"] .chat__method-item {
+  background: #f9fafa;
+  border-color: #d4dfd7;
+}
+
+html[data-theme="dark"] .chat__method-item:hover {
+  background: #eef5f0;
+  border-color: #afcab9;
+}
+
+html[data-theme="dark"] .chat__method-name {
+  color: #1b4e2b;
+}
+
+/* Main chat panel */
+.chat__panel {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   background: var(--white);
   border-radius: 10px;
   /* padding: 20px; */
@@ -508,7 +608,7 @@ html[data-theme="dark"] .btn--active {
 
 /* Responsive Design */
 @media (max-width: 1280px) {
-  .chat__panel {
+  .chat__container {
     height: 500px;
   }
 
@@ -528,7 +628,11 @@ html[data-theme="dark"] .btn--active {
     margin-bottom: 10px;
   }
 
-  .chat__panel {
+  .chat__sidebar {
+    display: none;
+  }
+
+  .chat__container {
     width: 95%;
     max-width: 600px;
     height: calc(100vh - 250px);
@@ -539,8 +643,13 @@ html[data-theme="dark"] .btn--active {
     overflow: hidden;
   }
 
-  /* Adjust panel when input container is visible */
-  .chat__viewport:has(.chat__input-container) .chat__panel {
+  .chat__panel {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Adjust container when input container is visible */
+  .chat__viewport:has(.chat__input-container) .chat__container {
     height: calc(100vh - 320px);
     min-height: 350px;
     max-height: calc(100vh - 320px);
@@ -597,53 +706,26 @@ html[data-theme="dark"] .btn--active {
     height: 32px;
   }
 
-  /* Adjust panel when sidebar is open to prevent overlap */
-  :has(.navbar__sidebar--open) .chat__panel {
-    width: calc(95% - 260px - 20px);
-    margin-left: calc(260px + 2.5% + 20px);
-    max-width: calc(600px - 260px - 20px);
-    height: calc(100vh - 250px);
-    min-height: 400px;
-    max-height: calc(100vh - 250px);
-  }
-
-  /* Adjust panel when sidebar is open AND input is visible */
-  :has(.navbar__sidebar--open) .chat__viewport:has(.chat__input-container) .chat__panel {
-    height: calc(100vh - 320px);
-    min-height: 350px;
-    max-height: calc(100vh - 320px);
-  }
-
-  /* Fallback: adjust panel when input is visible (works for both with and without sidebar) */
-  .chat__viewport:has(.chat__input-container) .chat__panel {
-    height: calc(100vh - 320px);
-    min-height: 350px;
-    max-height: calc(100vh - 320px);
-  }
-
-  :has(.navbar__sidebar--open) .chat__footer {
-    width: calc(95% - 260px - 20px);
-    margin-left: calc(260px + 2.5% + 20px);
-    max-width: calc(600px - 260px - 20px);
-  }
-
-  :has(.navbar__sidebar--open) .chat__input-container {
-    width: calc(95vw - 260px - 20px);
-    max-width: calc(600px - 260px - 20px);
-    left: calc(260px + 2.5vw + 20px);
-    transform: none;
-  }
-
-  :has(.navbar__sidebar--open) .chat__mic-wrapper {
+  .chat__input-container {
+    width: 95%;
+    max-width: 600px;
+    bottom: 70px;
+    box-sizing: border-box;
+    z-index: 5;
     position: fixed;
-    left: calc(50vw + 140px);
-    transform: translateX(-50%);
+  }
+
+  .chat__mic-wrapper {
+    position: fixed;
+    left: 50%;
     bottom: 110px;
+    transform: translateX(-50%);
     margin-bottom: 20px;
   }
 
-  :has(.navbar__sidebar--open) .chat__mic {
+  .chat__mic {
     position: relative;
+    width: 100px;
     left: auto;
     bottom: auto;
     transform: none;
@@ -659,7 +741,11 @@ html[data-theme="dark"] .btn--active {
     margin-bottom: 10px;
   }
 
-  .chat__panel {
+  .chat__sidebar {
+    display: none;
+  }
+
+  .chat__container {
     width: 95%;
     max-width: 600px;
     height: calc(100vh - 250px);
@@ -671,10 +757,9 @@ html[data-theme="dark"] .btn--active {
     transition: height 0.3s ease, min-height 0.3s ease;
   }
 
-  /* Increase panel height when sidebar is open */
-  :has(.navbar__sidebar--open) .chat__panel {
-    min-height: calc(100vh - 180px);
-    max-height: 700px;
+  .chat__panel {
+    width: 100%;
+    height: 100%;
   }
 
   .chat__footer {
@@ -788,7 +873,11 @@ html[data-theme="dark"] .btn--active {
     overflow: hidden;
   }
 
-  .chat__panel {
+  .chat__sidebar {
+    display: none;
+  }
+
+  .chat__container {
     width: 95%;
     max-width: 100%;
     height: calc(100vh - 280px);
@@ -799,12 +888,9 @@ html[data-theme="dark"] .btn--active {
     overflow: hidden;
   }
 
-  /* Don't adjust panel height when input container is visible */
-
-  /* Increase panel height when sidebar is open on mobile */
-  :has(.navbar__sidebar--open) .chat__panel {
-    min-height: calc(100vh - 120px);
-    max-height: 800px;
+  .chat__panel {
+    width: 100%;
+    height: 100%;
   }
 
   .chat__footer {
