@@ -73,17 +73,18 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             f.write(f"obj = {class_name}()\n")
             f.write("# session runner - commands will be appended below\n")
 
-    # 4) Append execution command line
-    # request.executable is expected like "pause()" or "play()" - we will call obj.pause() -> print(obj.pause())
-    # Sanitize a little: strip surrounding whitespace
-    executable = request.executable.strip()
-    # basic safety: do not allow multi-line statements
-    if "\n" in executable or ";" in executable:
-        raise HTTPException(status_code=400, detail="Executable must be a single simple method call like 'pause()'")
+    if executable != "first_time_created":
+        # 4) Append execution command line
+        # request.executable is expected like "pause()" or "play()" - we will call obj.pause() -> print(obj.pause())
+        # Sanitize a little: strip surrounding whitespace
+        executable = request.executable.strip()
+        # basic safety: do not allow multi-line statements
+        if "\n" in executable or ";" in executable:
+            raise HTTPException(status_code=400, detail="Executable must be a single simple method call like 'pause()'")
 
-    with open(runner_path, "a", encoding="utf-8") as f:
-        # append a print wrapper so we get the return value or printed output aggregated in stdout
-        f.write(f"print(obj.{executable})\n")
+        with open(runner_path, "a", encoding="utf-8") as f:
+            # append a print wrapper so we get the return value or printed output aggregated in stdout
+            f.write(f"print(obj.{executable})\n")
 
     # 5) Execute runner.py with working dir = session_dir so the module import resolves
     try:
