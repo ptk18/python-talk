@@ -315,3 +315,41 @@ export const executeAPI = {
     }
   },
 };
+
+// User Profile types
+export interface UserProfile {
+  id: number;
+  username: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  gender: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface UserProfileUpdate {
+  username?: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  gender?: string;
+}
+
+// User Profile API functions
+export const userAPI = {
+  getProfile: async (userId: number): Promise<UserProfile> => {
+    return apiCall(`/users/${userId}`, {
+      method: 'GET',
+    });
+  },
+
+  updateProfile: async (userId: number, data: UserProfileUpdate): Promise<UserProfile> => {
+    return apiCall(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+};

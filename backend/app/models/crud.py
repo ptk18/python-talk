@@ -3,8 +3,19 @@ from sqlalchemy.orm import Session
 from app.models import models
 
 # ----- USERS -----
-def create_user(db: Session, username: str, password: str, gender: str, full_name: str = None):
-    user = models.User(username=username, password=password, gender=gender, full_name=full_name)
+def create_user(db: Session, username: str, password: str = None, password_hash: str = None,
+                gender: str = None, full_name: str = None, email: str = None,
+                phone: str = None, address: str = None):
+    user = models.User(
+        username=username,
+        password=password,
+        password_hash=password_hash,
+        gender=gender,
+        full_name=full_name,
+        email=email,
+        phone=phone,
+        address=address
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -13,8 +24,27 @@ def create_user(db: Session, username: str, password: str, gender: str, full_nam
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
+def get_user_by_username(db: Session, username: str):
+    return db.query(models.User).filter(models.User.username == username).first()
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
+
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
+
+def update_user(db: Session, user_id: int, **kwargs):
+    user = get_user(db, user_id)
+    if not user:
+        return None
+
+    for key, value in kwargs.items():
+        if value is not None and hasattr(user, key):
+            setattr(user, key, value)
+
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 # ----- CONVERSATION -----

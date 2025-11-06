@@ -13,17 +13,30 @@ class GenderEnum(str, Enum):
 class UserBase(BaseModel):
     username: str
     full_name: Optional[str] = None
-    password: str
     gender: GenderEnum
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
 
 class UserCreate(UserBase):
-    pass
+    password: str
 
-class UserResponse(UserBase):
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    gender: Optional[GenderEnum] = None
+
+class UserResponse(BaseModel):
     id: int
     username: str
     full_name: Optional[str]
     gender: GenderEnum
+    email: Optional[str]
+    phone: Optional[str]
+    address: Optional[str]
     created_at: datetime
     updated_at: Optional[datetime]
 

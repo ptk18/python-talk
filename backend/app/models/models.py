@@ -17,9 +17,13 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=True)
+    password = Column(String, nullable=True)  # For old users
+    password_hash = Column(String, nullable=True)  # For new auth system
     gender = Column(Enum(GenderEnum), nullable=False)
     full_name = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    address = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
