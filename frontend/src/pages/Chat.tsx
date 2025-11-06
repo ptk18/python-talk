@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "./styles/Chat.css";
@@ -16,6 +16,8 @@ export default function Chat() {
     const navigate = useNavigate();
     const [isChatActive, setIsChatActive] = useState(false);
     const [message, setMessage] = useState("");
+    const [isRecording, setIsRecording] = useState(false);
+    const audioContextRef = useRef<AudioContext | null>(null);
     const codeSnippet = `def reverse_string(s: str) -> str:\n    """Return the reverse of the input string."""\n    return s[::-1]\n\nif __name__ == "__main__":\n    print(reverse_string("scorpio"))  # oiprocos`;
     const turtleCodeSnippet = `import turtle\n\ndef draw_spiral() -> None:\n    """Draw a colorful spiral using turtle graphics."""\n    colors = ["red", "orange", "yellow", "green", "blue", "purple"]\n    t = turtle.Turtle()\n    t.speed(10)\n    \n    for i in range(100):\n        t.color(colors[i % len(colors)])\n        t.forward(i * 2)\n        t.left(60)\n    \n    turtle.done()\n\nif __name__ == "__main__":\n    draw_spiral()`;
     const voiceIcon = theme === "dark" ? VoiceWhite : Voice;
@@ -35,6 +37,40 @@ export default function Chat() {
 
     const handleRun = () => {
         navigate("/run");
+    };
+
+    const playClickSound = () => {
+        try {
+            // Create audio context if it doesn't exist
+            if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            }
+            const audioContext = audioContextRef.current;
+
+            // Create a simple beep sound (800Hz for 100ms)
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        } catch (error) {
+            console.log("Audio playback not available:", error);
+        }
+    };
+
+    const handleMicClick = () => {
+        playClickSound();
+        setIsRecording(!isRecording);
+        // TODO: Start/stop actual recording logic here
     };
 
     return (
@@ -185,11 +221,15 @@ export default function Chat() {
             {/* Chat input container (shown when chat is active) */}
             {isChatActive && (
                 <div className="chat__input-container">
-                    <img
-                        src={voiceIcon}
-                        alt="Start voice input"
-                        className="chat__mic chat__mic--small"
-                    />
+                    <div className={`chat__mic-wrapper ${isRecording ? "chat__mic-wrapper--recording" : ""}`}>
+                        <img
+                            src={voiceIcon}
+                            alt="Start voice input"
+                            className="chat__mic chat__mic--small"
+                            onClick={handleMicClick}
+                        />
+                        {isRecording && <div className="chat__mic-pulse"></div>}
+                    </div>
                     <form className="chat__input-form" onSubmit={handleSend}>
                         <input
                             type="text"
@@ -211,11 +251,15 @@ export default function Chat() {
 
             {/* Floating voice button (shown when chat is inactive) */}
             {!isChatActive && (
-            <img
-                    src={voiceIcon}
-                alt="Start voice input"
-                className="chat__mic"
-            />
+                <div className={`chat__mic-wrapper ${isRecording ? "chat__mic-wrapper--recording" : ""}`}>
+                    <img
+                        src={voiceIcon}
+                        alt="Start voice input"
+                        className="chat__mic"
+                        onClick={handleMicClick}
+                    />
+                    {isRecording && <div className="chat__mic-pulse"></div>}
+                </div>
             )}
         </div>
     );
