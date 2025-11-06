@@ -77,14 +77,20 @@ export default function Chat() {
     const r = data.result || {};
     console.log("Analyze result:", data);
 
-    // Create system reply summary
-    const summary = `Output
-"method": "${r.method || "-"}",
-"parameters": ${JSON.stringify(r.parameters || {}, null, 2)},
-"confidence": ${r.confidence || "-"},
-"executable": "${r.executable || "-"}",
-"intent_type": "${r.intent_type || "-"}"
-`;
+    // Create system reply summary - show executable(s)
+    let summary;
+    if (r.executable) {
+      // Simple command
+      summary = r.executable;
+    } else if (r.executables && r.executables.length > 0) {
+      // Complex command with multiple executables
+      summary = r.executables.join('\n');
+    } else if (r.code) {
+      // Complex command with formatted code
+      summary = r.code;
+    } else {
+      summary = "No executable command generated";
+    }
 
     // Save system reply message
     await messageAPI.create(parseInt(conversationId), "system", summary);
@@ -95,28 +101,29 @@ export default function Chat() {
     }, 100);
 
     // Update execution info
+    const executable = r.executable || (r.executables && r.executables.length > 0 ? r.executables.join('\n') : null);
     setExecutionInfo({
-      executable: r.executable,
+      executable: executable,
       file_name: data.file_name,
     });
 
     // Ask user to append command
-    if (r.executable) {
+    if (executable) {
       const confirmed = window.confirm(
-        `Do you want to append the command "${r.executable}" to the runner file?`
+        `Do you want to append the command(s) to the runner file?\n\n${executable}`
       );
 
       if (confirmed) {
         const appendData = await executeAPI.appendCommand(
           Number(conversationId),
-          r.executable
+          executable
         );
         console.log("Append result:", appendData);
 
         await messageAPI.create(
           parseInt(conversationId),
           "system",
-          `Command "${r.executable}" appended successfully.`
+          `Command(s) appended successfully.`
         );
 
         await fetchMessages();

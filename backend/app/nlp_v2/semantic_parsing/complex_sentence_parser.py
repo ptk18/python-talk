@@ -191,27 +191,38 @@ class ComplexSentenceParser:
 
     def _split_by_conjunctions(self, text: str) -> List[str]:
         """Split text by conjunctions while preserving nested structures"""
-        # Build regex pattern for all conjunctions
-        # Need to be careful not to split within nested structures
+        # First pass: identify which "and"s are arithmetic
+        tokens = text.split()
+        arithmetic_and_indices = set()
 
-        # First, check for "and" which is most common
+        for i, token in enumerate(tokens):
+            if token.lower() == 'and':
+                # Build current_tokens up to this point
+                current_tokens = tokens[:i]
+                if self._is_arithmetic_and(tokens, i, current_tokens):
+                    arithmetic_and_indices.add(i)
+
+        # Second pass: split by conjunctions, skipping arithmetic "and"s
         parts = []
         current = []
-        tokens = text.split()
-
         i = 0
-        while i < len(tokens):
-            token = tokens[i]
-            token_lower = token.lower()
 
-            # Check if this is a conjunction
+        while i < len(tokens):
+            # Check if this position is a conjunction
             is_conjunction = False
             for conj in self.CONJUNCTIONS:
                 conj_words = conj.split()
                 if i + len(conj_words) <= len(tokens):
                     window = ' '.join(tokens[i:i+len(conj_words)]).lower()
                     if window == conj:
-                        # Found conjunction, save current part
+                        # Special case: skip arithmetic "and"
+                        if conj == 'and' and i in arithmetic_and_indices:
+                            current.append(tokens[i])
+                            i += 1
+                            is_conjunction = False
+                            break
+
+                        # Found real conjunction - split here
                         if current:
                             parts.append(' '.join(current))
                             current = []
@@ -220,7 +231,7 @@ class ComplexSentenceParser:
                         break
 
             if not is_conjunction:
-                current.append(token)
+                current.append(tokens[i])
                 i += 1
 
         # Add remaining
@@ -228,6 +239,24 @@ class ComplexSentenceParser:
             parts.append(' '.join(current))
 
         return parts if len(parts) > 1 else [text]
+
+    def _is_arithmetic_and(self, tokens: List[str], and_index: int, current_tokens: List[str]) -> bool:
+        """Check if 'and' is used in arithmetic context (e.g., 'add 2 and 3')"""
+        # Arithmetic operation verbs
+        arithmetic_verbs = ['add', 'sum', 'plus', 'subtract', 'minus', 'multiply', 'times', 'divide', 'by']
+
+        # Check if there's an arithmetic verb in the current part
+        has_arithmetic_verb = any(token.lower() in arithmetic_verbs for token in current_tokens)
+
+        # Check if there are numbers before "and"
+        has_number_before = and_index > 0 and any(char.isdigit() for char in tokens[and_index - 1])
+
+        # Check if there's a number after "and"
+        has_number_after = (and_index + 1 < len(tokens) and
+                           any(char.isdigit() for char in tokens[and_index + 1]))
+
+        # If we have arithmetic verb and numbers on both sides, this is arithmetic "and"
+        return has_arithmetic_verb and has_number_before and has_number_after
 
 
 def print_command_tree(node: CommandNode, indent: int = 0) -> None:

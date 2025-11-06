@@ -3,6 +3,7 @@ fastapi==0.121.0
 python-multipart==0.0.9
 openai_whisper==20250625
 pydantic==2.12.3
+pydantic-ai>=0.0.15
 python-dotenv==1.2.1
 pyttsx3==2.99
 Requests==2.32.5
@@ -12,3 +13,4 @@ torch==2.8.0
 transformers==4.48.2
 uvicorn==0.38.0
 sentencepiece
+anthropic>=0.40.0

@@ -34,7 +34,19 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             raise HTTPException(status_code=400, detail="No class found in uploaded file")
 
         class_name = list(catalog.classes.keys())[0]
-        result = process_complex_command(command, catalog, class_name, verbose=False)
+
+        # Process with LLM fallback enabled
+        result = process_complex_command(
+            text=command,
+            catalog=catalog,
+            class_name=class_name,
+            verbose=False,
+            use_semantic=True,
+            hf_token=None,
+            confidence_threshold=30.0,
+            use_llm_fallback=True,
+            source_file=temp_path
+        )
 
         return {
             "class_name": class_name,

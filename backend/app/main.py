@@ -29,6 +29,7 @@ app.include_router(posts.router, prefix="/api/v1")
 app.include_router(voice.router, prefix="/api")
 app.include_router(conversations.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
+print("analyze_command router:", analyze_command.router)
 app.include_router(analyze_command.router, prefix="/api")
 app.include_router(execute_command.router, prefix="/api")
 
