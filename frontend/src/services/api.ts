@@ -296,7 +296,7 @@ export const executeAPI = {
 
   getRunnerCode: async (conversation_id: number): Promise<GetRunnerCodeResponse> => {
     const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
-    return apiCall(`/api/get_runner_code?${params}`, {
+    return apiCall(`/get_runner_code?${params}`, {
       method: "GET",
     });
   },
@@ -306,15 +306,15 @@ export const executeAPI = {
     try {
       // Try to get runner code - if it exists, session is initialized
       const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
-      await apiCall(`/api/get_runner_code?${params}`, { method: "GET" });
+      await apiCall(`/get_runner_code?${params}`, { method: "GET" });
       return true; // Session exists
     } catch (error: any) {
       // If 404, session doesn't exist - initialize it with a dummy command
       if (error.message.includes("404")) {
         console.log(`Session ${conversation_id} not initialized, creating...`);
         try {
-          // Initialize with a simple pass statement that won't do anything
-          await executeAPI.executeCommand(conversation_id, "__init__()");
+          // Initialize with first_time_created to just create runner without executing anything
+          await executeAPI.executeCommand(conversation_id, "first_time_created");
           console.log(`Session ${conversation_id} initialized successfully`);
           return true;
         } catch (initError) {

@@ -384,8 +384,7 @@ const handleMicClick = async () => {
             {/* Footer actions */}
             <footer className="chat__footer">
                 <div className="chat__actions">
-                    <button className="btn btn--run" onClick={gotoRun}>
-      Run <img src={RunIcon} alt="" />
+                    <button className="btn btn--run" onClick={gotoRun}>Confirm
     </button>
 
                     <button
