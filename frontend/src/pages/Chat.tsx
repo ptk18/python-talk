@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "./styles/Chat.css";
@@ -13,7 +13,7 @@ import { useTheme } from "../theme/ThemeProvider";
 import { messageAPI, conversationAPI, executeAPI } from "../services/api";
 import type { Message, AvailableMethodsResponse } from "../services/api";
 
-import { analyzeAPI } from "../services/api";
+import { analyzeAPI, voiceAPI } from "../services/api";
 // import type { analyzeAPI } from "../services/api";
 
 import { useAuth } from "../context/AuthContext";
@@ -28,6 +28,11 @@ export default function Chat() {
     const [message, setMessage] = useState("");
     const [messages, setMessages] = useState<Message[]>([]);
     const voiceIcon = theme === "dark" ? VoiceWhite : Voice;
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+
+    const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+    const audioChunks = useRef<BlobPart[]>([]);
     const { user } = useAuth();
 
     const [executionInfo, setExecutionInfo] = useState<any>(null);
@@ -200,6 +205,94 @@ const gotoRun = () => {
     });
   };
 
+  const playClickSound = () => {
+        try {
+            // Create audio context if it doesn't exist
+            if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            }
+            const audioContext = audioContextRef.current;
+
+            // Create a simple beep sound (800Hz for 100ms)
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        } catch (error) {
+            console.log("Audio playback not available:", error);
+        }
+    };
+
+const handleMicClick = async () => {
+  playClickSound();
+
+  if (!isRecording) {
+    // --- Start Recording ---
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunks.current = [];
+
+      recorder.ondataavailable = (e) => {
+        audioChunks.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+
+        try {
+          // Use your unified voiceAPI function
+          const result = await voiceAPI.transcribe(audioBlob as File, "en");
+
+          const text = result.text || `[Error: ${result.error || "Unknown"}]`;
+          console.log("🎧 Transcribed text:", text);
+
+          // Instead of appendMessage or sendTypedMessage,
+          // just set the transcribed text into the chat input box
+          setMessage(text);
+
+          // Optionally open the chat input if it's closed
+          if (!isChatActive) setIsChatActive(true);
+
+          // The user can now see and edit the transcribed text
+          // then press Send (handleSend) to process it as usual.
+        } catch (err: any) {
+          console.error("Voice transcription error:", err);
+          alert("Error transcribing voice: " + err.message);
+        }
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      console.log("🎙️ Recording started...");
+    } catch (err) {
+      console.error("Microphone access denied:", err);
+      alert("Microphone access denied or unavailable.");
+    }
+  } else {
+    // --- Stop Recording ---
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      console.log("🛑 Recording stopped.");
+    }
+    setIsRecording(false);
+  }
+};
+
+
+
+
     return (
         <div className="chat__viewport">
             {/* Top bar */}
@@ -336,11 +429,15 @@ const gotoRun = () => {
 
             {/* Floating voice button (shown when chat is inactive) */}
             {!isChatActive && (
-                <img
-                    src={voiceIcon}
-                    alt="Start voice input"
-                    className="chat__mic"
-                />
+                <div className={`chat__mic-wrapper ${isRecording ? "chat__mic-wrapper--recording" : ""}`}>
+                    <img
+                        src={voiceIcon}
+                        alt="Start voice input"
+                        className="chat__mic"
+                        onClick={handleMicClick}
+                    />
+                    {isRecording && <div className="chat__mic-pulse"></div>}
+                </div>
             )}
         </div>
     );

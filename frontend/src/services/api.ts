@@ -169,29 +169,42 @@ export const messageAPI = {
 };
 
 // Voice API functions
+export interface VoiceTranscriptionResponse {
+  text: string;           // Translated English text
+  alternatives: string[];  // Paraphrased versions
+  original: string;        // Original (possibly non-English) text
+  error?: string;          // Optional error field
+}
+
 export const voiceAPI = {
-  transcribe: async (audioFile: File, language: string) => {
+  /**
+   * Send an audio file to the backend Whisper API for transcription and paraphrasing.
+   * 
+   * @param audioFile The uploaded audio file (webm, wav, etc.)
+   * @param language  The spoken language code (e.g., 'en', 'th', 'es')
+   */
+  transcribe: async (
+    audioFile: File,
+    language: string
+  ): Promise<VoiceTranscriptionResponse> => {
     const formData = new FormData();
-    formData.append('file', audioFile);
-    formData.append('language', language);
+    formData.append("file", audioFile);
+    formData.append("language", language);
 
-    return apiCall('/voice/transcribe', {
-      method: 'POST',
-      headers: {}, // Remove Content-Type for FormData
-      body: formData,
+    const response = await fetch(`${API_BASE_URL}/voice/transcribe`, {
+      method: "POST",
+      body: formData, // No content-type header; browser handles it
     });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Voice transcription failed: ${err}`);
+    }
+
+    return response.json();
   },
 };
 
-// Code execution API (will implement endpoint later)
-export const codeAPI = {
-  execute: async (code: string) => {
-    return apiCall('/api/v1/run', {
-      method: 'POST',
-      body: JSON.stringify({ code }),
-    });
-  },
-};
 
 // Analyze Command types
 export interface AnalyzeCommandResponse {
