@@ -287,4 +287,31 @@ export const executeAPI = {
       method: "GET",
     });
   },
+
+  // Check if session exists and initialize if needed
+  ensureSessionInitialized: async (conversation_id: number): Promise<boolean> => {
+    try {
+      // Try to get runner code - if it exists, session is initialized
+      const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
+      await apiCall(`/api/get_runner_code?${params}`, { method: "GET" });
+      return true; // Session exists
+    } catch (error: any) {
+      // If 404, session doesn't exist - initialize it with a dummy command
+      if (error.message.includes("404")) {
+        console.log(`Session ${conversation_id} not initialized, creating...`);
+        try {
+          // Initialize with a simple pass statement that won't do anything
+          await executeAPI.executeCommand(conversation_id, "__init__()");
+          console.log(`Session ${conversation_id} initialized successfully`);
+          return true;
+        } catch (initError) {
+          console.error(`Failed to initialize session ${conversation_id}:`, initError);
+          return false;
+        }
+      }
+      // Other errors
+      console.error(`Error checking session ${conversation_id}:`, error);
+      return false;
+    }
+  },
 };

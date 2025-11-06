@@ -10,11 +10,10 @@ import UploadIcon from "../assets/upload_file.svg";
 import Voice from "../assets/voice.svg";
 import VoiceWhite from "../assets/voice-white.svg";
 import { useTheme } from "../theme/ThemeProvider";
-import { messageAPI, conversationAPI } from "../services/api";
+import { messageAPI, conversationAPI, executeAPI } from "../services/api";
 import type { Message, AvailableMethodsResponse } from "../services/api";
 
 import { analyzeAPI } from "../services/api";
-import { executeAPI } from "../services/api";
 // import type { analyzeAPI } from "../services/api";
 
 import { useAuth } from "../context/AuthContext";
@@ -39,10 +38,23 @@ export default function Chat() {
     console.log("API_BASE", API_BASE_URL)
     console.log("import.meta.env.VITE_API_BASE_URL", import.meta.env.VITE_API_BASE_URL)
         if (conversationId) {
-            fetchMessages();
-            fetchAvailableMethods();
+            // Initialize session first, then fetch data
+            initializeSession();
         }
     }, [conversationId]);
+
+    const initializeSession = async () => {
+        if (!conversationId) return;
+        try {
+            // Ensure session is initialized before fetching other data
+            await executeAPI.ensureSessionInitialized(parseInt(conversationId));
+            // Now fetch messages and methods
+            await fetchMessages();
+            await fetchAvailableMethods();
+        } catch (err) {
+            console.error("Failed to initialize session:", err);
+        }
+    };
 
     const fetchMessages = async () => {
         if (!conversationId) return;
