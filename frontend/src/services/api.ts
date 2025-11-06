@@ -235,7 +235,7 @@ export const executeAPI = {
 
   rerunCommand: async (conversation_id: number): Promise<ExecuteCommandResponse> => {
     const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
-    return apiCall(`/rerun_command?${params}`, {
+    return apiCall(`/api/rerun_command?${params}`, {
       method: "POST",
     });
   },
@@ -258,7 +258,7 @@ export const executeAPI = {
 
   getRunnerCode: async (conversation_id: number): Promise<GetRunnerCodeResponse> => {
     const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
-    return apiCall(`/get_runner_code?${params}`, {
+    return apiCall(`/api/get_runner_code?${params}`, {
       method: "GET",
     });
   },

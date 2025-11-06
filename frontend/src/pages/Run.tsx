@@ -36,7 +36,7 @@ useEffect(() => {
     //   const res = await fetch(`${API_BASE}/conversations/${conversationId}/single`);
     //   const convo = await res.json();
     //   setCode(convo.code);
-      const res = await fetch(`${API_BASE}/api/get_runner_code?conversation_id=${conversationId}`);
+      const res = await fetch(`${API_BASE}/get_runner_code?conversation_id=${conversationId}`);
       const convo = await res.json();
       setCode(convo.code);
     } catch (err) {
@@ -45,7 +45,7 @@ useEffect(() => {
     }
     // setOutput("placeholder")
 
-    const res = await fetch(`${API_BASE}/api/rerun_command?conversation_id=${conversationId}`, {
+    const res = await fetch(`${API_BASE}/rerun_command?conversation_id=${conversationId}`, {
   method: "POST",
   headers: { "Accept": "application/json" },
 });
@@ -69,7 +69,7 @@ setOutput(data.output);
         setOutput("Running code...\n\n");
 
         try {
-      const res = await fetch(`${API_BASE}/api/rerun_command?conversation_id=${conversationId}`, {
+      const res = await fetch(`${API_BASE}/rerun_command?conversation_id=${conversationId}`, {
   method: "POST",
   headers: { "Accept": "application/json" },
 });
