@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Live Stream</title>
+</head>
+<body>
+<h1>Live Stream</h1>
+
+<!-- Input box for channel name -->
+<label for="channel">Channel Name:</label>
+<input type="text" id="channel" placeholder="Enter channel name" />
+<button id="startBtn">Start Receiving</button>
+
+<br><br>
+
+<!-- Stream display -->
+<img id="video" width="800" />
+
+<script>
+const hostname = window.location.hostname;
+const video = document.getElementById('video');
+const startBtn = document.getElementById('startBtn');
+const channelInput = document.getElementById('channel');
+
+let ws; // WebSocket variable
+
+startBtn.onclick = () => {
+    const channelName = channelInput.value.trim();
+    if (!channelName) {
+        alert('Please enter a channel name.');
+        return;
+    }
+
+    // Close previous WebSocket if exists
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+    }
+
+    // Connect to the specific channel URL
+    ws = new WebSocket(`ws://${hostname}:5050/subscribe/${encodeURIComponent(channelName)}`);
+
+    ws.onmessage = (event) => {
+        const image = event.data; // base64 string
+        video.src = 'data:image/jpeg;base64,' + image;
+    };
+
+    ws.onerror = () => {
+        console.error('WebSocket error');
+    };
+
+    ws.onclose = () => {
+        console.log('WebSocket closed');
+    };
+};
+</script>
+
+</body>
+</html>

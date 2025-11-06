@@ -84,10 +84,25 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login_user(data: dict, db: Session = Depends(get_db)):
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
     username = data.get("username")
     password = data.get("password")
 
-    user = db.query(models.User).filter(models.User.username == username, models.User.password == password).first()
+    # Try to find user by username
+    user = db.query(models.User).filter(models.User.username == username).first()
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    return {"id": user.id, "username": user.username, "gender": user.gender.value}
+
+    # Check if user has hashed password or plain password
+    is_valid = False
+    if user.password_hash:
+        is_valid = pwd_context.verify(password, user.password_hash)
+    elif user.password:
+        is_valid = (user.password == password)
+
+    if not is_valid:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    return {"id": user.id, "username": user.username, "gender": user.gender.value if user.gender else None}

@@ -10,3 +10,7 @@ spacy==3.8.7
 SQLAlchemy==2.0.44
 torch==2.8.0
 uvicorn==0.38.0
+websockets==12.0
+opencv-python==4.8.1.78
+mss==9.0.1
+numpy==1.24.3

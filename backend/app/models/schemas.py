@@ -13,7 +13,7 @@ class GenderEnum(str, Enum):
 class UserBase(BaseModel):
     username: str
     full_name: Optional[str] = None
-    gender: GenderEnum
+    gender: Optional[GenderEnum] = None
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
@@ -33,7 +33,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     full_name: Optional[str]
-    gender: GenderEnum
+    gender: Optional[GenderEnum]
     email: Optional[str]
     phone: Optional[str]
     address: Optional[str]

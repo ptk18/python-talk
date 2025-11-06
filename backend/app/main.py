@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import users, posts, voice, conversations, messages, analyze_command, execute_command
+from app.routers import users, posts, voice, conversations, messages, analyze_command, execute_command, turtle_execute
 
 from app.database.connection import engine, Base
 
@@ -32,6 +32,7 @@ app.include_router(messages.router, prefix="/api")
 print("analyze_command router:", analyze_command.router)
 app.include_router(analyze_command.router, prefix="/api")
 app.include_router(execute_command.router, prefix="/api")
+app.include_router(turtle_execute.router, prefix="/api")
 
 
 @app.get("/")

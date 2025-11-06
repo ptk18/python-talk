@@ -1,8 +1,16 @@
-from bankaccountpy import BankAccount
+from myturtlepy import SimpleTurtle
 import sys
 
-obj = BankAccount()
+obj = SimpleTurtle()
 # session runner - commands will be appended below
+print(obj.__init__())
+print(obj.__init__())
+print(obj.__init__())
+print(obj.__init__())
+print(obj.__init__())
+print(obj.__init__())
+print(obj.__init__())
+print(obj.__init__())
 print(obj.__init__())
 print(obj.__init__())
 print(obj.__init__())

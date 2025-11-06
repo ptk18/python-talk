@@ -1,30 +1,20 @@
-from smarthomepy import SmartHome
+from calculatorpy import Calculator
 import sys
 
-obj = SmartHome()
+obj = Calculator()
 # session runner - commands will be appended below
+print(obj.add(a=2, b=3))
 print(obj.__init__())
 print(obj.__init__())
 print(obj.__init__())
 print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
-print(obj.__init__())
+print(obj.subtract(a=2, b=5))
+
+
+print(obj.subtract(a=2, b=5))
+print(obj.add(a=3, b=4))
+print(obj.subtract(a=2, b=5))
+print(obj.add(a=3, b=4))
 print(obj.__init__())
 print(obj.__init__())
 print(obj.__init__())

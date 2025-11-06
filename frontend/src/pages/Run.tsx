@@ -17,13 +17,66 @@ export default function Run() {
     const [code, setCode] = useState(DEFAULT_CODE);
     const [output, setOutput] = useState("");
     const [isRunning, setIsRunning] = useState(false);
+    const [isTurtleCode, setIsTurtleCode] = useState<boolean | null>(null);
+    const [showTurtlePrompt, setShowTurtlePrompt] = useState(false);
+    const [wsStatus, setWsStatus] = useState('disconnected');
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
     const location = useLocation();
-    const { conversationId, executable, file_name } = location.state || {};
+    const { conversationId: rawConversationId, executable, file_name } = location.state || {};
+    
+    // Use provided conversationId or fallback to "test123" for testing
+    const conversationId = rawConversationId || "test123";
 
     useEffect(() => {
   console.log("Run.tsx received:", { conversationId, executable, file_name });
 }, [conversationId, executable, file_name]);
+
+    // WebSocket connection for turtle graphics streaming
+    useEffect(() => {
+        if (!isTurtleCode || !conversationId) return;
+
+        console.log('Setting up WebSocket for turtle graphics...', { isTurtleCode, conversationId });
+        
+        const wsUrl = `ws://192.168.4.228:5050/subscribe/${conversationId}`;
+        console.log('WebSocket URL:', wsUrl);
+        
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            console.log('WebSocket connected for turtle graphics');
+            setWsStatus('connected');
+        };
+
+        ws.onmessage = (event) => {
+            console.log('Received WebSocket message for turtle graphics');
+            setWsStatus('receiving');
+            const image = event.data; // base64 string
+            const videoElement = document.getElementById('turtle-video') as HTMLImageElement;
+            if (videoElement) {
+                videoElement.src = 'data:image/jpeg;base64,' + image;
+                console.log('Updated turtle video element');
+            } else {
+                console.error('Turtle video element not found');
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            setWsStatus('error');
+        };
+
+        ws.onclose = (event) => {
+            console.log('WebSocket closed:', event.code, event.reason);
+            setWsStatus('disconnected');
+        };
+
+        return () => {
+            if (ws.readyState === WebSocket.OPEN) {
+                console.log('Closing WebSocket connection');
+                ws.close();
+            }
+        };
+    }, [isTurtleCode, conversationId]);
 
 
 
@@ -45,12 +98,12 @@ useEffect(() => {
     }
     // setOutput("placeholder")
 
-    const res = await fetch(`${API_BASE}/rerun_command?conversation_id=${conversationId}`, {
-  method: "POST",
-  headers: { "Accept": "application/json" },
-});
-const data = await res.json();
-setOutput(data.output);
+//     const res = await fetch(`${API_BASE}/rerun_command?conversation_id=${conversationId}`, {
+//   method: "POST",
+//   headers: { "Accept": "application/json" },
+// });
+// const data = await res.json();
+setOutput("Output will appear here...");
 
   };
 
@@ -59,43 +112,78 @@ setOutput(data.output);
 
 
 
+    const handleRunTurtle = async () => {
+        setIsRunning(true);
+        setOutput("Running turtle graphics...\n\n");
+
+        try {
+            const res = await fetch(`${API_BASE}/run_turtle/${conversationId}`, {
+                method: "GET",
+                headers: { "Accept": "application/json" },
+            });
+
+            if (!res.ok) {
+                throw new Error(`Backend returned ${res.status}`);
+            }
+
+            const data = await res.json();
+            console.log("Turtle execute response:", data);
+            setOutput("Turtle graphics execution completed.\n");
+        } catch (err) {
+            console.error("Failed to execute turtle graphics:", err);
+            setOutput("Error executing turtle graphics.\n");
+        } finally {
+            setIsRunning(false);
+        }
+    };
+
+    const handleRunNormalCode = async () => {
+        setIsRunning(true);
+        setOutput("Running code...\n\n");
+
+        try {
+            const res = await fetch(`${API_BASE}/rerun_command?conversation_id=${conversationId}`, {
+                method: "POST",
+                headers: { "Accept": "application/json" },
+            });
+
+            if (!res.ok) {
+                throw new Error(`Backend returned ${res.status}`);
+            }
+
+            const data = await res.json();
+            console.log("Execute command response:", data);
+
+            // Show backend output (if available)
+            if (data.output) {
+                setOutput(data.output);
+            } else {
+                setOutput("No output returned from execute_command.\n");
+            }
+        } catch (err) {
+            console.error("Failed to execute command:", err);
+            setOutput("Error executing command.\n");
+        } finally {
+            setIsRunning(false);
+        }
+    };
+
     const handleRun = async () => {
         if (!code.trim()) {
             setOutput("Error: Code editor is empty. Please enter some Python code.\n");
             return;
         }
 
-        setIsRunning(true);
-        setOutput("Running code...\n\n");
+        // Show turtle code prompt if user hasn't decided yet
+        if (isTurtleCode === null) {
+            setShowTurtlePrompt(true);
+            return;
+        }
 
-        try {
-      const res = await fetch(`${API_BASE}/rerun_command?conversation_id=${conversationId}`, {
-  method: "POST",
-  headers: { "Accept": "application/json" },
-});
-
-      if (!res.ok) {
-        throw new Error(`Backend returned ${res.status}`);
-      }
-
-      const data = await res.json();
-      console.log("Execute command response:", data);
-
-      // Show backend output (if available)
-      if (data.output) {
-        setOutput(data.output);
-      } else {
-        setOutput("No output returned from execute_command.\n");
-      }
-
-      // Optionally use backend code result
-      // if (data.code) setCode(data.code);
-
-    } catch (err) {
-      console.error("Failed to execute command:", err);
-      setOutput("Error executing command.\n");
-    } finally {
-            setIsRunning(false);
+        if (isTurtleCode) {
+            await handleRunTurtle();
+        } else {
+            await handleRunNormalCode();
         }
     };
 
@@ -130,10 +218,93 @@ setOutput(data.output);
 
     return (
         <div className="run__viewport">
+            {/* Turtle Code Prompt Modal */}
+            {showTurtlePrompt && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '30px',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        maxWidth: '400px'
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Is this Turtle Code?</h3>
+                        <p>Does this code use Python turtle graphics?</p>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                            <button
+                                onClick={() => {
+                                    setIsTurtleCode(true);
+                                    setShowTurtlePrompt(false);
+                                    handleRunTurtle();
+                                }}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Yes, Turtle Code
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setIsTurtleCode(false);
+                                    setShowTurtlePrompt(false);
+                                    // Run normal code
+                                    handleRunNormalCode();
+                                }}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    backgroundColor: '#f44336',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                No, Normal Code
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Top bar with back button */}
             <header className="run__header">
                 <button className="run__back-btn" onClick={handleBack}>
                     ← Back to Chat
+                </button>
+                <button
+                    style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#ff9800',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        marginLeft: '10px'
+                    }}
+                    onClick={() => {
+                        setIsTurtleCode(null);
+                        setShowTurtlePrompt(true);
+                    }}
+                >
+                    Is this turtle code?
                 </button>
             </header>
 
@@ -208,7 +379,49 @@ setOutput(data.output);
                         </button>
                     </div>
                     <div className="run__output">
-                        <pre>{output || "Output will appear here..."}</pre>
+                        {isTurtleCode ? (
+                            <div style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                backgroundColor: '#f5f5f5',
+                                border: '2px dashed #ccc',
+                                borderRadius: '8px'
+                            }}>
+                                <div style={{ marginBottom: '10px', color: '#666' }}>
+                                    🐢 Turtle Graphics Stream
+                                </div>
+                                <img
+                                    id="turtle-video"
+                                    style={{ 
+                                        maxWidth: '100%', 
+                                        maxHeight: '80%',
+                                        border: '1px solid #ddd',
+                                        borderRadius: '4px',
+                                        backgroundColor: 'white'
+                                    }}
+                                    alt="Turtle graphics stream"
+                                    onError={(e) => console.error('Image load error:', e)}
+                                    onLoad={() => console.log('Turtle image loaded successfully')}
+                                />
+                                <div style={{ marginTop: '10px', fontSize: '12px', color: '#999' }}>
+                                    WebSocket Status: <span style={{ 
+                                        color: wsStatus === 'connected' ? 'green' : 
+                                              wsStatus === 'receiving' ? 'blue' : 
+                                              wsStatus === 'error' ? 'red' : 'orange' 
+                                    }}>
+                                        {wsStatus}
+                                    </span>
+                                    {wsStatus === 'connected' && ' (Ready for stream)'}
+                                    {wsStatus === 'receiving' && ' (Receiving images)'}
+                                </div>
+                            </div>
+                        ) : (
+                            <pre>{output || "Output will appear here..."}</pre>
+                        )}
                     </div>
                 </section>
             </main>

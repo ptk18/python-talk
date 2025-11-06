@@ -28,8 +28,8 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
     convo = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    if not convo.code:
-        raise HTTPException(status_code=400, detail="This conversation has no code")
+    if not convo.code or not convo.code.strip():
+        raise HTTPException(status_code=400, detail="This conversation has no code uploaded. Please upload a Python file first.")
 
     # prepare session directory: app/executions/session_<id>/
     session_dir = os.path.join(BASE_EXEC_DIR, f"session_{request.conversation_id}")
@@ -57,7 +57,10 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=500, detail=f"Failed to parse module to detect class: {e}")
 
     if not catalog.classes:
-        raise HTTPException(status_code=400, detail="No class found in uploaded module")
+        raise HTTPException(
+            status_code=400,
+            detail=f"No class found in uploaded Python file '{orig_fname}'. Please ensure your file contains at least one class definition."
+        )
 
     # pick the first class by name
     class_name = list(catalog.classes.keys())[0]
@@ -72,8 +75,25 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             f.write("\n")
             f.write(f"obj = {class_name}()\n")
             f.write("# session runner - commands will be appended below\n")
+        
+        try:
+            # run the runner; cwd ensures `from module import Class` will find the module file in same dir
+            result = subprocess.run(
+                [sys.executable, "runner.py"],
+                capture_output=True,
+                text=True,
+                cwd=session_dir,
+                timeout=10
+            )
+            # prefer stdout; if empty, return stderr
+            output = result.stdout.strip() or result.stderr.strip()
+            return {"output": output or "No output"}
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=500, detail="Execution timed out")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
 
-    if executable != "first_time_created":
+    if request.executable != "first_time_created":
         # 4) Append execution command line
         # request.executable is expected like "pause()" or "play()" - we will call obj.pause() -> print(obj.pause())
         # Sanitize a little: strip surrounding whitespace
@@ -149,15 +169,20 @@ def append_command(request: ExecuteCommandRequest):
 
     # Sanitize input
     executable = request.executable.strip()
-    if "\n" in executable or ";" in executable:
-        raise HTTPException(
-            status_code=400,
-            detail="Executable must be a single-line method call like 'pause()'"
-        )
+    # if "\n" in executable or ";" in executable:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="Executable must be a single-line method call like 'pause()'"
+    #     )
 
     try:
         with open(runner_path, "a", encoding="utf-8") as f:
-            f.write(f"print(obj.{executable})\n")
+            # f.write("\n")
+            for line in executable.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                f.write(f"print(obj.{line})\n")
 
         return {"message": f"Appended command '{executable}' successfully"}
     except Exception as e:
