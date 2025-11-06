@@ -62,15 +62,90 @@
   opacity: .85;
 }
 
-/* Main chat panel */
-.chat__panel {
+/* Container for sidebar + chat panel */
+.chat__container {
   width: 90%;
   max-width: 1600px;
-  height: 580px;
   margin: 20px auto 0;
+  display: flex;
+  gap: 20px;
+}
+
+/* Left sidebar for available methods */
+.chat__sidebar {
+  width: 280px;
+  height: 580px;
   background: var(--white);
   border-radius: 10px;
-  /* padding: 20px; */
+  padding: 16px;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+  flex-shrink: 0;
+}
+
+.chat__sidebar-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: var(--deep);
+}
+
+.chat__sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.chat__methods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat__method-item {
+  padding: 8px;
+  background: #f5f7f6;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.chat__method-item:hover {
+  background: #eaf3ec;
+  border-color: var(--deep);
+}
+
+.chat__method-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--deep);
+  margin-bottom: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.chat__method-doc {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.chat__sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat__sidebar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, .15);
+  border-radius: 3px;
+}
+
+/* Main chat panel */
+.chat__panel {
+  flex: 1;
+  height: 580px;
+  background: var(--white);
+  border-radius: 10px;
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -79,6 +154,18 @@
 /* Keep chat card white in dark mode as in light mode */
 html[data-theme="dark"] .chat__panel {
   background: #ffffff;
+}
+
+html[data-theme="dark"] .chat__sidebar {
+  background: #ffffff;
+}
+
+html[data-theme="dark"] .chat__sidebar-title {
+  color: #1b4e2b;
+}
+
+html[data-theme="dark"] .chat__method-name {
+  color: #1b4e2b;
 }
 
 /* Keep all text and buttons in chat panel like light mode */
@@ -422,6 +509,10 @@ html[data-theme="dark"] .btn--active {
     height: 500px;
   }
 
+  .chat__sidebar {
+    height: 500px;
+  }
+
   .chat__avatar {
     width: 100px;
     height: 100px;
@@ -429,10 +520,20 @@ html[data-theme="dark"] .btn--active {
 }
 
 @media (max-width: 768px) {
-  .chat__panel {
+  .chat__container {
     width: 95%;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .chat__sidebar {
+    width: 100%;
+    height: 300px;
+  }
+
+  .chat__panel {
+    width: 100%;
     height: 450px;
-    margin: 15px auto 0;
   }
 
   .chat__footer {

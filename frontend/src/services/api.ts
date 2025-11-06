@@ -19,6 +19,26 @@ export interface Conversation {
   created_at?: string;
 }
 
+export interface MethodInfo {
+  name: string;
+  parameters: Record<string, string>;
+  required_parameters: string[];
+  return_type: string | null;
+  docstring: string | null;
+}
+
+export interface ClassInfo {
+  docstring: string | null;
+  methods: MethodInfo[];
+}
+
+export interface AvailableMethodsResponse {
+  success: boolean;
+  file_name: string;
+  classes: Record<string, ClassInfo>;
+  total_classes: number;
+}
+
 export const conversationAPI = {
   // GET /conversations/:userId
   async getByUser(userId: number): Promise<Conversation[]> {
@@ -38,6 +58,11 @@ export const conversationAPI = {
     });
     if (!res.ok) throw new Error("Failed to create conversation");
     return res.json();
+  },
+
+  // GET /conversations/:conversationId/available_methods
+  async getAvailableMethods(conversationId: number): Promise<AvailableMethodsResponse> {
+    return apiCall(`/conversations/${conversationId}/available_methods`);
   },
 };
 

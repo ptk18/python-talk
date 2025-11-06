@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+import tempfile
+import os
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ConversationCreate, ConversationResponse
+from app.nlp_v2.extract_catalog_from_source_code.ast_extractor import extract_from_file
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
@@ -33,3 +36,64 @@ def get_single_conversation(conversation_id: int, db: Session = Depends(get_db))
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return convo
+
+@router.get("/{conversation_id}/available_methods")
+def get_available_methods(conversation_id: int, db: Session = Depends(get_db)):
+    """Extract and return all available methods from the conversation's uploaded code"""
+
+    convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not convo.code:
+        raise HTTPException(status_code=400, detail="No code found in conversation")
+
+    try:
+        # Create a temporary file with the code
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
+            temp_file.write(convo.code)
+            temp_file_path = temp_file.name
+
+        try:
+            # Extract catalog from the file
+            catalog = extract_from_file(temp_file_path)
+
+            all_methods = {}
+
+            # Process each class in the catalog
+            for class_name, class_info in catalog.classes.items():
+                methods_list = []
+
+                for method in class_info.methods:
+                    methods_list.append({
+                        "name": method.name,
+                        "parameters": {
+                            param_name: str(param_type)
+                            for param_name, param_type in method.parameters.items()
+                        },
+                        "required_parameters": method.required_parameters,
+                        "return_type": str(method.return_type) if method.return_type else None,
+                        "docstring": method.docstring
+                    })
+
+                all_methods[class_name] = {
+                    "docstring": class_info.docstring,
+                    "methods": methods_list
+                }
+
+            return {
+                "success": True,
+                "file_name": convo.file_name,
+                "classes": all_methods,
+                "total_classes": len(all_methods)
+            }
+
+        finally:
+            # Clean up the temporary file
+            try:
+                os.unlink(temp_file_path)
+            except OSError:
+                pass
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error extracting methods: {str(e)}")

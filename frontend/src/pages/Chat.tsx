@@ -10,8 +10,8 @@ import UploadIcon from "../assets/upload_file.svg";
 import Voice from "../assets/voice.svg";
 import VoiceWhite from "../assets/voice-white.svg";
 import { useTheme } from "../theme/ThemeProvider";
-import { messageAPI } from "../services/api";
-import type { Message } from "../services/api";
+import { messageAPI, conversationAPI } from "../services/api";
+import type { Message, AvailableMethodsResponse } from "../services/api";
 
 import { analyzeAPI } from "../services/api";
 import { executeAPI } from "../services/api";
@@ -32,6 +32,7 @@ export default function Chat() {
     const { user } = useAuth();
 
     const [executionInfo, setExecutionInfo] = useState<any>(null);
+    const [availableMethods, setAvailableMethods] = useState<AvailableMethodsResponse | null>(null);
 
 
     useEffect(() => {
@@ -39,6 +40,7 @@ export default function Chat() {
     console.log("import.meta.env.VITE_API_BASE_URL", import.meta.env.VITE_API_BASE_URL)
         if (conversationId) {
             fetchMessages();
+            fetchAvailableMethods();
         }
     }, [conversationId]);
 
@@ -49,6 +51,16 @@ export default function Chat() {
             setMessages(msgs);
         } catch (err) {
             console.error("Failed to fetch messages:", err);
+        }
+    };
+
+    const fetchAvailableMethods = async () => {
+        if (!conversationId) return;
+        try {
+            const methods = await conversationAPI.getAvailableMethods(parseInt(conversationId));
+            setAvailableMethods(methods);
+        } catch (err) {
+            console.error("Failed to fetch available methods:", err);
         }
     };
 
@@ -181,10 +193,37 @@ const gotoRun = () => {
             {/* Top bar */}
             <Navbar />
 
-            {/* Chat panel */}
-            <main className="chat__panel">
-                {/* Scroll area with messages */}
-                <section className="chat__scroll">
+            {/* Chat panel with sidebar */}
+            <div className="chat__container">
+                {/* Left sidebar - Available Methods */}
+                {availableMethods && (
+                    <aside className="chat__sidebar">
+                        <h3 className="chat__sidebar-title">Available Methods</h3>
+                        <div className="chat__sidebar-content">
+                            {Object.entries(availableMethods.classes).map(([className, classInfo]) => (
+                                <div key={className} className="chat__methods-list">
+                                    {classInfo.methods.map((method) => {
+                                        const params = method.required_parameters.length > 0
+                                            ? method.required_parameters.join(", ")
+                                            : "";
+                                        const signature = `${method.name}(${params})`;
+
+                                        return (
+                                            <div key={method.name} className="chat__method-item">
+                                                <div className="chat__method-name">{signature}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    </aside>
+                )}
+
+                {/* Chat panel */}
+                <main className="chat__panel">
+                    {/* Scroll area with messages */}
+                    <section className="chat__scroll">
                     {messages.map((msg) => {
                         const isUser = msg.sender === "user";
                         const time = new Date(msg.timestamp).toLocaleTimeString('en-US', {
@@ -235,6 +274,7 @@ const gotoRun = () => {
                     })}
                 </section>
             </main>
+            </div>
 
             {/* Footer actions */}
             <footer className="chat__footer">
