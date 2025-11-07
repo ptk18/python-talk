@@ -111,7 +111,7 @@ export default function Chat() {
     }, 100);
 
     // Voice feedback: analyzing
-    speak("Analyzing your command");
+    // speak("Analyzing your command");
 
     // Analyze command
     const data = await analyzeAPI.analyzeCommand(Number(conversationId), msgText);
