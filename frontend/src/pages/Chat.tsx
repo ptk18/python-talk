@@ -260,6 +260,7 @@ const handleMicClick = async () => {
   if (!isRecording) {
     // --- Start Recording ---
     console.log("Starting recording...");
+      console.log("isRecording: ", isRecording);
     try {
       speak("Listening");
 
@@ -276,8 +277,8 @@ const handleMicClick = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
 
         // Stop mic input (VERY important!)
-        stream.getTracks().forEach(track => track.stop());
-        setMediaRecorder(null);
+        // stream.getTracks().forEach(track => track.stop());
+        // setMediaRecorder(null);
 
         try {
           speak("Processing your voice");
@@ -293,6 +294,8 @@ const handleMicClick = async () => {
 
           setMessage(text);
           if (!isChatActive) setIsChatActive(true);
+      console.log("2isRecording: ", isRecording);
+
         } catch (err: any) {
           console.error("Voice transcription error:", err);
           speak("Voice transcription error");
@@ -315,9 +318,12 @@ const handleMicClick = async () => {
     // --- Stop Recording ---
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       console.log("Stopping recording...");
+      console.log("isRecording: ", isRecording);
       mediaRecorder.stop();
     }
     setIsRecording(false);
+      console.log("2isRecording: ", isRecording);
+
   }
 };
 
@@ -434,11 +440,16 @@ const handleMicClick = async () => {
             {/* Chat input container (shown when chat is active) */}
             {isChatActive && (
                 <div className="chat__input-container">
-                    <img
-                        src={voiceIcon}
-                        alt="Start voice input"
-                        className="chat__mic chat__mic--small"
-                    />
+                    <div className={`chat__mic-wrapper ${isRecording ? "chat__mic-wrapper--recording" : ""}`}>
+                        <img
+                            src={voiceIcon}
+                            alt="Start voice input"
+                            className="chat__mic chat__mic--small"
+                            onClick={handleMicClick} // keep working
+                        />
+                        {isRecording && <div className="chat__mic-pulse"></div>}
+                    </div>
+
                     <form className="chat__input-form" onSubmit={handleSend}>
                         <input
                             type="text"
@@ -448,17 +459,12 @@ const handleMicClick = async () => {
                             onChange={(e) => setMessage(e.target.value)}
                             autoFocus
                         />
-                        <button
-                            type="submit"
-                            className="chat__send-btn"
-                        >
-                            Send
-                        </button>
+                        <button type="submit" className="chat__send-btn">Send</button>
                     </form>
                 </div>
             )}
 
-            {/* Floating voice button (shown when chat is inactive) */}
+            {/* Floating voice button (shown when chat is inactive)
             {!isChatActive && (
                 <div className={`chat__mic-wrapper ${isRecording ? "chat__mic-wrapper--recording" : ""}`}>
                     <img
@@ -469,7 +475,7 @@ const handleMicClick = async () => {
                     />
                     {isRecording && <div className="chat__mic-pulse"></div>}
                 </div>
-            )}
+            )} */}
         </div>
     );
 }
