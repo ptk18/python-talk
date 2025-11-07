@@ -259,6 +259,7 @@ const handleMicClick = async () => {
 
   if (!isRecording) {
     // --- Start Recording ---
+    console.log("Starting recording...");
     try {
       speak("Listening");
 
@@ -271,14 +272,16 @@ const handleMicClick = async () => {
       };
 
       recorder.onstop = async () => {
+        console.log("Recorder stopped");
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+
+        // Stop mic input (VERY important!)
+        stream.getTracks().forEach(track => track.stop());
+        setMediaRecorder(null);
 
         try {
           speak("Processing your voice");
-
-          // Use your unified voiceAPI function
           const result = await voiceAPI.transcribe(audioBlob as File, "en");
-
           const text = result.text || `[Error: ${result.error || "Unknown"}]`;
           console.log("Transcribed text:", text);
 
@@ -288,15 +291,8 @@ const handleMicClick = async () => {
             speak("Voice command received");
           }
 
-          // Instead of appendMessage or sendTypedMessage,
-          // just set the transcribed text into the chat input box
           setMessage(text);
-
-          // Optionally open the chat input if it's closed
           if (!isChatActive) setIsChatActive(true);
-
-          // The user can now see and edit the transcribed text
-          // then press Send (handleSend) to process it as usual.
         } catch (err: any) {
           console.error("Voice transcription error:", err);
           speak("Voice transcription error");
@@ -307,23 +303,23 @@ const handleMicClick = async () => {
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
-      console.log("🎙️ Recording started...");
+      console.log("Recording started...");
+
     } catch (err) {
       console.error("Microphone access denied:", err);
       speak("Microphone access denied");
       alert("Microphone access denied or unavailable.");
     }
+
   } else {
     // --- Stop Recording ---
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      console.log("Stopping recording...");
       mediaRecorder.stop();
-      console.log("Recording stopped.");
     }
     setIsRecording(false);
   }
 };
-
-
 
 
     return (
