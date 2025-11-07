@@ -420,60 +420,78 @@ const handleMicClick = async () => {
 
             {/* Footer with all actions and chat input */}
             <footer className={`chat__footer ${isChatActive ? "chat__footer--active" : ""}`}>
-              <div className="chat__actions">
-                <button className="btn btn--run" onClick={gotoRun}>
-                  Confirm
-                </button>
+              {!isChatActive ? (
+                <div className="chat__actions">
+                  <button className="btn btn--run" onClick={gotoRun}>
+                    Confirm
+                  </button>
 
-                <button
-                  className={`btn ${isChatActive ? "btn--active" : ""}`}
-                  onClick={handleChatToggle}
-                >
-                  Chat <img src={ChatIcon} alt="" />
-                </button>
+                  <button
+                    className={`btn ${isChatActive ? "btn--active" : ""}`}
+                    onClick={handleChatToggle}
+                  >
+                    Chat <img src={ChatIcon} alt="" />
+                  </button>
 
-                <button className="btn btn--upload">
-                  Upload File <img src={UploadIcon} alt="" />
-                </button>
-              </div>
+                  <button className="btn btn--upload">
+                    Upload File <img src={UploadIcon} alt="" />
+                  </button>
+                </div>
+              ) : (
+                <div className="chat__footer-inline">
+                  <div className="chat__actions">
+                    <button className="btn btn--run" onClick={gotoRun}>
+                      Confirm
+                    </button>
 
-              {/* Chat input (appears when chat is active) */}
-              {isChatActive && (
-                <div className="chat__input-container">
-                  {/* Unified mic button (works in both modes) */}
-                  <div className="chat__mic-wrapper">
-                    <div className={`chat__mic-inner ${isRecording ? "chat__mic-wrapper--recording" : ""}`}>
-                      <img
-                        src={voiceIcon}
-                        alt="Start voice input"
-                        className={`chat__mic ${isChatActive ? "chat__mic--small" : ""}`}
-                        onClick={handleMicClick}
-                      />
-                      {isRecording && <div className="chat__mic-pulse"></div>}
-                    </div>
+                    <button
+                      className={`btn ${isChatActive ? "btn--active" : ""}`}
+                      onClick={handleChatToggle}
+                    >
+                      Chat <img src={ChatIcon} alt="" />
+                    </button>
+
+                    <button className="btn btn--upload">
+                      Upload File <img src={UploadIcon} alt="" />
+                    </button>
                   </div>
 
-                  <form className="chat__input-form" onSubmit={handleSend}>
-                    <input
-                      type="text"
-                      className="chat__input"
-                      placeholder="Type your message..."
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      autoFocus
-                    />
-                    <button type="submit" className="chat__send-btn">
-                      Send
-                    </button>
-                  </form>
+                  <div className="chat__input-container">
+                    {/* Unified mic button (works in both modes) */}
+                    <div className="chat__mic-wrapper">
+                      <div className={`chat__mic-inner ${isRecording ? "chat__mic-inner--recording" : ""}`}>
+                        <img
+                          src={voiceIcon}
+                          alt="Start voice input"
+                          className={`chat__mic ${isChatActive ? "chat__mic--small" : ""}`}
+                          onClick={handleMicClick}
+                        />
+                        {isRecording && <div className="chat__mic-pulse"></div>}
+                      </div>
+                    </div>
+
+                    <form className="chat__input-form" onSubmit={handleSend}>
+                      <input
+                        type="text"
+                        className="chat__input"
+                        placeholder="Type your message..."
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        autoFocus
+                      />
+                      <button type="submit" className="chat__send-btn">
+                        Send
+                      </button>
+                    </form>
+                  </div>
                 </div>
               )}
             </footer>
 
             {/* Show floating mic only when chat is inactive */}
             {!isChatActive && (
-              <div className={`chat__mic-wrapper ${isRecording ? "chat__mic-wrapper--recording" : ""}`}>
-                <div className="chat__mic-inner">
+              <div className="chat__mic-wrapper">
+                <div className={`chat__mic-inner ${isRecording ? "chat__mic-inner--recording" : ""}`}>
                   <img
                     src={voiceIcon}
                     alt="Start voice input"
