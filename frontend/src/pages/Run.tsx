@@ -38,7 +38,8 @@ export default function Run() {
 
         console.log('Setting up WebSocket for turtle graphics...', { isTurtleCode, conversationId });
         
-        const wsUrl = `ws://192.168.4.228:5050/subscribe/${conversationId}`;
+        const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:5050';
+        const wsUrl = `${WS_BASE_URL}/subscribe/${conversationId}`;
         console.log('WebSocket URL:', wsUrl);
         
         const ws = new WebSocket(wsUrl);
