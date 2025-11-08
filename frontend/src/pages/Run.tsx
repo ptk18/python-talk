@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
+import { messageAPI, conversationAPI, executeAPI } from "../services/api";
 import "./styles/Run.css";
 import { speak } from "../utils/tts";
+import { API_BASE_URL } from "../config/api.ts"
+
 
 const DEFAULT_CODE = `# Write your Python code here
 def hello_world():
@@ -21,7 +23,8 @@ export default function Run() {
     const [isTurtleCode, setIsTurtleCode] = useState<boolean | null>(null);
     const [showTurtlePrompt, setShowTurtlePrompt] = useState(false);
     const [wsStatus, setWsStatus] = useState('disconnected');
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+    const API_BASE = "http://backend:3005/api";
+    
     const location = useLocation();
     const { conversationId: rawConversationId, executable, file_name } = location.state || {};
     
@@ -82,21 +85,24 @@ export default function Run() {
 
 
 useEffect(() => {
-    console.log("API_BASE", API_BASE)
+        console.log("API_BASE", API_BASE_URL)
+        console.log("import.meta.env.VITE_API_BASE_URL", import.meta.env.VITE_API_BASE_URL)
   const fetchCode = async () => {
     if (!conversationId) return;
 
     try {
-    //   const res = await fetch(`${API_BASE}/conversations/${conversationId}/single`);
-    //   const convo = await res.json();
-    //   setCode(convo.code);
-      const res = await fetch(`${API_BASE}/get_runner_code?conversation_id=${conversationId}`);
-      const convo = await res.json();
-      setCode(convo.code);
-    } catch (err) {
-      console.error("Failed to load conversation code:", err);
-      setCode("");
-    }
+  // Ensure the session is initialized first
+  await executeAPI.ensureSessionInitialized(parseInt(conversationId));
+
+  // Fetch the runner code from backend
+  const convo = await executeAPI.getRunnerCode(parseInt(conversationId));
+
+  // Update state with the received code
+  setCode(convo.code);
+} catch (err) {
+  console.error("Failed to load conversation code:", err);
+  setCode("");
+}
     // setOutput("placeholder")
 
 //     const res = await fetch(`${API_BASE}/rerun_command?conversation_id=${conversationId}`, {
@@ -118,16 +124,28 @@ setOutput("Output will appear here...");
         setOutput("Running turtle graphics...\n\n");
 
         try {
-            const res = await fetch(`${API_BASE}/run_turtle/${conversationId}`, {
-                method: "GET",
-                headers: { "Accept": "application/json" },
-            });
+            // Ensure the session exists first
+            await executeAPI.ensureSessionInitialized(parseInt(conversationId));
 
-            if (!res.ok) {
-                throw new Error(`Backend returned ${res.status}`);
+            const STREAM_DEVICE_IP = "192.168.4.228";
+            const STREAM_DEVICE_PORT = "8001";
+
+            const response = await fetch(
+                `http://${STREAM_DEVICE_IP}:${STREAM_DEVICE_PORT}/run_turtle/${conversationId}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ files: {} }), // empty or real file data
+                }
+            );
+
+            if (!response.ok) {
+            throw new Error(`Turtle device returned status ${response.status}`);
             }
 
-            const data = await res.json();
+
+            const data = await response.json().catch(() => ({}));
+            
             console.log("Turtle execute response:", data);
             setOutput("Turtle graphics execution completed.\n");
             speak("Your output is ready, Sir");
@@ -145,17 +163,10 @@ setOutput("Output will appear here...");
         setOutput("Running code...\n\n");
 
         try {
-            const res = await fetch(`${API_BASE}/rerun_command?conversation_id=${conversationId}`, {
-                method: "POST",
-                headers: { "Accept": "application/json" },
-            });
+            await executeAPI.ensureSessionInitialized(parseInt(conversationId));
 
-            if (!res.ok) {
-                throw new Error(`Backend returned ${res.status}`);
-            }
-
-            const data = await res.json();
-            console.log("Execute command response:", data);
+            // Re-run the command using the API wrapper
+            const data = await executeAPI.rerunCommand(parseInt(conversationId));
 
             // Show backend output (if available)
             if (data.output) {

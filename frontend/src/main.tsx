@@ -20,7 +20,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <AuthProvider>
       <ThemeProvider>
         <TTSProvider>
-          <BrowserRouter>
+          <BrowserRouter basename="/pytalk">
             <Routes>
               <Route path="/" element={<Login />} />
               <Route path="/login" element={<Login />} />

@@ -6,7 +6,16 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && \
-    apt-get install -y git build-essential curl ffmpeg espeak espeak-data libespeak1 libespeak-dev && \
+    apt-get install -y \
+        git \
+        build-essential \
+        curl \
+        ffmpeg \
+        espeak \
+        espeak-data \
+        libespeak1 \
+        libespeak-dev \
+        python3-tk && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install

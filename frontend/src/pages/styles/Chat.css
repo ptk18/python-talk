@@ -440,7 +440,8 @@ html[data-theme="dark"] .chat__copy-btn:hover {
 /* Floating voice button (SVG image) */
 .chat__mic {
   position: relative;
-  width: 110px;
+  top: 10px;
+  width: 80px;
   height: auto;
   /* voice.svg is a round button asset */
   filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .25));

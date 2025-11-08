@@ -9,6 +9,9 @@ router = APIRouter(tags=["Turtle Execute"])
 STREAM_DEVICE_IP = "192.168.4.228"
 STREAM_DEVICE_PORT = "8001"
 
+# STREAM_DEVICE_IP = "localhost"
+# STREAM_DEVICE_PORT = "8001"
+
 BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
 
 @router.get("/run_turtle/{conversation_id}")
@@ -83,7 +86,7 @@ async def run_turtle(conversation_id: int):
         # Send all files to streaming device
         stream_device_url = f"http://{STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}/run_turtle/{conversation_id}"
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(
                 stream_device_url,
                 json={"files": files}

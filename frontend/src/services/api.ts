@@ -273,7 +273,7 @@ export const executeAPI = {
 
   rerunCommand: async (conversation_id: number): Promise<ExecuteCommandResponse> => {
     const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
-    return apiCall(`/api/rerun_command?${params}`, {
+    return apiCall(`/rerun_command?${params}`, {
       method: "POST",
     });
   },
@@ -307,7 +307,7 @@ export const executeAPI = {
       // Try to get runner code - if it exists, session is initialized
       const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
       await apiCall(`/get_runner_code?${params}`, { method: "GET" });
-      await apiCall(`/get_runner_code?${params}`, { method: "GET" });
+      // await apiCall(`/get_runner_code?${params}`, { method: "GET" });
       return true; // Session exists
     } catch (error: any) {
       // If 404, session doesn't exist - initialize it with a dummy command
@@ -328,6 +328,7 @@ export const executeAPI = {
       return false;
     }
   },
+
 };
 
 // User Profile types

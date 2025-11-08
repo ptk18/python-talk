@@ -61,7 +61,7 @@ export default function Chat() {
         if (!conversationId) return;
         try {
             // Ensure session is initialized before fetching other data
-            await executeAPI.ensureSessionInitialized(parseInt(conversationId));
+            // await executeAPI.ensureSessionInitialized(parseInt(conversationId));
             // Now fetch messages and methods
             await fetchMessages();
             await fetchAvailableMethods();

@@ -1,7 +1,10 @@
 // Use environment variable or fallback to relative URL
 // In local dev: VITE_API_BASE_URL=http://localhost:3005/api
 // In Docker: uses relative "/api" proxied by nginx
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+// export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+// export const API_BASE_URL = "https://turing.se.kmitl.ac.th/pytalk"; 
+export const API_BASE_URL = "https://turing.se.kmitl.ac.th/pytalk/api";
+
 
 // export const API_ENDPOINTS = {
 //   AUTH: {
