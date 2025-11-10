@@ -1,0 +1,21 @@
+# Caddyfile for streaming device (192.168.4.228)
+# Deploy this file to the streaming device at /etc/caddy/Caddyfile or ~/Caddyfile
+
+stream.se.kmitl.ac.th {
+    # WebSocket routes - proxy to stream_server.py on port 5050
+    @websocket {
+        path /publish/*
+        path /subscribe/*
+    }
+
+    reverse_proxy @websocket localhost:5050
+
+    # Optional: HTTP API routes if the device runs other endpoints
+    reverse_proxy /run_turtle/* localhost:8001
+
+    # Enable logging
+    log {
+        output file /var/log/caddy/stream.log
+        format json
+    }
+}
