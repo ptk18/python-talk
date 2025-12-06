@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useRef } from "react";
 
-
 import "./styles/Run.css";
 import { speak } from "../utils/tts";
+import MonacoEditor from "../components/MonacoEditor";
 
 const DEFAULT_CODE = `# Write your Python code here
 def hello_world():
@@ -445,13 +445,13 @@ const handleRunTurtle = async () => {
                                 </svg>
                             </button>
                         </div>
-                        <textarea
-                            className="run__editor"
-                            value={code}
-                            onChange={(e) => setCode(e.target.value)}
-                            placeholder="Enter your Python code here..."
-                            spellCheck={false}
-                        />
+                        <div style={{ height: 'calc(100% - 50px)', width: '100%' }}>
+                            <MonacoEditor
+                                code={code}
+                                onChange={(value) => setCode(value || "")}
+                                language="python"
+                            />
+                        </div>
                     </div>
                 </section>
 

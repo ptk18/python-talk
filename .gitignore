@@ -8,3 +8,4 @@ __pycache__/
 backend/hf_cache/
 *.pt
 *.incomplete
+plans/

@@ -89,8 +89,12 @@ export default function HomeReal() {
         }
     };
 
-    const handleConversationClick = (convId: number) => {
-        navigate(`/chat?conversationId=${convId}`);
+    const handleConversationClick = (convId: number, useWorkspace = false) => {
+        if (useWorkspace) {
+            navigate(`/workspace?conversationId=${convId}`);
+        } else {
+            navigate(`/chat?conversationId=${convId}`);
+        }
     };
 
     const filteredConversations = conversations.filter(conv =>
@@ -150,11 +154,29 @@ export default function HomeReal() {
                         <div
                             key={conv.id}
                             className="homeReal__row"
-                            onClick={() => handleConversationClick(conv.id)}
-                            style={{ cursor: "pointer", padding: "12px" }}
+                            style={{ cursor: "pointer", padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
                         >
-                            <strong>{conv.title}</strong><br />
-                            <small>File: {conv.file_name || 'N/A'}</small>
+                            <div onClick={() => handleConversationClick(conv.id)}>
+                                <strong>{conv.title}</strong><br />
+                                <small>File: {conv.file_name || 'N/A'}</small>
+                            </div>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleConversationClick(conv.id, true);
+                                }}
+                                style={{
+                                    padding: "6px 12px",
+                                    background: "#007bff",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "4px",
+                                    cursor: "pointer",
+                                    fontSize: "12px"
+                                }}
+                            >
+                                Open Workspace
+                            </button>
                         </div>
                     ))}
                 </div>

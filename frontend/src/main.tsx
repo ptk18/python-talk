@@ -9,29 +9,34 @@ import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Setting from "./pages/Setting";
 import Run from "./pages/Run";
+import Workspace from "./pages/Workspace";
 import "./index.css";
 
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { TTSProvider } from "./context/TTSContext";
+import { CodeProvider } from "./context/CodeContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>
       <ThemeProvider>
         <TTSProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Login />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/homeReal" element={<HomeReal />} />
-              <Route path="/chat" element={<Chat />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/setting" element={<Setting />} />
-              <Route path="/run" element={<Run />} />
-            </Routes>
-          </BrowserRouter>
+          <CodeProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Login />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/homeReal" element={<HomeReal />} />
+                <Route path="/chat" element={<Chat />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/setting" element={<Setting />} />
+                <Route path="/run" element={<Run />} />
+                <Route path="/workspace" element={<Workspace />} />
+              </Routes>
+            </BrowserRouter>
+          </CodeProvider>
         </TTSProvider>
       </ThemeProvider>
     </AuthProvider>

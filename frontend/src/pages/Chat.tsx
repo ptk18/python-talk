@@ -17,6 +17,7 @@ import { analyzeAPI, voiceAPI } from "../services/api";
 // import type { analyzeAPI } from "../services/api";
 
 import { useAuth } from "../context/AuthContext";
+import { useCode } from "../context/CodeContext";
 import { API_BASE_URL } from "../config/api.ts"
 import { speak, getGreeting } from "../utils/tts";
 
@@ -35,6 +36,7 @@ export default function Chat() {
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
     const audioChunks = useRef<BlobPart[]>([]);
     const { user } = useAuth();
+    const { syncCodeFromBackend, setConversationId } = useCode();
 
     const [executionInfo, setExecutionInfo] = useState<any>(null);
     const [availableMethods, setAvailableMethods] = useState<AvailableMethodsResponse | null>(null);
@@ -45,10 +47,12 @@ export default function Chat() {
     console.log("API_BASE", API_BASE_URL)
     console.log("import.meta.env.VITE_API_BASE_URL", import.meta.env.VITE_API_BASE_URL)
         if (conversationId) {
+            // Set conversationId in CodeContext
+            setConversationId(parseInt(conversationId));
             // Initialize session first, then fetch data
             initializeSession();
         }
-    }, [conversationId]);
+    }, [conversationId, setConversationId]);
 
     useEffect(() => {
         if (conversationId && !hasGreeted) {
@@ -164,6 +168,9 @@ export default function Chat() {
           executable
         );
         console.log("Append result:", appendData);
+
+        // Sync code from backend to update global state
+        await syncCodeFromBackend();
 
         await messageAPI.create(
           parseInt(conversationId),
