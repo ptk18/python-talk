@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useRef } from "react";
+
 
 import "./styles/Run.css";
 import { speak } from "../utils/tts";
@@ -27,6 +29,8 @@ export default function Run() {
     
     // Use provided conversationId or fallback to "test123" for testing
     const conversationId = rawConversationId || "test123";
+    const turtleWsRef = useRef<WebSocket | null>(null);
+
 
     useEffect(() => {
   console.log("Run.tsx received:", { conversationId, executable, file_name });
@@ -114,32 +118,106 @@ setOutput("Output will appear here...");
 
 
 
-    const handleRunTurtle = async () => {
-        setIsRunning(true);
-        setOutput("Running turtle graphics...\n\n");
+const handleRunTurtle = async () => {
+    setIsRunning(true);
+    setOutput("Running turtle graphics...\n\n");
 
-        try {
-            const res = await fetch(`${API_BASE}/run_turtle/${conversationId}`, {
-                method: "GET",
-                headers: { "Accept": "application/json" },
-            });
+    const hostname = window.location.hostname;
 
-            if (!res.ok) {
-                throw new Error(`Backend returned ${res.status}`);
-            }
+    const apiBase =
+        // import.meta.env.VITE_API_BASE_URL ||
+        `http://192.168.4.228:8001`;
 
-            const data = await res.json();
-            console.log("Turtle execute response:", data);
-            setOutput("Turtle graphics execution completed.\n");
-            speak("Your output is ready, Sir");
-        } catch (err) {
-            console.error("Failed to execute turtle graphics:", err);
-            setOutput("Error executing turtle graphics.\n");
-            speak("Please try again");
-        } finally {
-            setIsRunning(false);
+    const rawWsBase =
+        // import.meta.env.VITE_WS_BASE_URL ||
+        `ws://192.168.4.228:5050`; // or 5000 if your stream server runs there
+
+    const wsBase = rawWsBase
+        .replace("localhost", hostname)
+        .replace("127.0.0.1", hostname);
+
+    try {
+       const getRes = await fetch(
+            `${API_BASE}/get_runner_code?conversation_id=${conversationId}`,
+            { headers: { Accept: "application/json" } }
+        );
+
+        if (!getRes.ok) {
+            const text = await getRes.text();
+            throw new Error(`Failed to fetch runner code: ${text}`);
         }
-    };
+
+        const { code } = await getRes.json();
+        console.log("Runner code fetched:", code);
+
+        const payload = {
+        files: {
+            "runner.py": code, // filename MUST match exactly
+        },
+        };
+
+        const res = await fetch(`${apiBase}/run_turtle/${conversationId}`, {
+        method: "POST",
+        headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`Backend returned ${res.status}: ${errorText}`);
+        }
+
+        const data = await res.json();
+        console.log("Turtle execute response:", data);
+
+        setOutput("Turtle graphics execution triggered on streaming device.\n");
+        speak("Your turtle graphics are running, Sir");
+
+        if (
+            turtleWsRef.current &&
+            turtleWsRef.current.readyState === WebSocket.OPEN
+        ) {
+            turtleWsRef.current.close();
+        }
+
+        const channelName = encodeURIComponent(String(conversationId));
+        const ws = new WebSocket(`${wsBase}/subscribe/${channelName}`);
+        turtleWsRef.current = ws;
+
+        ws.onopen = () => {
+            console.log("Turtle WebSocket connected");
+        };
+
+        ws.onmessage = (event) => {
+            const image = event.data; // base64 string (JPEG)
+            const videoEl = document.getElementById("video") as HTMLImageElement | null;
+
+            if (videoEl) {
+                videoEl.src = `data:image/jpeg;base64,${image}`;
+            } else {
+                console.warn("Element with id='video' not found");
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error("Turtle WebSocket error:", err);
+        };
+
+        ws.onclose = () => {
+            console.log("Turtle WebSocket closed");
+        };
+    } catch (err) {
+        console.error("Failed to execute turtle graphics:", err);
+        setOutput("Error executing turtle graphics.\n");
+        speak("Please try again");
+    } finally {
+        setIsRunning(false);
+    }
+};
+
 
     const handleRunNormalCode = async () => {
         setIsRunning(true);

@@ -14,101 +14,121 @@ BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
 @router.get("/run_turtle/{conversation_id}")
 async def run_turtle(conversation_id: int):
     """
-    Send the conversation's runner.py and all Python files from session directory to streaming device.
-    The device at 192.168.4.228 will execute the code and stream via WebSocket.
+    Collect Python files for this conversation (if any) + fetch runner.py via get_runner_code,
+    then send them as { "files": { filename: content } } to the streaming device.
     """
     try:
-        # Get the session directory
-        session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
-        runner_path = os.path.join(session_dir, "runner.py")
-
-        if not os.path.exists(runner_path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"runner.py not found for conversation {conversation_id}. Run /execute_command first."
-            )
-
-        # Read all Python files from the session directory
-        files = {}
+        files: dict[str, str] = {}
         is_turtle_code = False
 
-        for filename in os.listdir(session_dir):
-            if filename.endswith('.py'):
-                file_path = os.path.join(session_dir, filename)
-                with open(file_path, 'r') as f:
-                    content = f.read()
+        # 1️⃣ Optional: collect any extra .py files from session directory
+        session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+        if os.path.isdir(session_dir):
+            for filename in os.listdir(session_dir):
+                if filename.endswith(".py"):
+                    file_path = os.path.join(session_dir, filename)
+                    with open(file_path, "r") as f:
+                        content = f.read()
 
-                    # Check if this is turtle code
+                    # detect turtle usage
                     if "turtle.Screen()" in content or "import turtle" in content:
                         is_turtle_code = True
 
-                    # Override screen.setup() calls in any Python file to match streaming region
+                    # normalize screen.setup for streaming (non-runner files)
                     if is_turtle_code and filename != "runner.py":
-                        # Replace any screen.setup() calls with our streaming-friendly settings
-                        import re
-                        # Match patterns like: screen.setup(...) or self.screen.setup(...)
                         content = re.sub(
-                            r'(self\.screen|screen)\.setup\([^)]*\)',
-                            r'\1.setup(800, 800, 50, 50)',
-                            content
+                            r"(self\.screen|screen)\.setup\([^)]*\)",
+                            r"\1.setup(800, 800, 50, 50)",
+                            content,
                         )
-                        # Also ensure screensize is set after setup if not present
-                        if 'screensize' not in content and 'self.screen.setup' in content:
+                        if "screensize" not in content and "self.screen.setup" in content:
                             content = re.sub(
-                                r'(self\.screen\.setup\(800, 800, 50, 50\))',
-                                r'\1\n        self.screen.screensize(700, 700)',
-                                content
+                                r"(self\.screen\.setup\(800, 800, 50, 50\))",
+                                r"\1\n        self.screen.screensize(700, 700)",
+                                content,
                             )
-
-                    # If this is runner.py for turtle code, add keep-alive mechanism
-                    if filename == "runner.py" and is_turtle_code:
-                        # Check if it needs a keep-alive mechanism
-                        if "exitonclick()" not in content and \
-                           "done()" not in content and \
-                           "mainloop()" not in content and \
-                           "time.sleep" not in content:
-                            # Add a delay to keep the window open for streaming
-                            if "import time" not in content:
-                                content = "import time\n" + content
-                            content = content.rstrip() + "\ntime.sleep(120)  # Keep window open for streaming (2 minutes)\n"
 
                     files[filename] = content
 
-        if not files:
+        # 2️⃣ Always fetch runner.py from get_runner_code
+        get_runner_url = f"{CODE_API_BASE}/get_runner_code"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(get_runner_url, params={"conversation_id": conversation_id})
+
+        if resp.status_code != 200:
             raise HTTPException(
-                status_code=404,
-                detail=f"No Python files found in session {conversation_id}"
+                status_code=resp.status_code,
+                detail=f"Failed to fetch runner code: {resp.text}",
             )
 
-        # Send all files to streaming device
+        data = resp.json()
+        runner_code = data.get("code")
+        if not runner_code:
+            raise HTTPException(
+                status_code=400,
+                detail="get_runner_code response missing 'code'",
+            )
+
+        # mark that we have turtle code
+        if "turtle" in runner_code:
+            is_turtle_code = True
+
+        # 2.1️⃣ Optionally ensure keep-alive for turtle window
+        if is_turtle_code:
+            if (
+                "exitonclick()" not in runner_code
+                and "done()" not in runner_code
+                and "mainloop()" not in runner_code
+                and "time.sleep" not in runner_code
+            ):
+                if "import time" not in runner_code:
+                    runner_code = "import time\n" + runner_code
+                runner_code = runner_code.rstrip() + "\n" \
+                    "time.sleep(120)  # Keep window open for streaming (2 minutes)\n"
+
+        # put into files dict as runner.py (this is what streaming server expects)
+        files["runner.py"] = runner_code
+
+        # 3️⃣ Validate
+        if "runner.py" not in files:
+            raise HTTPException(
+                status_code=400,
+                detail="runner.py not prepared for streaming device",
+            )
+
+        # 4️⃣ Send to streaming device
         stream_device_url = f"http://{STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}/run_turtle/{conversation_id}"
 
         async with httpx.AsyncClient(timeout=60.0) as client:
+            print(">>> Calling stream device:", stream_device_url, flush=True)
             response = await client.post(
                 stream_device_url,
-                json={"files": files}
+                json={"files": files},  # ✅ matches TurtleCodeRequest on streaming server
             )
 
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Stream device returned error: {response.text}"
-                )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Stream device returned error: {response.text}",
+            )
 
-            result = response.json()
-            return {
-                "result": "Turtle execution triggered on streaming device",
-                "conversation_id": conversation_id,
-                "device_response": result
-            }
+        result = response.json()
+        return {
+            "result": "Turtle execution triggered on streaming device",
+            "conversation_id": conversation_id,
+            "device_response": result,
+        }
 
     except httpx.RequestError as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Could not connect to streaming device at {STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}. Error: {str(e)}"
+            detail=f"Could not connect to streaming device at {STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}. Error: {str(e)}",
         )
+    except HTTPException:
+        # passthrough explicit HTTPExceptions
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to trigger turtle graphics: {str(e)}"
+            detail=f"Failed to trigger turtle graphics: {str(e)}",
         )
