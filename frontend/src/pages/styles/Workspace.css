@@ -54,7 +54,6 @@ html, body {
   min-width: 280px;
   width: 280px;
   flex-shrink: 0;
-  height: 100%;
   position: relative;
 }
 
@@ -254,8 +253,9 @@ html, body {
 .workspace__mic {
   width: 28px;
   height: 28px;
-  filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+  color: white;
   transition: all 0.2s ease;
+  pointer-events: none;
 }
 
 .workspace__mic-inner:active {
@@ -342,7 +342,7 @@ html, body {
 }
 
 .workspace__editor-section {
-  flex: 3;
+  flex: 1;
   background: var(--pytalk-white);
   border-radius: var(--pytalk-radius);
   display: flex;
@@ -400,6 +400,58 @@ html, body {
   cursor: not-allowed;
 }
 
+/* Icon buttons (undo, redo, save, run) */
+.workspace__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--pytalk-deep);
+  background: var(--pytalk-white);
+  color: var(--pytalk-deep);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.workspace__icon-btn:hover:not(:disabled) {
+  background: #f2f6f3;
+  transform: translateY(-1px);
+}
+
+.workspace__icon-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.workspace__icon-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.workspace__icon-btn--primary {
+  background: #2196F3;
+  border-color: #2196F3;
+  color: var(--pytalk-white);
+}
+
+.workspace__icon-btn--primary:hover:not(:disabled) {
+  background: #1976D2;
+  border-color: #1976D2;
+}
+
+.workspace__icon-btn--success {
+  background: var(--pytalk-deep);
+  border-color: var(--pytalk-deep);
+  color: var(--pytalk-white);
+}
+
+.workspace__icon-btn--success:hover:not(:disabled) {
+  background: #0f3d1e;
+  border-color: #0f3d1e;
+}
+
 .workspace__editor-wrapper {
   flex: 1;
   overflow: hidden;
@@ -409,7 +461,7 @@ html, body {
 }
 
 .workspace__output-section {
-  flex: 2;
+  flex: 1;
   background: var(--pytalk-white);
   border-radius: var(--pytalk-radius);
   display: flex;

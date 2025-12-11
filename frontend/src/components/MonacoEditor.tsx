@@ -1,5 +1,6 @@
 import { Editor } from '@monaco-editor/react';
 import { useTheme } from '../theme/ThemeProvider';
+import { useRef, useImperativeHandle, forwardRef } from 'react';
 
 interface MonacoEditorProps {
   code: string;
@@ -9,14 +10,37 @@ interface MonacoEditorProps {
   height?: string;
 }
 
-export default function MonacoEditor({
+export interface MonacoEditorRef {
+  undo: () => void;
+  redo: () => void;
+  getValue: () => string | undefined;
+}
+
+const MonacoEditor = forwardRef<MonacoEditorRef, MonacoEditorProps>(({
   code,
   onChange,
   language = 'python',
   readOnly = false,
   height = '100%'
-}: MonacoEditorProps) {
+}, ref) => {
   const { theme } = useTheme();
+  const editorRef = useRef<any>(null);
+
+  useImperativeHandle(ref, () => ({
+    undo: () => {
+      editorRef.current?.trigger('keyboard', 'undo', null);
+    },
+    redo: () => {
+      editorRef.current?.trigger('keyboard', 'redo', null);
+    },
+    getValue: () => {
+      return editorRef.current?.getValue();
+    }
+  }));
+
+  const handleEditorDidMount = (editor: any) => {
+    editorRef.current = editor;
+  };
 
   return (
     <Editor
@@ -25,6 +49,7 @@ export default function MonacoEditor({
       theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
       value={code}
       onChange={onChange}
+      onMount={handleEditorDidMount}
       options={{
         readOnly,
         minimap: { enabled: true },
@@ -40,4 +65,9 @@ export default function MonacoEditor({
       }}
     />
   );
-}
+});
+
+MonacoEditor.displayName = 'MonacoEditor';
+
+export default MonacoEditor;
+export type { MonacoEditorRef };

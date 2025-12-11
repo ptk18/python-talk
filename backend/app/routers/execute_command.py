@@ -208,3 +208,64 @@ def get_runner_code(conversation_id: int = Query(..., description="Conversation 
         return {"conversation_id": conversation_id, "code": code}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read runner.py: {str(e)}")
+
+@router.get("/get_session_files")
+def get_session_files(conversation_id: int = Query(..., description="Conversation ID to get all session files")):
+    """
+    Fetch all Python files from the session directory for a given conversation_id.
+    Returns a dict mapping filename to file content.
+    """
+    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+
+    if not os.path.exists(session_dir):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session directory not found for conversation {conversation_id}."
+        )
+
+    try:
+        files = {}
+        for filename in os.listdir(session_dir):
+            if filename.endswith('.py'):
+                file_path = os.path.join(session_dir, filename)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    files[filename] = f.read()
+
+        if not files:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No Python files found in session {conversation_id}."
+            )
+
+        return {"conversation_id": conversation_id, "files": files}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read session files: {str(e)}")
+
+@router.post("/save_runner_code")
+def save_runner_code(request: dict):
+    """
+    Save edited runner.py code for a given conversation_id.
+    """
+    conversation_id = request.get("conversation_id")
+    code = request.get("code")
+
+    if not conversation_id:
+        raise HTTPException(status_code=400, detail="conversation_id is required")
+
+    if code is None:
+        raise HTTPException(status_code=400, detail="code is required")
+
+    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+    runner_path = os.path.join(session_dir, "runner.py")
+
+    if not os.path.exists(session_dir):
+        os.makedirs(session_dir, exist_ok=True)
+
+    try:
+        with open(runner_path, "w", encoding="utf-8") as f:
+            f.write(code)
+        return {"message": "Code saved successfully", "conversation_id": conversation_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save runner.py: {str(e)}")

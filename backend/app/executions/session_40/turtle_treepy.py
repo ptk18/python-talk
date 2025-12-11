@@ -20,8 +20,7 @@ class TurtleTree:
 
     def setup_screen(self):
         self.screen = turtle.Screen()
-        self.screen.setup(800, 800, 50, 50)
-        self.screen.screensize(700, 700)
+        self.screen.setup(width=self.width, height=self.height)
         self.screen.bgcolor(self.background)
         self.screen.title("Turtle Canvas")
 

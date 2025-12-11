@@ -32,8 +32,8 @@ export default function Signup() {
     setError("");
 
     try {
-      // Call FastAPI /users endpoint
-      const res = await api.post("/users/", {
+      // Call FastAPI /api/users endpoint
+      const res = await api.post("/api/users/", {
         username: form.username,
         password: form.password,
         gender: form.gender,

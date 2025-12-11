@@ -21,7 +21,7 @@ RUN python -m spacy download en_core_web_sm
 COPY . .
 
 # Expose FastAPI port
-EXPOSE 3005
+EXPOSE 8000
 
 # Run FastAPI with uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3005"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -3,7 +3,7 @@ services:
     build: ./backend
     platform: linux/amd64
     ports:
-      - "3005:3005"
+      - "8000:8000"
     volumes:
       - ./backend:/app
     networks:
@@ -13,7 +13,7 @@ services:
     build: ./frontend
     platform: linux/amd64
     ports:
-      - "1643:1643"
+      - "5173:5173"
     depends_on:
       - backend
     networks:

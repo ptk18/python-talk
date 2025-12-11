@@ -40,18 +40,18 @@ export interface AvailableMethodsResponse {
 }
 
 export const conversationAPI = {
-  // GET /conversations/:userId
+  // GET /api/conversations/:userId
   async getByUser(userId: number): Promise<Conversation[]> {
-    const res = await fetch(`${API_BASE_URL}/conversations/${userId}`);
+    const res = await fetch(`${API_BASE_URL}/api/conversations/${userId}`);
     if (!res.ok) {
       throw new Error(`Failed to fetch conversations: ${res.statusText}`);
     }
     return await res.json();
   },
 
-  // POST /conversations/:userId
+  // POST /api/conversations/:userId
   create: async (userId: number, data: any) => {
-    const res = await fetch(`${API_BASE_URL}/conversations/${userId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/conversations/${userId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -60,9 +60,9 @@ export const conversationAPI = {
     return res.json();
   },
 
-  // GET /conversations/:conversationId/available_methods
+  // GET /api/conversations/:conversationId/available_methods
   async getAvailableMethods(conversationId: number): Promise<AvailableMethodsResponse> {
-    return apiCall(`/conversations/${conversationId}/available_methods`);
+    return apiCall(`/api/conversations/${conversationId}/available_methods`);
   },
 };
 
@@ -158,13 +158,13 @@ export const messageAPI = {
       content,
     });
 
-    return apiCall(`/messages/${conversationId}?${params}`, {
+    return apiCall(`/api/messages/${conversationId}?${params}`, {
       method: 'POST',
     });
   },
 
   getByConversation: async (conversationId: number): Promise<Message[]> => {
-    return apiCall(`/messages/${conversationId}`);
+    return apiCall(`/api/messages/${conversationId}`);
   },
 };
 
@@ -191,7 +191,7 @@ export const voiceAPI = {
     formData.append("file", audioFile);
     formData.append("language", language);
 
-    const response = await fetch(`${API_BASE_URL}/voice/transcribe`, {
+    const response = await fetch(`${API_BASE_URL}/api/voice/transcribe`, {
       method: "POST",
       body: formData, // No content-type header; browser handles it
     });
@@ -221,7 +221,7 @@ export interface AnalyzeCommandRequest {
 // Analyze Command API functions
 export const analyzeAPI = {
   analyzeCommand: async (conversation_id: number, command: string): Promise<AnalyzeCommandResponse> => {
-    return apiCall(`/analyze_command`, {
+    return apiCall(`/api/analyze_command`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -259,7 +259,7 @@ export const executeAPI = {
     conversation_id: number,
     executable: string
   ): Promise<ExecuteCommandResponse> => {
-    return apiCall(`/execute_command`, {
+    return apiCall(`/api/execute_command`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -282,7 +282,7 @@ export const executeAPI = {
     conversation_id: number,
     executable: string
   ): Promise<AppendCommandResponse> => {
-    return apiCall(`/append_command`, {
+    return apiCall(`/api/append_command`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -296,7 +296,7 @@ export const executeAPI = {
 
   getRunnerCode: async (conversation_id: number): Promise<GetRunnerCodeResponse> => {
     const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
-    return apiCall(`/get_runner_code?${params}`, {
+    return apiCall(`/api/get_runner_code?${params}`, {
       method: "GET",
     });
   },
@@ -306,8 +306,8 @@ export const executeAPI = {
     try {
       // Try to get runner code - if it exists, session is initialized
       const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
-      await apiCall(`/get_runner_code?${params}`, { method: "GET" });
-      await apiCall(`/get_runner_code?${params}`, { method: "GET" });
+      await apiCall(`/api/get_runner_code?${params}`, { method: "GET" });
+      await apiCall(`/api/get_runner_code?${params}`, { method: "GET" });
       return true; // Session exists
     } catch (error: any) {
       // If 404, session doesn't exist - initialize it with a dummy command
@@ -355,13 +355,13 @@ export interface UserProfileUpdate {
 // User Profile API functions
 export const userAPI = {
   getProfile: async (userId: number): Promise<UserProfile> => {
-    return apiCall(`/users/${userId}`, {
+    return apiCall(`/api/users/${userId}`, {
       method: 'GET',
     });
   },
 
   updateProfile: async (userId: number, data: UserProfileUpdate): Promise<UserProfile> => {
-    return apiCall(`/users/${userId}`, {
+    return apiCall(`/api/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });

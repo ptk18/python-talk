@@ -9,3 +9,4 @@ backend/hf_cache/
 *.pt
 *.incomplete
 plans/
+google-credentials.json

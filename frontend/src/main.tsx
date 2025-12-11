@@ -5,10 +5,8 @@ import Login from "./pages/Login.tsx"; // adjust path if needed
 // import Home from "./pages/Home";
 import HomeReal from "./pages/HomeReal";
 import Signup from "./pages/Signup";
-import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Setting from "./pages/Setting";
-import Run from "./pages/Run";
 import Workspace from "./pages/Workspace";
 import "./index.css";
 
@@ -29,11 +27,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/homeReal" element={<HomeReal />} />
-                <Route path="/chat" element={<Chat />} />
+                <Route path="/workspace" element={<Workspace />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/setting" element={<Setting />} />
-                <Route path="/run" element={<Run />} />
-                <Route path="/workspace" element={<Workspace />} />
               </Routes>
             </BrowserRouter>
           </CodeProvider>

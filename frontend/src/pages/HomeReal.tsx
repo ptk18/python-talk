@@ -89,12 +89,8 @@ export default function HomeReal() {
         }
     };
 
-    const handleConversationClick = (convId: number, useWorkspace = false) => {
-        if (useWorkspace) {
-            navigate(`/workspace?conversationId=${convId}`);
-        } else {
-            navigate(`/chat?conversationId=${convId}`);
-        }
+    const handleConversationClick = (convId: number) => {
+        navigate(`/workspace?conversationId=${convId}`);
     };
 
     const filteredConversations = conversations.filter(conv =>
