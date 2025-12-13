@@ -59,8 +59,8 @@
     width: 86%;
     max-width: 1600px;
     margin: 45px auto 18px;
-    display: grid;
-    grid-template-columns: minmax(300px, 1fr) auto auto;
+    display: flex;
+    flex-wrap: nowrap;
     gap: 18px;
     align-items: center;
 }
@@ -68,8 +68,8 @@
 .homeReal__titleWrapper {
     display: flex;
     align-items: center;
-    width: 100%;
-    min-width: 0;
+    flex: 1;
+    min-width: 250px;
     height: 48px;
     border-radius: 8px;
     background: #e8eee9;
@@ -113,6 +113,8 @@
     gap: 10px;
     cursor: pointer;
     box-shadow: 0 2px 0 rgba(0, 0, 0, .06);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .homeReal__btn img {
@@ -133,10 +135,9 @@
     border-radius: var(--panelRadius);
     box-shadow: var(--shadow);
     padding: 26px;
-    height: 560px;
-    /* match other pages’ inner panel height */
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 /* Search */
@@ -146,6 +147,7 @@
     justify-content: center;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
 }
 
 .homeReal__search {
@@ -189,21 +191,74 @@
     color: #9aa19e;
 }
 
-/* Rows (faint separators) */
-/* .homeReal__list {
+/* Conversation list - scrollable */
+.homeReal__list {
     margin-top: 8px;
     border-radius: 8px;
-    overflow: hidden;
+    overflow-y: auto;
+    flex: 1;
 }
 
 .homeReal__row {
-    height: 72px;
+    min-height: 72px;
     border-bottom: 1.2px solid rgba(0, 0, 0, .06);
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
 }
 
 .homeReal__row:last-child {
     border-bottom: none;
-} */
+}
+
+.homeReal__row-content {
+    flex: 1;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.homeReal__row-content:hover {
+    opacity: 0.8;
+}
+
+.homeReal__row-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.homeReal__icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1.5px solid #e7e7e7;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--deep);
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s ease;
+}
+
+.homeReal__icon-btn:hover {
+    background: #f5f7f6;
+    border-color: var(--deep);
+}
+
+.homeReal__icon-btn--delete:hover {
+    background: #fee;
+    border-color: #d33;
+    color: #d33;
+}
+
+.homeReal__icon-btn:active {
+    transform: scale(0.97);
+}
 
 /* Small tweaks for narrower windows */
 @media (max-width:1280px) {

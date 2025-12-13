@@ -269,3 +269,130 @@ def save_runner_code(request: dict):
         return {"message": "Code saved successfully", "conversation_id": conversation_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save runner.py: {str(e)}")
+
+@router.post("/save_file")
+def save_file(request: dict):
+    """
+    Save any file in the conversation session directory.
+    """
+    conversation_id = request.get("conversation_id")
+    filename = request.get("filename")
+    code = request.get("code")
+
+    if not conversation_id:
+        raise HTTPException(status_code=400, detail="conversation_id is required")
+    
+    if not filename:
+        raise HTTPException(status_code=400, detail="filename is required")
+
+    if code is None:
+        raise HTTPException(status_code=400, detail="code is required")
+
+    # Validate filename for security
+    if not filename.endswith('.py'):
+        raise HTTPException(status_code=400, detail="Only Python files (.py) are supported")
+    
+    if '/' in filename or '\\' in filename or '..' in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+    file_path = os.path.join(session_dir, filename)
+
+    if not os.path.exists(session_dir):
+        os.makedirs(session_dir, exist_ok=True)
+
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(code)
+        return {"message": f"File {filename} saved successfully", "conversation_id": conversation_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save {filename}: {str(e)}")
+
+@router.get("/get_file")
+def get_file(conversation_id: int = Query(..., description="Conversation ID"), 
+             filename: str = Query(..., description="Filename to get")):
+    """
+    Get content of a specific file from the session directory.
+    """
+    # Validate filename for security
+    if not filename.endswith('.py'):
+        raise HTTPException(status_code=400, detail="Only Python files (.py) are supported")
+    
+    if '/' in filename or '\\' in filename or '..' in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+    file_path = os.path.join(session_dir, filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"File {filename} not found for conversation {conversation_id}."
+        )
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            code = f.read()
+        return {"conversation_id": conversation_id, "filename": filename, "code": code}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read {filename}: {str(e)}")
+
+@router.get("/list_files")
+def list_files(conversation_id: int = Query(..., description="Conversation ID")):
+    """
+    List all Python files in the conversation session directory.
+    """
+    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+
+    if not os.path.exists(session_dir):
+        return {"conversation_id": conversation_id, "files": []}
+
+    try:
+        files = []
+        for filename in os.listdir(session_dir):
+            if filename.endswith('.py'):
+                files.append(filename)
+        
+        return {"conversation_id": conversation_id, "files": sorted(files)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
+
+@router.delete("/delete_file")
+def delete_file(request: dict):
+    """
+    Delete a file from the conversation session directory.
+    """
+    conversation_id = request.get("conversation_id")
+    filename = request.get("filename")
+
+    if not conversation_id:
+        raise HTTPException(status_code=400, detail="conversation_id is required")
+    
+    if not filename:
+        raise HTTPException(status_code=400, detail="filename is required")
+
+    # Prevent deletion of runner.py
+    if filename == "runner.py":
+        raise HTTPException(status_code=400, detail="Cannot delete runner.py")
+
+    # Validate filename for security
+    if not filename.endswith('.py'):
+        raise HTTPException(status_code=400, detail="Only Python files (.py) are supported")
+    
+    if '/' in filename or '\\' in filename or '..' in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+    file_path = os.path.join(session_dir, filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"File {filename} not found for conversation {conversation_id}."
+        )
+
+    try:
+        os.remove(file_path)
+        return {"message": f"File {filename} deleted successfully", "conversation_id": conversation_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete {filename}: {str(e)}")

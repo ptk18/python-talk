@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import users, posts, voice, conversations, messages, analyze_command, execute_command, turtle_execute
+from app.routers import users, posts, voice, conversations, messages, analyze_command, execute_command, turtle_execute, google_speech
 
 from app.database.connection import engine, Base
 
@@ -33,6 +33,7 @@ app.add_middleware(
 app.include_router(users.router, prefix="/api")
 app.include_router(posts.router, prefix="/api/v1")
 app.include_router(voice.router, prefix="/api")
+app.include_router(google_speech.router, prefix="/api")
 app.include_router(conversations.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
 print("analyze_command router:", analyze_command.router)

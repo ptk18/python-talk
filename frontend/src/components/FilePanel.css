@@ -1,0 +1,240 @@
+.file-panel {
+  position: relative;
+  display: inline-block;
+  z-index: 1;
+}
+
+.file-panel__toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-color, #666);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.file-panel__toggle-btn:hover {
+  background-color: var(--hover-bg, rgba(0, 0, 0, 0.1));
+  color: var(--primary-color, #007acc);
+}
+
+.file-panel__overlay {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  margin-top: 4px;
+  /* Ensure panel doesn't get cut off at edges */
+  min-width: 280px;
+}
+
+.file-panel__content {
+  background: var(--bg-color, white);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  min-width: 280px;
+  max-width: 400px;
+  max-height: 400px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #ddd);
+  background: var(--header-bg, #f8f9fa);
+}
+
+.file-panel__header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color, #333);
+}
+
+.file-panel__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.file-panel__action-btn {
+  background: none;
+  border: none;
+  color: var(--text-color, #666);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.file-panel__action-btn:hover {
+  background-color: var(--hover-bg, rgba(0, 0, 0, 0.1));
+  color: var(--primary-color, #007acc);
+}
+
+.file-panel__new-file {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #ddd);
+  background: var(--secondary-bg, #f5f5f5);
+}
+
+.file-panel__new-file-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  background: var(--input-bg, white);
+  color: var(--text-color, #333);
+}
+
+.file-panel__new-file-input:focus {
+  outline: none;
+  border-color: var(--primary-color, #007acc);
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+.file-panel__new-file-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.file-panel__new-file-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-panel__new-file-btn--create {
+  background: var(--success-color, #28a745);
+  color: white;
+}
+
+.file-panel__new-file-btn--create:hover {
+  background: var(--success-hover, #218838);
+}
+
+.file-panel__new-file-btn--cancel {
+  background: var(--secondary-color, #6c757d);
+  color: white;
+}
+
+.file-panel__new-file-btn--cancel:hover {
+  background: var(--secondary-hover, #545b62);
+}
+
+.file-panel__files {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 300px;
+}
+
+.file-panel__empty {
+  padding: 20px 16px;
+  text-align: center;
+  color: var(--muted-color, #999);
+  font-size: 13px;
+}
+
+.file-panel__file {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  gap: 8px;
+  position: relative;
+}
+
+.file-panel__file:hover {
+  background-color: var(--hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.file-panel__file--active {
+  background-color: var(--active-bg, rgba(0, 122, 204, 0.1));
+  border-right: 3px solid var(--primary-color, #007acc);
+}
+
+.file-panel__file-icon {
+  color: var(--file-icon-color, #666);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.file-panel__file--active .file-panel__file-icon {
+  color: var(--primary-color, #007acc);
+}
+
+.file-panel__file-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-color, #333);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-panel__file--active .file-panel__file-name {
+  color: var(--primary-color, #007acc);
+  font-weight: 500;
+}
+
+.file-panel__file-delete {
+  background: none;
+  border: none;
+  color: var(--danger-color, #dc3545);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.file-panel__file:hover .file-panel__file-delete {
+  opacity: 0.7;
+}
+
+.file-panel__file-delete:hover {
+  opacity: 1;
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Dark theme adjustments */
+.dark .file-panel__content {
+  --bg-color: #2d2d2d;
+  --header-bg: #383838;
+  --border-color: #464647;
+  --text-color: #cccccc;
+  --hover-bg: rgba(255, 255, 255, 0.1);
+  --active-bg: rgba(0, 122, 204, 0.2);
+  --secondary-bg: #383838;
+  --input-bg: #3c3c3c;
+  --muted-color: #969696;
+  --file-icon-color: #cccccc;
+}
+
+.dark .file-panel__toggle-btn {
+  --text-color: #cccccc;
+  --hover-bg: rgba(255, 255, 255, 0.1);
+}

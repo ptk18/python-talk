@@ -93,6 +93,19 @@ export default function HomeReal() {
         navigate(`/workspace?conversationId=${convId}`);
     };
 
+    const handleDeleteConversation = async (convId: number) => {
+        if (!window.confirm("Are you sure you want to delete this conversation?")) {
+            return;
+        }
+        try {
+            await conversationAPI.delete(convId);
+            fetchConversations();
+        } catch (err) {
+            console.error("Failed to delete conversation:", err);
+            alert("Failed to delete conversation.");
+        }
+    };
+
     const filteredConversations = conversations.filter(conv =>
         conv.title.toLowerCase().includes(q.toLowerCase()) ||
         conv.file_name?.toLowerCase().includes(q.toLowerCase())
@@ -122,9 +135,8 @@ export default function HomeReal() {
                     onChange={handleFileChange}
                 />
                 <button className="homeReal__btn" onClick={handleFileSelect}>
-                    Upload File <img src={UploadIcon} alt="" />
+                    {selectedFile ? selectedFile.name : "Upload File"} <img src={UploadIcon} alt="" />
                 </button>
-                {selectedFile && <span style={{ fontSize: "12px", marginLeft: "8px" }}>{selectedFile.name}</span>}
                 <button className="homeReal__btn homeReal__btn--create" onClick={handleCreate}>Create</button>
             </div>
 
@@ -150,29 +162,46 @@ export default function HomeReal() {
                         <div
                             key={conv.id}
                             className="homeReal__row"
-                            style={{ cursor: "pointer", padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
                         >
-                            <div onClick={() => handleConversationClick(conv.id)}>
+                            <div className="homeReal__row-content" onClick={() => handleConversationClick(conv.id)}>
                                 <strong>{conv.title}</strong><br />
                                 <small>File: {conv.file_name || 'N/A'}</small>
                             </div>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleConversationClick(conv.id, true);
-                                }}
-                                style={{
-                                    padding: "6px 12px",
-                                    background: "#007bff",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: "4px",
-                                    cursor: "pointer",
-                                    fontSize: "12px"
-                                }}
-                            >
-                                Open Workspace
-                            </button>
+                            <div className="homeReal__row-actions">
+                                <button
+                                    className="homeReal__icon-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleConversationClick(conv.id);
+                                    }}
+                                    title="Open File"
+                                    aria-label="Open File"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-7-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M13 2v7h7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M10 13l-3 3 3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M17 16H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </button>
+                                <button
+                                    className="homeReal__icon-btn homeReal__icon-btn--delete"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteConversation(conv.id);
+                                    }}
+                                    title="Delete Conversation"
+                                    aria-label="Delete Conversation"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M3 6h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                        <path d="M10 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                        <path d="M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>

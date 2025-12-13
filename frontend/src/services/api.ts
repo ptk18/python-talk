@@ -64,6 +64,13 @@ export const conversationAPI = {
   async getAvailableMethods(conversationId: number): Promise<AvailableMethodsResponse> {
     return apiCall(`/api/conversations/${conversationId}/available_methods`);
   },
+
+  // DELETE /api/conversations/:conversationId
+  async delete(conversationId: number): Promise<{ message: string }> {
+    return apiCall(`/api/conversations/${conversationId}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 // Generic API call function
@@ -168,18 +175,19 @@ export const messageAPI = {
   },
 };
 
-// Voice API functions
+// Voice API types - exported for use in voiceService
 export interface VoiceTranscriptionResponse {
   text: string;           // Translated English text
   alternatives: string[];  // Paraphrased versions
   original: string;        // Original (possibly non-English) text
+  confidence?: number;     // Confidence score (0-1)
   error?: string;          // Optional error field
 }
 
 export const voiceAPI = {
   /**
    * Send an audio file to the backend Whisper API for transcription and paraphrasing.
-   * 
+   *
    * @param audioFile The uploaded audio file (webm, wav, etc.)
    * @param language  The spoken language code (e.g., 'en', 'th', 'es')
    */
@@ -199,6 +207,65 @@ export const voiceAPI = {
     if (!response.ok) {
       const err = await response.text();
       throw new Error(`Voice transcription failed: ${err}`);
+    }
+
+    return response.json();
+  },
+};
+
+// Google Speech API functions
+export interface GoogleSpeechStatusResponse {
+  available: boolean;
+  credentials_found: boolean;
+  libraries_installed: boolean;
+  message: string;
+}
+
+export const googleSpeechAPI = {
+  /**
+   * Check if Google Speech API is available
+   */
+  checkStatus: async (): Promise<GoogleSpeechStatusResponse> => {
+    return apiCall('/api/google-speech/status');
+  },
+
+  /**
+   * Convert text to speech using Google Cloud TTS
+   */
+  textToSpeech: async (text: string, language: string = 'en-US'): Promise<Blob> => {
+    const params = new URLSearchParams({ text, language });
+
+    const response = await fetch(`${API_BASE_URL}/api/google-speech/text-to-speech?${params}`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Google TTS failed: ${err}`);
+    }
+
+    return response.blob();
+  },
+
+  /**
+   * Convert speech to text using Google Cloud STT
+   */
+  speechToText: async (
+    audioFile: File,
+    language: string = 'en-US'
+  ): Promise<VoiceTranscriptionResponse> => {
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    formData.append('language', language);
+
+    const response = await fetch(`${API_BASE_URL}/api/google-speech/speech-to-text`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Google STT failed: ${err}`);
     }
 
     return response.json();
@@ -364,6 +431,82 @@ export const userAPI = {
     return apiCall(`/api/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  },
+};
+
+// File Management types
+export interface FileInfo {
+  filename: string;
+  code: string;
+}
+
+export interface ListFilesResponse {
+  conversation_id: number;
+  files: string[];
+}
+
+export interface GetFileResponse {
+  conversation_id: number;
+  filename: string;
+  code: string;
+}
+
+export interface SaveFileResponse {
+  message: string;
+  conversation_id: number;
+}
+
+// File Management API functions
+export const fileAPI = {
+  listFiles: async (conversation_id: number): Promise<ListFilesResponse> => {
+    const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
+    return apiCall(`/api/list_files?${params}`, {
+      method: "GET",
+    });
+  },
+
+  getFile: async (conversation_id: number, filename: string): Promise<GetFileResponse> => {
+    const params = new URLSearchParams({ 
+      conversation_id: conversation_id.toString(),
+      filename 
+    });
+    return apiCall(`/api/get_file?${params}`, {
+      method: "GET",
+    });
+  },
+
+  saveFile: async (
+    conversation_id: number,
+    filename: string,
+    code: string
+  ): Promise<SaveFileResponse> => {
+    return apiCall(`/api/save_file`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        conversation_id,
+        filename,
+        code,
+      }),
+    });
+  },
+
+  deleteFile: async (
+    conversation_id: number,
+    filename: string
+  ): Promise<SaveFileResponse> => {
+    return apiCall(`/api/delete_file`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        conversation_id,
+        filename,
+      }),
     });
   },
 };

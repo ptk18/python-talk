@@ -48,11 +48,18 @@
 .navbar__tts-toggle {
     background: none;
     border: none;
-    font-size: 24px;
     cursor: pointer;
     padding: 4px 8px;
     color: var(--deep);
     transition: transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.navbar__tts-toggle svg {
+    width: 24px;
+    height: 24px;
 }
 
 .navbar__tts-toggle:hover {
@@ -222,6 +229,12 @@
     font-weight: 700;
     border-bottom: 1px solid #f0f0f0;
     transition: background 0.2s ease;
+    justify-content: flex-start;
+}
+
+.navbar__sidebar-links .navbar__tts-toggle svg {
+    width: 20px;
+    height: 20px;
 }
 
 .navbar__sidebar-links .navbar__tts-toggle:hover {

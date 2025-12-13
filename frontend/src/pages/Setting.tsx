@@ -1,25 +1,78 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import SpeakerIcon from "../assets/speaker_icon.svg";
-import { useTheme } from "../theme/ThemeProvider";
+import { voiceService } from "../services/voiceService";
 import "./styles/Setting.css";
 
 export default function Setting() {
     const [volume, setVolume] = useState(70);
     const [lang, setLang] = useState("en");
-    const [notif, setNotif] = useState<"on" | "off">("on");
-    const { theme, toggle } = useTheme();
-    const lightMode = theme === "light";
     const [bt, setBt] = useState("none");
+    const [voiceEngine, setVoiceEngine] = useState<string>('standard');
+
+    // Apply volume changes to actual audio elements
+    useEffect(() => {
+        const audioElements = document.querySelectorAll<HTMLAudioElement>('audio');
+        audioElements.forEach(audio => {
+            audio.volume = volume / 100;
+        });
+        localStorage.setItem('pytalk_volume', volume.toString());
+    }, [volume]);
+
+    useEffect(() => {
+        const savedEngine = localStorage.getItem('pytalk_voice_engine');
+        if (savedEngine === 'google' || savedEngine === 'standard') {
+            voiceService.setEngine(savedEngine);
+            setVoiceEngine(savedEngine);
+        } else {
+            setVoiceEngine('standard');
+        }
+
+        const savedVolume = localStorage.getItem('pytalk_volume');
+        if (savedVolume) {
+            setVolume(Number(savedVolume));
+        }
+    }, []);
+
+    const handleVoiceEngineChange = async (engine: string) => {
+        setVoiceEngine(engine);
+        voiceService.setEngine(engine as 'standard' | 'google');
+
+        if (engine === 'google') {
+            const isAvailable = await voiceService.checkGoogleAvailability();
+
+            if (!isAvailable) {
+                alert('Google Speech API is not available. Falling back to Standard Voice (Female).');
+                setVoiceEngine('standard');
+                voiceService.setEngine('standard');
+                voiceService.speak("Falling back to standard voice");
+                return;
+            }
+
+            try {
+                await voiceService.speak("Voice engine switched to Google Speech. Male voice activated.");
+                alert('Voice engine switched to Google Speech (Male Voice)');
+            } catch (error) {
+                alert('Error switching to Google Speech. Falling back to Standard Voice.');
+                setVoiceEngine('standard');
+                voiceService.setEngine('standard');
+            }
+        } else {
+            voiceService.speak("Voice engine switched to Standard Voice. Female voice activated.");
+            setTimeout(() => {
+                alert('Voice engine switched to Standard Voice (Female Voice)');
+            }, 500);
+        }
+    };
 
     return (
         <div className="setting__viewport">
             {/* Top bar */}
-            <Navbar rightButton={{ text: "Chat", to: "/chat" }} />
+            <Navbar />
 
             {/* Panel shell */}
             <main className="setting__main">
-                <h1 className="setting__title">Setting</h1>
+                <h1 className="setting__title">Settings</h1>
 
                 <section className="setting__card">
                     {/* Row: Sound */}
@@ -58,47 +111,27 @@ export default function Setting() {
                         </div>
                     </div>
 
-                    {/* Row: Notification */}
+                    {/* Row: PyTalk Voice */}
                     <div className="row">
-                        <div className="row__label">Notification</div>
-                        <div className="row__sep" />
-                        <div className="row__control row__control--radio">
-                            <label className="radio">
-                                <input
-                                    type="radio"
-                                    name="notif"
-                                    checked={notif === "on"}
-                                    onChange={() => setNotif("on")}
-                                />
-                                <span>On</span>
-                            </label>
-                            <label className="radio">
-                                <input
-                                    type="radio"
-                                    name="notif"
-                                    checked={notif === "off"}
-                                    onChange={() => setNotif("off")}
-                                />
-                                <span>Off</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* Row: Mode */}
-                    <div className="row">
-                        <div className="row__label">Mode</div>
+                        <div className="row__label">PyTalk Voice</div>
                         <div className="row__sep" />
                         <div className="row__control">
+                            <div className="select">
+                                <select
+                                    value={voiceEngine}
+                                    onChange={(e) => handleVoiceEngineChange(e.target.value)}
+                                    aria-label="Voice Engine"
+                                >
+                                    <option value="standard">Standard Voice (Female)</option>
+                                    <option value="google">Google Speech (Male)</option>
+                                </select>
+                            </div>
                             <button
-                                type="button"
-                                className={`toggle ${lightMode ? "is-on" : ""}`}
-                                onClick={toggle}
-                                aria-pressed={lightMode}
-                                aria-label="Toggle light/dark mode"
+                                onClick={() => voiceService.speak("This is a test of the current voice engine.")}
+                                className="test-voice-button"
                             >
-                                <span className="knob" />
+                                Test Voice
                             </button>
-                            <span className="modeText">{lightMode ? "Light Mode" : "Dark Mode"}</span>
                         </div>
                     </div>
 

@@ -105,3 +105,16 @@ class AnalyzeCommandRequest(BaseModel):
 class ExecuteCommandRequest(BaseModel):
     conversation_id: int
     executable: str
+
+# Voice Settings
+class VoiceEngineEnum(str, Enum):
+    standard = "standard"
+    google = "google"
+
+class VoiceSettings(BaseModel):
+    voice_engine: VoiceEngineEnum = VoiceEngineEnum.standard
+    volume: int = 70  # 0-100
+
+class VoiceSettingsUpdate(BaseModel):
+    voice_engine: Optional[VoiceEngineEnum] = None
+    volume: Optional[int] = None

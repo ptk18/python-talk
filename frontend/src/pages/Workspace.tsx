@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import MonacoEditor from "../components/MonacoEditor";
 import type { MonacoEditorRef } from "../components/MonacoEditor";
+import FilePanel from "../components/FilePanel";
 import "./styles/Workspace.css";
 import Snake from "../assets/scorpio.svg";
 import User from "../assets/user.svg";
@@ -10,11 +11,12 @@ import ChatIcon from "../assets/chat.svg";
 import Voice from "../assets/voice.svg";
 import VoiceWhite from "../assets/voice-white.svg";
 import { useTheme } from "../theme/ThemeProvider";
-import { messageAPI, conversationAPI, executeAPI, analyzeAPI, voiceAPI } from "../services/api";
+import { messageAPI, conversationAPI, executeAPI, analyzeAPI, voiceAPI, fileAPI } from "../services/api";
 import type { Message, AvailableMethodsResponse } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useCode } from "../context/CodeContext";
-import { speak } from "../utils/tts";
+import { useFiles } from "../context/FileContext";
+import { voiceService } from "../services/voiceService";
 
 export default function Workspace() {
     const { theme } = useTheme();
@@ -23,6 +25,14 @@ export default function Workspace() {
     const conversationId = searchParams.get("conversationId");
     const { user } = useAuth();
     const { code, setCode, syncCodeFromBackend, setConversationId } = useCode();
+    const { 
+        currentFile, 
+        currentCode, 
+        setCurrentCode,
+        loadFiles, 
+        loadFile, 
+        saveFile 
+    } = useFiles();
 
     const [isChatActive, setIsChatActive] = useState(false);
     const [message, setMessage] = useState("");
@@ -40,6 +50,11 @@ export default function Workspace() {
     const audioChunks = useRef<BlobPart[]>([]);
     const editorRef = useRef<MonacoEditorRef>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [refreshNotification, setRefreshNotification] = useState<string | null>(null);
+    const [lastUserEdit, setLastUserEdit] = useState<number>(0);
+    const [isUserEditing, setIsUserEditing] = useState(false);
+    const editingTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (conversationId) {
@@ -47,6 +62,85 @@ export default function Workspace() {
             initializeSession();
         }
     }, [conversationId, setConversationId]);
+
+    useEffect(() => {
+        if (conversationId) {
+            loadFiles(parseInt(conversationId));
+        }
+    }, [conversationId, loadFiles]);
+
+    // Reset editing state when current file changes
+    useEffect(() => {
+        setIsUserEditing(false);
+        if (editingTimeoutRef.current) {
+            clearTimeout(editingTimeoutRef.current);
+        }
+    }, [currentFile]);
+
+    // Auto-refresh runner.py when code context changes and it's the current file
+    useEffect(() => {
+        const refreshRunnerFile = async () => {
+            if (conversationId && currentFile === 'runner.py' && code !== currentCode) {
+                try {
+                    // Only refresh if user hasn't edited recently
+                    const timeSinceLastEdit = Date.now() - lastUserEdit;
+                    if (timeSinceLastEdit > 10000) {
+                        await loadFile(parseInt(conversationId), 'runner.py');
+                    }
+                } catch (error) {
+                    console.error('Failed to auto-refresh runner.py:', error);
+                }
+            }
+        };
+        
+        refreshRunnerFile();
+    }, [code, currentFile, conversationId, loadFile, lastUserEdit]);
+
+    // Poll for changes in runner.py every 10 seconds if it's the current file
+    useEffect(() => {
+        if (!conversationId || currentFile !== 'runner.py') return;
+
+        const pollForChanges = async () => {
+            try {
+                // Don't poll if user has edited recently (within last 15 seconds)
+                const timeSinceLastEdit = Date.now() - lastUserEdit;
+                if (timeSinceLastEdit < 15000) {
+                    return;
+                }
+                
+                const response = await fileAPI.getFile(parseInt(conversationId), 'runner.py');
+                // Only update if content actually changed and user isn't actively editing
+                if (response.code !== currentCode && !isUserEditing) {
+                    setIsRefreshing(true);
+                    setCurrentCode(response.code);
+                    // Also update the code context to keep it in sync
+                    setCode(response.code);
+                    
+                    // Show notification
+                    setRefreshNotification('File updated with new commands');
+                    
+                    // Hide refresh indicator and notification after delays
+                    setTimeout(() => setIsRefreshing(false), 1000);
+                    setTimeout(() => setRefreshNotification(null), 3000);
+                }
+            } catch (error) {
+                console.error('Failed to poll for runner.py changes:', error);
+            }
+        };
+
+        const intervalId = setInterval(pollForChanges, 10000); // Poll every 10 seconds (less frequent)
+
+        return () => clearInterval(intervalId);
+    }, [conversationId, currentFile, currentCode, setCurrentCode, setCode, lastUserEdit, isUserEditing]);
+
+    // Cleanup editing timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (editingTimeoutRef.current) {
+                clearTimeout(editingTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const initializeSession = async () => {
         if (!conversationId) return;
@@ -111,31 +205,36 @@ export default function Workspace() {
             const executable = r.executable || (r.executables && r.executables.length > 0 ? r.executables.join('\n') : null);
 
             if (executable) {
-                speak("Your command has been successfully processed");
-
                 const confirmed = window.confirm(
                     `Do you want to append the command(s) to the runner file?\n\n${executable}`
                 );
 
                 if (confirmed) {
-                    speak("Appending to file");
                     await executeAPI.appendCommand(Number(conversationId), executable);
                     await syncCodeFromBackend();
+                    
+                    // If currently viewing runner.py, refresh it to show the new commands
+                    if (currentFile === 'runner.py') {
+                        setIsRefreshing(true);
+                        await loadFile(parseInt(conversationId), 'runner.py');
+                        setTimeout(() => setIsRefreshing(false), 1000);
+                    }
+                    
                     await messageAPI.create(parseInt(conversationId), "system", `Command(s) appended successfully.`);
-                    speak("Command appended successfully");
+                    voiceService.speak("Command appended successfully");
                     await fetchMessages();
                 }
             } else {
-                speak("I couldn't process that command. Could you please try again?");
+                voiceService.speak("I couldn't process that command. Could you please try again?");
             }
         } catch (err: any) {
             console.error("Failed to send or analyze message:", err);
-            speak("I encountered an error. Please try again");
+            voiceService.speak("I encountered an error. Please try again");
             alert("Error: " + err.message);
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!conversationId) {
             console.error("No conversation ID");
             return;
@@ -143,32 +242,43 @@ export default function Workspace() {
 
         setIsSaving(true);
         try {
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-            const res = await fetch(`${API_BASE}/api/save_runner_code`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
-                body: JSON.stringify({
-                    conversation_id: conversationId,
-                    code: code
-                })
-            });
-
-            if (!res.ok) {
-                throw new Error(`Failed to save: ${res.status}`);
+            // Save the current file being edited
+            await saveFile(parseInt(conversationId), currentFile, currentCode);
+            
+            // Also update the code context if we're editing runner.py
+            if (currentFile === 'runner.py') {
+                setCode(currentCode);
             }
 
-            speak("Code saved successfully");
+            // Reset the last edit time and editing state to allow polling to resume
+            setLastUserEdit(0);
+            setIsUserEditing(false);
+            if (editingTimeoutRef.current) {
+                clearTimeout(editingTimeoutRef.current);
+            }
+
+            voiceService.speak("Code saved successfully");
             console.log("Code saved successfully");
         } catch (err) {
             console.error("Failed to save code:", err);
-            speak("Failed to save code");
+            voiceService.speak("Failed to save code");
         } finally {
             setIsSaving(false);
         }
-    };
+    }, [conversationId, saveFile, currentFile, currentCode, setCode]);
+
+    // Keyboard shortcut for saving (Ctrl+S / Cmd+S)
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+                event.preventDefault();
+                handleSave();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [handleSave]);
 
     const handleUndo = () => {
         editorRef.current?.undo();
@@ -179,15 +289,26 @@ export default function Workspace() {
     };
 
     const handleRun = async () => {
-        if (!code.trim()) {
-            setOutput("Error: Code editor is empty. Please enter some Python code.\n");
-            speak("Code editor is empty. Please enter some Python code");
+        // Always run runner.py, regardless of which file is currently open in the editor
+        try {
+            // First, ensure runner.py exists and get its content
+            const runnerResponse = await executeAPI.getRunnerCode(parseInt(conversationId!));
+            const runnerCode = runnerResponse.code;
+            
+            if (!runnerCode.trim()) {
+                setOutput("Error: runner.py is empty. Please add some commands.\n");
+                voiceService.speak("Runner file is empty. Please add some commands");
+                return;
+            }
+        } catch (err) {
+            setOutput("Error: runner.py not found. Please initialize the session first.\n");
+            voiceService.speak("Runner file not found. Please initialize the session first");
             return;
         }
 
         if (isTurtleCode === null) {
             setShowTurtlePrompt(true);
-            speak("Is this turtle code?");
+            voiceService.speak("Is this turtle code?");
             return;
         }
 
@@ -205,11 +326,11 @@ export default function Workspace() {
         try {
             const res = await executeAPI.rerunCommand(parseInt(conversationId!));
             setOutput(res.output || "No output returned from execute_command.\n");
-            speak("Your output is ready, Sir");
+            voiceService.speak("Your output is ready, Sir");
         } catch (err) {
             console.error("Failed to execute command:", err);
             setOutput("Error executing command.\n");
-            speak("Please try again");
+            voiceService.speak("Please try again");
         } finally {
             setIsRunning(false);
         }
@@ -298,11 +419,11 @@ export default function Workspace() {
             console.log("Turtle execute response:", data);
 
             setOutput("Turtle graphics execution triggered on streaming device.\n");
-            speak("Your turtle graphics are running, Sir");
+            voiceService.speak("Your turtle graphics are running, Sir");
         } catch (err) {
             console.error("Failed to execute turtle graphics:", err);
             setOutput("Error executing turtle graphics.\n");
-            speak("Please try again");
+            voiceService.speak("Please try again");
         } finally {
             setIsRunning(false);
         }
@@ -336,7 +457,7 @@ export default function Workspace() {
 
         if (!isRecording) {
             try {
-                speak("Listening");
+                voiceService.speak("Listening");
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const recorder = new MediaRecorder(stream);
                 audioChunks.current = [];
@@ -348,22 +469,29 @@ export default function Workspace() {
                 recorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
 
+                    // Convert Blob to proper File object with metadata
+                    const audioFile = new File(
+                        [audioBlob],
+                        `recording_${Date.now()}.webm`,
+                        { type: "audio/webm" }
+                    );
+
                     try {
-                        speak("Processing your voice");
-                        const result = await voiceAPI.transcribe(audioBlob as File, "en");
+                        // voiceService.speak("Processing your voice");
+                        const result = await voiceService.transcribe(audioFile, "en");
                         const text = result.text || `[Error: ${result.error || "Unknown"}]`;
 
                         if (text.includes("[Error")) {
-                            speak("I couldn't understand that. Please try again");
+                            voiceService.speak("I couldn't understand that. Please try again");
                         } else {
-                            speak("Voice command received");
+                            voiceService.speak("Voice command received");
                         }
 
                         setMessage(text);
                         if (!isChatActive) setIsChatActive(true);
                     } catch (err: any) {
                         console.error("Voice transcription error:", err);
-                        speak("Voice transcription error");
+                        voiceService.speak("Voice transcription error");
                         alert("Error transcribing voice: " + err.message);
                     }
                 };
@@ -373,7 +501,7 @@ export default function Workspace() {
                 setIsRecording(true);
             } catch (err) {
                 console.error("Microphone access denied:", err);
-                speak("Microphone access denied");
+                voiceService.speak("Microphone access denied");
                 alert("Microphone access denied or unavailable.");
             }
         } else {
@@ -526,8 +654,10 @@ export default function Workspace() {
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
                                 />
-                                <button type="submit" className="workspace__send-btn">
-                                    Send
+                                <button type="submit" className="workspace__send-btn" aria-label="Send message">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z"/>
+                                    </svg>
                                 </button>
                             </form>
                         </div>
@@ -536,9 +666,32 @@ export default function Workspace() {
 
                 {/* Right - Code & Output Panel */}
                 <section className="workspace__code-panel">
+                    {/* Refresh notification */}
+                    {refreshNotification && (
+                        <div className="workspace__refresh-notification">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2a10 10 0 1 0 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                <path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            {refreshNotification}
+                        </div>
+                    )}
+                    
                     <div className="workspace__editor-section">
                         <div className="workspace__editor-header">
-                            <h3>💻 Code Editor</h3>
+                            <div className="workspace__editor-title">
+                                <FilePanel conversationId={parseInt(conversationId || '0')} />
+                                <h3>💻 {currentFile}</h3>
+                                {isRefreshing && (
+                                    <div className="workspace__refresh-indicator" title="Refreshing file content...">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+                                            </path>
+                                        </svg>
+                                    </div>
+                                )}
+                            </div>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 {/* Undo button */}
                                 <button
@@ -589,13 +742,13 @@ export default function Workspace() {
                                     )}
                                 </button>
 
-                                {/* Run button */}
+                                {/* Run button - Always runs runner.py */}
                                 <button
                                     className="workspace__icon-btn workspace__icon-btn--success"
                                     onClick={handleRun}
                                     disabled={isRunning}
-                                    aria-label="Run code"
-                                    title="Run code"
+                                    aria-label="Run runner.py"
+                                    title="Run runner.py"
                                 >
                                     {isRunning ? (
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -615,8 +768,22 @@ export default function Workspace() {
                         <div className="workspace__editor-wrapper">
                             <MonacoEditor
                                 ref={editorRef}
-                                code={code}
-                                onChange={(value) => setCode(value || "")}
+                                code={currentCode}
+                                onChange={(value) => {
+                                    setCurrentCode(value || "");
+                                    setLastUserEdit(Date.now());
+                                    setIsUserEditing(true);
+                                    
+                                    // Clear existing timeout and set a new one
+                                    if (editingTimeoutRef.current) {
+                                        clearTimeout(editingTimeoutRef.current);
+                                    }
+                                    
+                                    // Mark as not editing after 3 seconds of inactivity
+                                    editingTimeoutRef.current = setTimeout(() => {
+                                        setIsUserEditing(false);
+                                    }, 3000);
+                                }}
                                 language="python"
                             />
                         </div>
