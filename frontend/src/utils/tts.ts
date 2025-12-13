@@ -10,6 +10,8 @@ let isTTSEnabled = true;
 
 export const setTTSEnabled = (enabled: boolean): void => {
   isTTSEnabled = enabled;
+  // Update the voice service mute state
+  voiceService.setMuted(!enabled);
   if (!enabled) {
     // Stop any ongoing speech when disabled
     window.speechSynthesis.cancel();

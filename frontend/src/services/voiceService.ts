@@ -7,6 +7,8 @@ export class VoiceService {
   private static instance: VoiceService;
   private currentEngine: VoiceEngine = 'standard';
   private voicesLoaded: boolean = false;
+  private isMuted: boolean = false;
+  private currentAudio: HTMLAudioElement | null = null;
 
   private constructor() {
     this.currentEngine = 'standard';
@@ -33,6 +35,24 @@ export class VoiceService {
 
   getEngine(): VoiceEngine {
     return this.currentEngine;
+  }
+
+  setMuted(muted: boolean): void {
+    this.isMuted = muted;
+    if (muted) {
+      // Stop any ongoing speech
+      window.speechSynthesis.cancel();
+      // Stop any ongoing audio playback
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio.currentTime = 0;
+        this.currentAudio = null;
+      }
+    }
+  }
+
+  isTTSMuted(): boolean {
+    return this.isMuted;
   }
 
   /**
@@ -66,6 +86,9 @@ export class VoiceService {
    * Text to speech using the currently selected voice engine
    */
   async speak(text: string, language: string = 'en'): Promise<void> {
+    // Don't speak if muted
+    if (this.isMuted) return;
+
     if (this.currentEngine === 'google') {
       try {
         const languageCode = this.mapLanguageCode(language);
@@ -112,8 +135,15 @@ export class VoiceService {
    */
   private async playAudioBlob(blob: Blob): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Don't play if muted
+      if (this.isMuted) {
+        resolve();
+        return;
+      }
+
       const audioUrl = URL.createObjectURL(blob);
       const audio = new Audio(audioUrl);
+      this.currentAudio = audio;
 
       const savedVolume = localStorage.getItem('pytalk_volume');
       if (savedVolume) {
@@ -125,6 +155,9 @@ export class VoiceService {
       const cleanup = () => {
         URL.revokeObjectURL(audioUrl);
         audio.remove();
+        if (this.currentAudio === audio) {
+          this.currentAudio = null;
+        }
       };
 
       audio.onended = () => {
@@ -151,6 +184,9 @@ export class VoiceService {
     if (!('speechSynthesis' in window)) {
       return;
     }
+
+    // Don't speak if muted
+    if (this.isMuted) return;
 
     window.speechSynthesis.cancel();
 
