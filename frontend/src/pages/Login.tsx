@@ -89,7 +89,7 @@ export default function Login() {
 
                     <p className="login__meta">
                         Don't have an account?{" "}
-                        <a className="login__link" href="/signup">Sign up</a>
+                        <a className="login__link" href="/pytalk/signup">Sign up</a>
                     </p>
 
                     <button type="submit" className="login__button" disabled={isLoading}>

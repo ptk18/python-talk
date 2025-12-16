@@ -61,7 +61,7 @@ export default function Chat() {
         if (!conversationId) return;
         try {
             // Ensure session is initialized before fetching other data
-            // await executeAPI.ensureSessionInitialized(parseInt(conversationId));
+            await executeAPI.ensureSessionInitialized(parseInt(conversationId));
             // Now fetch messages and methods
             await fetchMessages();
             await fetchAvailableMethods();
@@ -260,7 +260,6 @@ const handleMicClick = async () => {
   if (!isRecording) {
     // --- Start Recording ---
     console.log("Starting recording...");
-      console.log("isRecording: ", isRecording);
     try {
       speak("Listening");
 
@@ -277,8 +276,8 @@ const handleMicClick = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
 
         // Stop mic input (VERY important!)
-        // stream.getTracks().forEach(track => track.stop());
-        // setMediaRecorder(null);
+        stream.getTracks().forEach(track => track.stop());
+        setMediaRecorder(null);
 
         try {
           speak("Processing your voice");
@@ -294,8 +293,6 @@ const handleMicClick = async () => {
 
           setMessage(text);
           if (!isChatActive) setIsChatActive(true);
-      console.log("2isRecording: ", isRecording);
-
         } catch (err: any) {
           console.error("Voice transcription error:", err);
           speak("Voice transcription error");
@@ -318,12 +315,9 @@ const handleMicClick = async () => {
     // --- Stop Recording ---
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       console.log("Stopping recording...");
-      console.log("isRecording: ", isRecording);
       mediaRecorder.stop();
     }
     setIsRecording(false);
-      console.log("2isRecording: ", isRecording);
-
   }
 };
 
@@ -418,91 +412,64 @@ const handleMicClick = async () => {
             </main>
             </div>
 
-            {/* Footer with all actions and chat input */}
-            <footer className={`chat__footer ${isChatActive ? "chat__footer--active" : ""}`}>
-              {!isChatActive ? (
+            {/* Footer actions */}
+            <footer className="chat__footer">
                 <div className="chat__actions">
-                  <button className="btn btn--run" onClick={gotoRun}>
-                    Confirm
-                  </button>
-
-                  <button
-                    className={`btn ${isChatActive ? "btn--active" : ""}`}
-                    onClick={handleChatToggle}
-                  >
-                    Chat <img src={ChatIcon} alt="" />
-                  </button>
-
-                  <button className="btn btn--upload">
-                    Upload File <img src={UploadIcon} alt="" />
-                  </button>
-                </div>
-              ) : (
-                <div className="chat__footer-inline">
-                  <div className="chat__actions">
                     <button className="btn btn--run" onClick={gotoRun}>
-                      Confirm
-                    </button>
+      Confirm
+    </button>
 
                     <button
-                      className={`btn ${isChatActive ? "btn--active" : ""}`}
-                      onClick={handleChatToggle}
+                        className={`btn ${isChatActive ? "btn--active" : ""}`}
+                        onClick={handleChatToggle}
                     >
-                      Chat <img src={ChatIcon} alt="" />
+                        Chat <img src={ChatIcon} alt="" />
                     </button>
-
                     <button className="btn btn--upload">
-                      Upload File <img src={UploadIcon} alt="" />
+                        Upload File <img src={UploadIcon} alt="" />
                     </button>
-                  </div>
-
-                  <div className="chat__input-container">
-                    {/* Unified mic button (works in both modes) */}
-                    <div className="chat__mic-wrapper">
-                      <div className={`chat__mic-inner ${isRecording ? "chat__mic-inner--recording" : ""}`}>
-                        <img
-                          src={voiceIcon}
-                          alt="Start voice input"
-                          className={`chat__mic ${isChatActive ? "chat__mic--small" : ""}`}
-                          onClick={handleMicClick}
-                        />
-                        {isRecording && <div className="chat__mic-pulse"></div>}
-                      </div>
-                    </div>
-
-                    <form className="chat__input-form" onSubmit={handleSend}>
-                      <input
-                        type="text"
-                        className="chat__input"
-                        placeholder="Type your message..."
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        autoFocus
-                      />
-                      <button type="submit" className="chat__send-btn">
-                        Send
-                      </button>
-                    </form>
-                  </div>
                 </div>
-              )}
             </footer>
 
-            {/* Show floating mic only when chat is inactive */}
-            {!isChatActive && (
-              <div className="chat__mic-wrapper">
-                <div className={`chat__mic-inner ${isRecording ? "chat__mic-inner--recording" : ""}`}>
-                  <img
-                    src={voiceIcon}
-                    alt="Start voice input"
-                    className="chat__mic"
-                    onClick={handleMicClick}
-                  />
-                  {isRecording && <div className="chat__mic-pulse"></div>}
+            {/* Chat input container (shown when chat is active) */}
+            {isChatActive && (
+                <div className="chat__input-container">
+                    <img
+                        src={voiceIcon}
+                        alt="Start voice input"
+                        className="chat__mic chat__mic--small"
+                    />
+                    <form className="chat__input-form" onSubmit={handleSend}>
+                        <input
+                            type="text"
+                            className="chat__input"
+                            placeholder="Type your message..."
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            autoFocus
+                        />
+                        <button
+                            type="submit"
+                            className="chat__send-btn"
+                        >
+                            Send
+                        </button>
+                    </form>
                 </div>
-              </div>
             )}
 
+            {/* Floating voice button (shown when chat is inactive) */}
+            {!isChatActive && (
+                <div className={`chat__mic-wrapper ${isRecording ? "chat__mic-wrapper--recording" : ""}`}>
+                    <img
+                        src={voiceIcon}
+                        alt="Start voice input"
+                        className="chat__mic"
+                        onClick={handleMicClick}
+                    />
+                    {isRecording && <div className="chat__mic-pulse"></div>}
+                </div>
+            )}
         </div>
     );
 }

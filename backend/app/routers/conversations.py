@@ -97,3 +97,14 @@ def get_available_methods(conversation_id: int, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error extracting methods: {str(e)}")
+
+@router.delete("/{conversation_id}")
+def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    """Delete a conversation by ID"""
+    convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    db.delete(convo)
+    db.commit()
+    return {"success": True, "message": f"Conversation {conversation_id} deleted successfully"}
