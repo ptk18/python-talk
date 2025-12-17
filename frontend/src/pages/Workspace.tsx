@@ -11,7 +11,7 @@ import ChatIcon from "../assets/chat.svg";
 import Voice from "../assets/voice.svg";
 import VoiceWhite from "../assets/voice-white.svg";
 import { useTheme } from "../theme/ThemeProvider";
-import { messageAPI, conversationAPI, executeAPI, analyzeAPI, voiceAPI, fileAPI } from "../services/api";
+import { messageAPI, conversationAPI, executeAPI, analyzeAPI, voiceAPI, fileAPI, paraphraseAPI } from "../services/api";
 import type { Message, AvailableMethodsResponse } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useCode } from "../context/CodeContext";
@@ -55,6 +55,8 @@ export default function Workspace() {
     const [lastUserEdit, setLastUserEdit] = useState<number>(0);
     const [isUserEditing, setIsUserEditing] = useState(false);
     const editingTimeoutRef = useRef<number | null>(null);
+    const [expandedParaphrases, setExpandedParaphrases] = useState<Set<number>>(new Set());
+    const [loadingParaphrases, setLoadingParaphrases] = useState<Set<number>>(new Set());
 
     useEffect(() => {
         if (conversationId) {
@@ -158,7 +160,15 @@ export default function Workspace() {
         if (!conversationId) return;
         try {
             const msgs = await messageAPI.getByConversation(parseInt(conversationId));
-            setMessages(msgs);
+            // Preserve interpretedCommand and paraphrases from existing messages
+            setMessages(prevMessages => {
+                return msgs.map(msg => {
+                    const existing = prevMessages.find(m => m.id === msg.id);
+                    return existing
+                        ? { ...msg, interpretedCommand: existing.interpretedCommand, paraphrases: existing.paraphrases }
+                        : msg;
+                });
+            });
         } catch (err) {
             console.error("Failed to fetch messages:", err);
         }
@@ -182,8 +192,7 @@ export default function Workspace() {
         setMessage("");
 
         try {
-            await messageAPI.create(parseInt(conversationId), "user", msgText);
-            await fetchMessages();
+            const userMsg = await messageAPI.create(parseInt(conversationId), "user", msgText);
 
             const data = await analyzeAPI.analyzeCommand(Number(conversationId), msgText);
             const r = data.result || {};
@@ -200,7 +209,15 @@ export default function Workspace() {
             }
 
             await messageAPI.create(parseInt(conversationId), "system", summary);
-            await fetchMessages();
+
+            // Fetch messages and add interpretedCommand to the user message
+            const msgs = await messageAPI.getByConversation(parseInt(conversationId));
+            const updatedMsgs = msgs.map(msg =>
+                msg.id === userMsg.id
+                    ? { ...msg, interpretedCommand: summary }
+                    : msg
+            );
+            setMessages(updatedMsgs);
 
             const executable = r.executable || (r.executables && r.executables.length > 0 ? r.executables.join('\n') : null);
 
@@ -452,6 +469,53 @@ export default function Workspace() {
     };
 
 
+    const handleToggleParaphrases = async (msg: Message) => {
+        if (!msg.id) return;
+
+        // If already expanded, just collapse
+        if (expandedParaphrases.has(msg.id)) {
+            setExpandedParaphrases(prev => {
+                const next = new Set(prev);
+                next.delete(msg.id);
+                return next;
+            });
+            return;
+        }
+
+        // If paraphrases are already loaded, just expand
+        if (msg.paraphrases && msg.paraphrases.length > 0) {
+            setExpandedParaphrases(prev => new Set(prev).add(msg.id));
+            return;
+        }
+
+        // Otherwise, fetch paraphrases
+        setLoadingParaphrases(prev => new Set(prev).add(msg.id));
+        try {
+            const response = await paraphraseAPI.getParaphrases(msg.content, 10);
+
+            // Update the message with paraphrases
+            setMessages(prevMessages =>
+                prevMessages.map(m =>
+                    m.id === msg.id
+                        ? { ...m, paraphrases: response.variants }
+                        : m
+                )
+            );
+
+            // Expand the section
+            setExpandedParaphrases(prev => new Set(prev).add(msg.id));
+        } catch (error) {
+            console.error("Failed to fetch paraphrases:", error);
+            voiceService.speak("Failed to generate suggestions");
+        } finally {
+            setLoadingParaphrases(prev => {
+                const next = new Set(prev);
+                next.delete(msg.id);
+                return next;
+            });
+        }
+    };
+
     const handleMicClick = async () => {
         playClickSound();
 
@@ -588,32 +652,65 @@ export default function Workspace() {
                                 minute: '2-digit',
                                 hour12: false
                             });
+                            const isExpanded = expandedParaphrases.has(msg.id);
+                            const isLoadingParaphrase = loadingParaphrases.has(msg.id);
 
                             return (
-                                <div key={msg.id} className={`workspace__chat-row ${isUser ? 'workspace__chat-row--right' : 'workspace__chat-row--left'}`}>
-                                    {!isUser && (
-                                        <div className="workspace__avatar-container">
-                                            <img src={Snake} alt="Scorpio" className="workspace__avatar" />
-                                            <div className="workspace__name workspace__name--left">Scorpio</div>
-                                        </div>
-                                    )}
-                                    {isUser && <span className="workspace__time workspace__time--left">{time}</span>}
-                                    <div className="workspace__bubble">
-                                        {msg.content.includes('```') ? (
-                                            <div className="workspace__code">
-                                                <pre><code>{msg.content.replace(/```[\s\S]*?\n|```/g, '')}</code></pre>
+                                <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', marginBottom: '12px' }}>
+                                    <div className={`workspace__chat-row ${isUser ? 'workspace__chat-row--right' : 'workspace__chat-row--left'}`} style={{ alignSelf: isUser ? 'flex-end' : 'flex-start' }}>
+                                        {!isUser && (
+                                            <div className="workspace__avatar-container">
+                                                <img src={Snake} alt="Scorpio" className="workspace__avatar" />
+                                                <div className="workspace__name workspace__name--left">Scorpio</div>
                                             </div>
-                                        ) : (
-                                            msg.content
                                         )}
+                                        {isUser && <span className="workspace__time workspace__time--left">{time}</span>}
+                                        <div className="workspace__bubble">
+                                            {msg.content.includes('```') ? (
+                                                <div className="workspace__code">
+                                                    <pre><code>{msg.content.replace(/```[\s\S]*?\n|```/g, '')}</code></pre>
+                                                </div>
+                                            ) : (
+                                                msg.content
+                                            )}
+                                        </div>
+                                        {isUser && (
+                                            <div className="workspace__avatar-container">
+                                                <img src={User} alt="User" className="workspace__avatar" />
+                                                <div className="workspace__name workspace__name--right">{user?.username || "User"}</div>
+                                            </div>
+                                        )}
+                                        {!isUser && <span className="workspace__time">{time}</span>}
                                     </div>
-                                    {isUser && (
-                                        <div className="workspace__avatar-container">
-                                            <img src={User} alt="User" className="workspace__avatar" />
-                                            <div className="workspace__name workspace__name--right">{user?.username || "User"}</div>
+
+                                    {/* Paraphrase suggestions for user messages */}
+                                    {isUser && msg.interpretedCommand && (
+                                        <div className="workspace__command-card" style={{ alignSelf: 'flex-end', marginRight: '60px', marginTop: '4px', width: 'max-content', maxWidth: '400px' }}>
+                                            <button
+                                                className="workspace__paraphrase-toggle"
+                                                onClick={() => handleToggleParaphrases(msg)}
+                                                disabled={isLoadingParaphrase}
+                                            >
+                                                {isLoadingParaphrase ? (
+                                                    <span>Generating suggestions...</span>
+                                                ) : isExpanded ? (
+                                                    <span>▼ Hide </span>
+                                                ) : (
+                                                    <span>▶ Other ways to say it</span>
+                                                )}
+                                            </button>
+
+                                            {isExpanded && msg.paraphrases && msg.paraphrases.length > 0 && (
+                                                <div className="workspace__paraphrases-list">
+                                                    {msg.paraphrases.map((paraphrase, idx) => (
+                                                        <div key={idx} className="workspace__paraphrase-item">
+                                                            • {paraphrase}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                    {!isUser && <span className="workspace__time">{time}</span>}
                                 </div>
                             );
                         })}

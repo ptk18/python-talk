@@ -155,6 +155,8 @@ export interface Message {
   content: string;
   timestamp: string;
   conversation_id: number;
+  paraphrases?: string[]; // Optional field to store paraphrases
+  interpretedCommand?: string; // Optional field to store the interpreted command
 }
 
 // Message API functions
@@ -506,6 +508,32 @@ export const fileAPI = {
       body: JSON.stringify({
         conversation_id,
         filename,
+      }),
+    });
+  },
+};
+
+// Paraphrase API types
+export interface ParaphraseRequest {
+  text: string;
+  max_variants: number;
+}
+
+export interface ParaphraseResponse {
+  variants: string[];
+}
+
+// Paraphrase API functions
+export const paraphraseAPI = {
+  getParaphrases: async (text: string, maxVariants: number = 10): Promise<ParaphraseResponse> => {
+    return apiCall(`/api/user_command_paraphrasing_suggestion`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        max_variants: maxVariants,
       }),
     });
   },
