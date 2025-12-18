@@ -39,7 +39,8 @@ export default function Run() {
 
         console.log('Setting up WebSocket for turtle graphics...', { isTurtleCode, conversationId });
         
-        const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL;
+        // const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL;
+        const WS_BASE_URL = "ws://161.246.5.67:5050";
         if (!WS_BASE_URL) {
             console.error('VITE_WS_BASE_URL not configured');
             return;

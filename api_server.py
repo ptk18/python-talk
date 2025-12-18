@@ -58,7 +58,7 @@ class TurtleCodeRequest(BaseModel):
 @app.post("/run_turtle/{question_id}")
 async def run_turtle(question_id: int, request: TurtleCodeRequest):
     # Get stream server URL from environment or use default
-    STREAM_HOST = os.getenv('STREAM_HOST', 'localhost')
+    STREAM_HOST = os.getenv('STREAM_HOST', '161.246.5.67')
     STREAM_PORT = os.getenv('STREAM_PORT', '5050')
     SERVER_URL = f"ws://{STREAM_HOST}:{STREAM_PORT}/publish/{question_id}"
 
