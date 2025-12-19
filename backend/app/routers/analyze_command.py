@@ -107,13 +107,14 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         else:
             pipeline = _pipeline_cache[cache_key]
 
-        # Process the command
-        results = pipeline.process_command(command, methods, top_k=1)
+        # Process the command - remove top_k limit to get all results
+        results = pipeline.process_command(command, methods, top_k=None)
 
         if not results:
             return {
                 "class_name": class_name,
                 "file_name": convo.file_name,
+                "results": [],
                 "result": {
                     "success": False,
                     "message": "No matching methods found",
@@ -121,33 +122,44 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 }
             }
 
-        # Extract top result
-        action_verb, match_score = results[0]
-
-        # Format result to match nlp_v2 response format
-        result = {
-            "success": True,
-            "method": match_score.method_name,
-            "parameters": match_score.extracted_params,
-            "confidence": match_score.total_score * 100,  # Convert to percentage
-            "executable": match_score.get_method_call(),  # This is what frontend expects!
-            "intent_type": "nlp_v3",
-            "source": "nlp_v3",
-            # Additional v3-specific fields
-            "explanation": match_score.explain(),
-            "breakdown": {
-                "semantic_score": match_score.semantic_score * 100,
-                "intent_score": match_score.intent_score * 100,
-                "synonym_boost": match_score.synonym_boost * 100,
-                "param_relevance": match_score.param_relevance * 100,
-                "phrasal_verb_match": match_score.phrasal_verb_match * 100
+        # Format all results
+        formatted_results = []
+        for action_verb, match_score in results:
+            result_item = {
+                "success": True,
+                "method": match_score.method_name,
+                "parameters": match_score.extracted_params,
+                "confidence": match_score.total_score * 100,  # Convert to percentage
+                "executable": match_score.get_method_call(),  # This is what frontend expects!
+                "intent_type": "nlp_v3",
+                "source": "nlp_v3",
+                "action_verb": action_verb,  # Include the detected verb
+                # Additional v3-specific fields
+                "explanation": match_score.explain(),
+                "breakdown": {
+                    "semantic_score": match_score.semantic_score * 100,
+                    "intent_score": match_score.intent_score * 100,
+                    "synonym_boost": match_score.synonym_boost * 100,
+                    "param_relevance": match_score.param_relevance * 100,
+                    "phrasal_verb_match": match_score.phrasal_verb_match * 100
+                }
             }
+            formatted_results.append(result_item)
+
+        # Maintain backward compatibility - return the top result as "result" 
+        # and all results as "results"
+        top_result = formatted_results[0] if formatted_results else {
+            "success": False,
+            "message": "No matching methods found",
+            "confidence": 0.0
         }
 
         return {
             "class_name": class_name,
             "file_name": convo.file_name,
-            "result": result
+            "result": top_result,  # For backward compatibility
+            "results": formatted_results,  # All detected commands
+            "command_count": len(formatted_results)  # Number of detected commands
         }
 
     except Exception as e:

@@ -200,17 +200,27 @@ export default function Workspace() {
             const userMsg = await messageAPI.create(parseInt(conversationId), "user", msgText);
 
             const data = await analyzeAPI.analyzeCommand(Number(conversationId), msgText);
-            const r = data.result || {};
-
+            
+            // Handle multiple commands - use results array if available, fallback to single result
+            const allResults = data.results && data.results.length > 0 ? data.results : [data.result].filter(r => r);
+            
             let summary;
-            if (r.executable) {
-                summary = r.executable;
-            } else if (r.executables && r.executables.length > 0) {
-                summary = r.executables.join('\n');
-            } else if (r.code) {
-                summary = r.code;
+            let allExecutables: string[] = [];
+            
+            if (allResults.length > 0) {
+                allResults.forEach(r => {
+                    if (r.executable) {
+                        allExecutables.push(r.executable);
+                    }
+                });
+                
+                if (allExecutables.length > 0) {
+                    summary = allExecutables.join('\n');
+                } else {
+                    summary = "No executable command generated";
+                }
             } else {
-                summary = "No executable command generated";
+                summary = "No matching commands found";
             }
 
             await messageAPI.create(parseInt(conversationId), "system", summary);
@@ -224,11 +234,13 @@ export default function Workspace() {
             );
             setMessages(updatedMsgs);
 
-            const executable = r.executable || (r.executables && r.executables.length > 0 ? r.executables.join('\n') : null);
+            const executable = allExecutables.length > 0 ? allExecutables.join('\n') : null;
 
             if (executable) {
+                const commandCount = allExecutables.length;
+                const pluralText = commandCount > 1 ? `${commandCount} commands` : 'command';
                 const confirmed = window.confirm(
-                    `Do you want to append the command(s) to the runner file?\n\n${executable}`
+                    `Do you want to append the ${pluralText} to the runner file?\n\n${executable}`
                 );
 
                 if (confirmed) {
@@ -242,8 +254,14 @@ export default function Workspace() {
                         setTimeout(() => setIsRefreshing(false), 1000);
                     }
                     
-                    await messageAPI.create(parseInt(conversationId), "system", `Command(s) appended successfully.`);
-                    voiceService.speak("Command appended successfully");
+                    const successMessage = commandCount > 1 
+                        ? `${commandCount} commands appended successfully.`
+                        : `Command appended successfully.`;
+                    await messageAPI.create(parseInt(conversationId), "system", successMessage);
+                    const speechMessage = commandCount > 1 
+                        ? `${commandCount} commands appended successfully`
+                        : "Command appended successfully";
+                    voiceService.speak(speechMessage);
                     await fetchMessages();
                 }
             } else {

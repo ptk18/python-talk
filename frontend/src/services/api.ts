@@ -272,10 +272,31 @@ export const googleSpeechAPI = {
 
 
 // Analyze Command types
+export interface CommandResult {
+  success: boolean;
+  method: string;
+  parameters: Record<string, any>;
+  confidence: number;
+  executable: string;
+  intent_type: string;
+  source: string;
+  action_verb?: string;
+  explanation?: string;
+  breakdown?: {
+    semantic_score: number;
+    intent_score: number;
+    synonym_boost: number;
+    param_relevance: number;
+    phrasal_verb_match: number;
+  };
+}
+
 export interface AnalyzeCommandResponse {
   class_name: string;
   file_name: string;
-  result: any; // can refine to string | object depending on what backend returns
+  result: CommandResult; // For backward compatibility
+  results?: CommandResult[]; // All detected commands
+  command_count?: number; // Number of detected commands
 }
 
 export interface AnalyzeCommandRequest {
