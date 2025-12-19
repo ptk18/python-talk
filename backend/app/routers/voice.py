@@ -1,10 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File
 import whisper
 import subprocess, tempfile
-import torch
-import platform
 from transformers import T5ForConditionalGeneration, T5Tokenizer
-import pyttsx3
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -30,26 +27,6 @@ except Exception as e:
     t5_model = None
     T5_AVAILABLE = False
 
-# Initialize pyttsx3 with error handling
-try:
-    # On macOS, try to use the 'nsss' driver specifically
-    if platform.system() == "Darwin":  # macOS
-        try:
-            tts_engine = pyttsx3.init('nsss')
-        except:
-            tts_engine = pyttsx3.init()
-    else:
-        tts_engine = pyttsx3.init()
-    
-    tts_engine.setProperty('rate', 150)
-    TTS_AVAILABLE = True
-    print("TTS engine initialized successfully")
-except Exception as e:
-    print(f"Warning: pyttsx3 initialization failed: {e}")
-    print("Text-to-speech functionality will be disabled.")
-    tts_engine = None
-    TTS_AVAILABLE = False
-
 def paraphrase(text, n=3):
     if not T5_AVAILABLE or not t5_tokenizer or not t5_model:
         # Return the original text as alternatives if T5 is not available
@@ -71,23 +48,17 @@ def paraphrase(text, n=3):
         print(f"Paraphrasing error: {e}")
         return [text] * n
 
-def speak_text(text):
-    if TTS_AVAILABLE and tts_engine:
-        try:
-            tts_engine.say(text)
-            tts_engine.runAndWait()
-        except Exception as e:
-            print(f"TTS error: {e}")
-    else:
-        print(f"TTS not available. Would speak: {text}")
-
 @router.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...)
 ):
+    """
+    Transcribe audio using local Whisper model (Standard Voice - Free)
+    TTS is handled by the browser's Web Audio API on the frontend
+    """
     if not whisper_model:
         return {"error": "Whisper model not available"}
-    
+
     try:
         audio_bytes = await file.read()
 
@@ -118,9 +89,6 @@ async def transcribe_audio(
 
         # Generate paraphrases
         alternatives = paraphrase(text, n=3)
-
-        # Speak the text
-        speak_text(f"You said: {text}")
 
         return {
             "text": text,

@@ -334,6 +334,20 @@ export const analyzeAPI = {
       }),
     });
   },
+
+  invalidatePipelineCache: async (conversation_id: number): Promise<{ status: string; message: string }> => {
+    return apiCall(`/api/invalidate_pipeline_cache`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        conversation_id,
+        command: '',  // Not used for cache invalidation
+        language: 'en',
+      }),
+    });
+  },
 };
 
 // Execute Command types
@@ -490,6 +504,7 @@ export interface GetFileResponse {
 export interface SaveFileResponse {
   message: string;
   conversation_id: number;
+  updated_database?: boolean;
 }
 
 // File Management API functions

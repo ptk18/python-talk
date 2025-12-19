@@ -18,27 +18,41 @@ export default function HomeReal() {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [hasGreeted, setHasGreeted] = useState(false);
+    const hasGreeted = useRef(false);
 
     useEffect(() => {
-        console.log("API_BASE", API_BASE_URL)
+        console.log("API_BASE", API_BASE_URL);
+        console.log("import.meta.env.VITE_API_BASE_URL", import.meta.env.VITE_API_BASE_URL);
+        console.log("Current user:", user);
 
-    console.log("import.meta.env.VITE_API_BASE_URL", import.meta.env.VITE_API_BASE_URL)
-  console.log("Current user:", user);
-  if (user) {
-    fetchConversations();
-  } else {
-    console.warn("No user found, skipping fetch.");
-  }
-}, [user]);
-
-    useEffect(() => {
-        if (!hasGreeted) {
-            const greeting = getGreeting();
-            speak(greeting);
-            setHasGreeted(true);
+        if (user) {
+            fetchConversations();
+        } else {
+            console.warn("No user found, skipping fetch.");
         }
-    }, [hasGreeted]);
+    }, [user]);
+
+    // Greet user on first interaction (required by browsers)
+    useEffect(() => {
+        const greetOnInteraction = () => {
+            if (!hasGreeted.current && user) {
+                hasGreeted.current = true;
+                const greeting = getGreeting();
+                speak(greeting);
+                // Remove listeners after first greeting
+                document.removeEventListener('click', greetOnInteraction);
+                document.removeEventListener('keydown', greetOnInteraction);
+            }
+        };
+
+        document.addEventListener('click', greetOnInteraction);
+        document.addEventListener('keydown', greetOnInteraction);
+
+        return () => {
+            document.removeEventListener('click', greetOnInteraction);
+            document.removeEventListener('keydown', greetOnInteraction);
+        };
+    }, [user]);
 
     const fetchConversations = async () => {
         if (!user) return;
@@ -65,6 +79,7 @@ export default function HomeReal() {
 
     const handleCreate = async () => {
         if (!title.trim() || !selectedFile || !user) {
+            speak("Please enter a title and select a Python file");
             alert("Please enter a title and select a Python file.");
             return;
         }
@@ -82,9 +97,11 @@ export default function HomeReal() {
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
             }
+            speak("Conversation created successfully");
             fetchConversations();
         } catch (err) {
             console.error("Failed to create conversation:", err);
+            speak("Failed to create conversation");
             alert("Failed to create conversation.");
         }
     };
@@ -95,13 +112,16 @@ export default function HomeReal() {
 
     const handleDeleteConversation = async (convId: number) => {
         if (!window.confirm("Are you sure you want to delete this conversation?")) {
+            speak("Deletion cancelled");
             return;
         }
         try {
             await conversationAPI.delete(convId);
+            speak("Conversation deleted successfully");
             fetchConversations();
         } catch (err) {
             console.error("Failed to delete conversation:", err);
+            speak("Failed to delete conversation");
             alert("Failed to delete conversation.");
         }
     };

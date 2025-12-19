@@ -58,12 +58,49 @@ export default function Workspace() {
     const [expandedParaphrases, setExpandedParaphrases] = useState<Set<number>>(new Set());
     const [loadingParaphrases, setLoadingParaphrases] = useState<Set<number>>(new Set());
 
+    // Greeting on first interaction (required by browsers)
+    const hasGreeted = useRef(false);
+
     useEffect(() => {
         if (conversationId) {
             setConversationId(parseInt(conversationId));
             initializeSession();
         }
     }, [conversationId, setConversationId]);
+
+    // Greet user on first interaction
+    useEffect(() => {
+        const greetOnInteraction = () => {
+            if (!hasGreeted.current && conversationId) {
+                hasGreeted.current = true;
+                const hour = new Date().getHours();
+                let greeting;
+                if (hour >= 5 && hour < 12) {
+                    greeting = "Good Morning, Sir";
+                } else if (hour >= 12 && hour < 17) {
+                    greeting = "Good Afternoon, Sir";
+                } else if (hour >= 17 && hour < 21) {
+                    greeting = "Good Evening, Sir";
+                } else {
+                    greeting = "Welcome, Sir";
+                }
+                voiceService.speak(greeting);
+                // Remove listeners after first greeting
+                document.removeEventListener('click', greetOnInteraction);
+                document.removeEventListener('keydown', greetOnInteraction);
+            }
+        };
+
+        if (conversationId) {
+            document.addEventListener('click', greetOnInteraction);
+            document.addEventListener('keydown', greetOnInteraction);
+        }
+
+        return () => {
+            document.removeEventListener('click', greetOnInteraction);
+            document.removeEventListener('keydown', greetOnInteraction);
+        };
+    }, [conversationId]);
 
     useEffect(() => {
         if (conversationId) {
@@ -284,10 +321,36 @@ export default function Workspace() {
         try {
             // Save the current file being edited
             await saveFile(parseInt(conversationId), currentFile, currentCode);
-            
+
             // Also update the code context if we're editing runner.py
             if (currentFile === 'runner.py') {
                 setCode(currentCode);
+            }
+
+            // Check if we saved the uploaded module file (database was updated)
+            // Note: Since saveFile returns void, we'll assume database updates for non-runner files
+            if (currentFile !== 'runner.py') {
+                console.log("Uploaded module file changed - refreshing pipeline and methods");
+
+                // Invalidate the pipeline cache
+                try {
+                    await analyzeAPI.invalidatePipelineCache(parseInt(conversationId));
+                    console.log("Pipeline cache invalidated");
+                } catch (err) {
+                    console.warn("Failed to invalidate pipeline cache:", err);
+                }
+
+                // Refresh available methods from updated code
+                await fetchAvailableMethods();
+
+                // Re-prewarm the pipeline with new methods
+                analyzeAPI.prewarmPipeline(parseInt(conversationId))
+                    .then(() => console.log('Pipeline re-prewarmed with updated methods'))
+                    .catch(err => console.warn('Pipeline re-prewarm failed:', err));
+
+                voiceService.speak("Code saved and methods updated");
+            } else {
+                voiceService.speak("Code saved successfully");
             }
 
             // Reset the last edit time and editing state to allow polling to resume
@@ -297,7 +360,6 @@ export default function Workspace() {
                 clearTimeout(editingTimeoutRef.current);
             }
 
-            voiceService.speak("Code saved successfully");
             console.log("Code saved successfully");
         } catch (err) {
             console.error("Failed to save code:", err);
@@ -329,9 +391,7 @@ export default function Workspace() {
     };
 
     const handleRun = async () => {
-        // Always run runner.py, regardless of which file is currently open in the editor
         try {
-            // First, ensure runner.py exists and get its content
             const runnerResponse = await executeAPI.getRunnerCode(parseInt(conversationId!));
             const runnerCode = runnerResponse.code;
             
@@ -388,13 +448,11 @@ export default function Workspace() {
             .replace("127.0.0.1", hostname);
 
         try {
-            // Setup WebSocket FIRST - before triggering turtle execution
             const channelName = encodeURIComponent(String(conversationId));
             const ws = new WebSocket(`${wsBase}/subscribe/${channelName}`);
 
             console.log("Connecting WebSocket subscriber before starting turtle execution...");
 
-            // Wait for WebSocket to connect
             await new Promise<void>((resolve, reject) => {
                 ws.onopen = () => {
                     console.log("Turtle WebSocket connected - ready to receive frames");
@@ -406,7 +464,6 @@ export default function Workspace() {
                 };
             });
 
-            // Now setup message handler
             ws.onmessage = (event) => {
                 console.log("Received turtle frame:", event.data?.substring(0, 50));
                 const image = event.data;
@@ -423,7 +480,6 @@ export default function Workspace() {
                 console.log("Turtle WebSocket closed");
             };
 
-            // NOW fetch session files and trigger turtle execution
             const getRes = await fetch(
                 `${import.meta.env.VITE_API_BASE_URL || ""}/api/get_session_files?conversation_id=${conversationId}`,
                 { headers: { Accept: "application/json" } }
@@ -495,7 +551,6 @@ export default function Workspace() {
     const handleToggleParaphrases = async (msg: Message) => {
         if (!msg.id) return;
 
-        // If already expanded, just collapse
         if (expandedParaphrases.has(msg.id)) {
             setExpandedParaphrases(prev => {
                 const next = new Set(prev);
@@ -505,18 +560,15 @@ export default function Workspace() {
             return;
         }
 
-        // If paraphrases are already loaded, just expand
         if (msg.paraphrases && msg.paraphrases.length > 0) {
             setExpandedParaphrases(prev => new Set(prev).add(msg.id));
             return;
         }
 
-        // Otherwise, fetch paraphrases
         setLoadingParaphrases(prev => new Set(prev).add(msg.id));
         try {
             const response = await paraphraseAPI.getParaphrases(msg.content, 10);
 
-            // Update the message with paraphrases
             setMessages(prevMessages =>
                 prevMessages.map(m =>
                     m.id === msg.id
@@ -525,7 +577,6 @@ export default function Workspace() {
                 )
             );
 
-            // Expand the section
             setExpandedParaphrases(prev => new Set(prev).add(msg.id));
         } catch (error) {
             console.error("Failed to fetch paraphrases:", error);
@@ -556,7 +607,6 @@ export default function Workspace() {
                 recorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
 
-                    // Convert Blob to proper File object with metadata
                     const audioFile = new File(
                         [audioBlob],
                         `recording_${Date.now()}.webm`,

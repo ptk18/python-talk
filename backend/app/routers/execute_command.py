@@ -271,9 +271,10 @@ def save_runner_code(request: dict):
         raise HTTPException(status_code=500, detail=f"Failed to save runner.py: {str(e)}")
 
 @router.post("/save_file")
-def save_file(request: dict):
+def save_file(request: dict, db: Session = Depends(get_db)):
     """
     Save any file in the conversation session directory.
+    Also updates the database if this is the uploaded module file.
     """
     conversation_id = request.get("conversation_id")
     filename = request.get("filename")
@@ -281,7 +282,7 @@ def save_file(request: dict):
 
     if not conversation_id:
         raise HTTPException(status_code=400, detail="conversation_id is required")
-    
+
     if not filename:
         raise HTTPException(status_code=400, detail="filename is required")
 
@@ -291,7 +292,7 @@ def save_file(request: dict):
     # Validate filename for security
     if not filename.endswith('.py'):
         raise HTTPException(status_code=400, detail="Only Python files (.py) are supported")
-    
+
     if '/' in filename or '\\' in filename or '..' in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
@@ -302,9 +303,26 @@ def save_file(request: dict):
         os.makedirs(session_dir, exist_ok=True)
 
     try:
+        # Save file to session directory
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(code)
-        return {"message": f"File {filename} saved successfully", "conversation_id": conversation_id}
+
+        # Check if this is the uploaded module file (not runner.py)
+        # If so, update the database Conversation.code field
+        if filename != "runner.py":
+            convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            if convo and convo.file_name == filename:
+                # This is the uploaded module file - update the database
+                convo.code = code
+                db.commit()
+                print(f"Updated database code for conversation {conversation_id}")
+                return {
+                    "message": f"File {filename} saved successfully",
+                    "conversation_id": conversation_id,
+                    "updated_database": True
+                }
+
+        return {"message": f"File {filename} saved successfully", "conversation_id": conversation_id, "updated_database": False}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save {filename}: {str(e)}")
 

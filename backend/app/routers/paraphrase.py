@@ -34,29 +34,32 @@ router = APIRouter(prefix="/user_command_paraphrasing_suggestion", tags=["Paraph
 PARAPHRASE_SYSTEM_PROMPT = """You generate paraphrases for user commands and sentences. Keep meaning identical.
 
 Rules:
-- Generate natural, voice-friendly variations
+- Generate natural, voice-friendly variations that are grammatically correct
 - Keep the same numbers and entities exactly as they appear
 - Keep the same intent and meaning
-- Use simple, clear language
-- ONLY change word order OR replace with simple, common synonyms
-- Do NOT creatively rephrase or use complex alternatives
-- Include two types of variations:
-  * Word order changes only (same words, different arrangement)
-  * Simple synonym replacements (common, everyday alternatives)
+- ONLY rearrange word order - use the SAME words
+- You may add or remove articles (a, an, the) and other stopwords for natural speech
+- Do NOT use synonyms or replace words with different words
+- Do NOT creatively rephrase
+- All variations MUST be grammatically correct and natural-sounding
+- Generate 3-6 variations (not 10) - quality over quantity
 - Output ONLY valid JSON in this format: {"variants":["...", "..."]}
 - NO markdown, NO code blocks, NO explanations
 
 Examples:
 Input: "turn on the light"
-Output: {"variants":["turn the light on", "switch on the light", "switch the light on", "power on the light", "turn on the lamp", "switch on the lamp"]}
+Output: {"variants":["turn the light on", "turn light on", "light on please"]}
 
 Input: "add 5 and 3"
-Output: {"variants":["5 plus 3", "add 3 and 5", "3 plus 5", "sum 5 and 3", "sum 3 and 5"]}
+Output: {"variants":["add 3 and 5", "5 and 3", "3 and 5"]}
+
+Input: "turn ac on and shut down tv"
+Output: {"variants":["turn on ac and shut down tv", "turn the ac on and shut the tv down", "ac on and tv shut down"]}
 """
 
 class ParaphraseRequest(BaseModel):
     text: str = Field(..., description="The user's original command text")
-    max_variants: int = Field(default=10, ge=1, le=10, description="Maximum number of paraphrases to generate")
+    max_variants: int = Field(default=6, ge=1, le=10, description="Maximum number of paraphrases to generate")
 
 class ParaphraseResponse(BaseModel):
     variants: List[str] = Field(..., description="List of paraphrased versions of the command")

@@ -42,26 +42,25 @@ export default function Setting() {
             const isAvailable = await voiceService.checkGoogleAvailability();
 
             if (!isAvailable) {
-                alert('Google Speech API is not available. Falling back to Standard Voice (Female).');
+                alert('Google Cloud Speech API is not configured.\n\nTo use Google Cloud Male Voice:\n1. Set up Google Cloud credentials\n2. Install google-cloud-speech and google-cloud-texttospeech packages\n3. Place credentials file in backend/google-credentials.json\n\nFalling back to Standard Voice (Female - Free).');
                 setVoiceEngine('standard');
                 voiceService.setEngine('standard');
-                voiceService.speak("Falling back to standard voice");
+                voiceService.speak("Google Cloud API not configured. Using standard voice.");
                 return;
             }
 
             try {
-                await voiceService.speak("Voice engine switched to Google Speech. Male voice activated.");
-                alert('Voice engine switched to Google Speech (Male Voice)');
+                await voiceService.speak("Voice engine switched to Google Cloud Speech. Male voice activated.");
+                console.log('✓ Voice engine switched to Google Cloud Speech (Male Voice)');
             } catch (error) {
-                alert('Error switching to Google Speech. Falling back to Standard Voice.');
+                console.error('Error switching to Google Speech:', error);
+                alert('Error switching to Google Cloud Speech. Falling back to Standard Voice (Female - Free).');
                 setVoiceEngine('standard');
                 voiceService.setEngine('standard');
             }
         } else {
             voiceService.speak("Voice engine switched to Standard Voice. Female voice activated.");
-            setTimeout(() => {
-                alert('Voice engine switched to Standard Voice (Female Voice)');
-            }, 500);
+            console.log('✓ Voice engine switched to Standard Voice (Female - Free)');
         }
     };
 
@@ -113,7 +112,12 @@ export default function Setting() {
 
                     {/* Row: PyTalk Voice */}
                     <div className="row">
-                        <div className="row__label">PyTalk Voice</div>
+                        <div className="row__label">
+                            PyTalk Voice
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary, #666)', marginTop: '4px' }}>
+                                {voiceEngine === 'standard' ? '🆓 Free - Browser TTS' : '☁️ Premium - Google Cloud'}
+                            </div>
+                        </div>
                         <div className="row__sep" />
                         <div className="row__control">
                             <div className="select">
@@ -122,13 +126,14 @@ export default function Setting() {
                                     onChange={(e) => handleVoiceEngineChange(e.target.value)}
                                     aria-label="Voice Engine"
                                 >
-                                    <option value="standard">Standard Voice (Female)</option>
-                                    <option value="google">Google Speech (Male)</option>
+                                    <option value="standard">Standard Voice (Female - Free)</option>
+                                    <option value="google">Google Cloud Voice (Male - Premium)</option>
                                 </select>
                             </div>
                             <button
                                 onClick={() => voiceService.speak("This is a test of the current voice engine.")}
                                 className="test-voice-button"
+                                style={{ marginLeft: '8px', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}
                             >
                                 Test Voice
                             </button>

@@ -11,7 +11,7 @@ from .synonym_generator import ClaudeSynonymGenerator
 from .entity_normalizer import EntityNormalizer
 
 
-class HonestNLPPipeline:
+class NLPPipeline:
     def __init__(self):
         self.semantic_matcher = LocalSemanticMatcher()
         self.dependency_parser = DependencyParser()
@@ -288,14 +288,14 @@ class HonestNLPPipeline:
         return scores
 
 
-def process_command(command: str, methods: List[MethodInfo], pipeline: HonestNLPPipeline = None) -> dict:
+def process_command(command: str, methods: List[MethodInfo], pipeline: NLPPipeline = None) -> dict:
     """
     Convenience function to process a command.
     If pipeline is None, creates a new one (use for one-off commands).
     For multiple commands, reuse the same pipeline instance.
     """
     if pipeline is None:
-        pipeline = HonestNLPPipeline()
+        pipeline = NLPPipeline()
         pipeline.initialize(methods)
 
     results = pipeline.process_command(command, methods)

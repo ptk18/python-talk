@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.nlp_v3.utils import extract_methods_from_file
-from app.nlp_v3.main import HonestNLPPipeline
+from app.nlp_v3.main import NLPPipeline
 
 from app.models.schemas import AnalyzeCommandRequest
 
@@ -43,7 +43,7 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
 
         if cache_key not in _pipeline_cache:
             print(f"Pre-warming NLP v3 pipeline for conversation {conversation_id}")
-            pipeline = HonestNLPPipeline()
+            pipeline = NLPPipeline()
             pipeline.initialize(methods)
             _pipeline_cache[cache_key] = pipeline
             return {"status": "initialized", "message": "Pipeline pre-warmed successfully"}
@@ -56,6 +56,20 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+@router.post("/invalidate_pipeline_cache")
+def invalidate_pipeline_cache(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
+    """Invalidate (clear) the NLP pipeline cache for a conversation when code is updated"""
+    conversation_id = payload.conversation_id
+    cache_key = f"conv_{conversation_id}"
+
+    if cache_key in _pipeline_cache:
+        del _pipeline_cache[cache_key]
+        print(f"Invalidated pipeline cache for conversation {conversation_id}")
+        return {"status": "invalidated", "message": "Pipeline cache cleared successfully"}
+    else:
+        return {"status": "not_cached", "message": "No cache found for this conversation"}
 
 
 @router.post("/analyze_command")
@@ -101,7 +115,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
 
         if cache_key not in _pipeline_cache:
             print(f"Initializing NLP v3 pipeline for conversation {conversation_id}")
-            pipeline = HonestNLPPipeline()
+            pipeline = NLPPipeline()
             pipeline.initialize(methods)
             _pipeline_cache[cache_key] = pipeline
         else:

@@ -11,12 +11,23 @@ export class VoiceService {
   private currentAudio: HTMLAudioElement | null = null;
 
   private constructor() {
-    this.currentEngine = 'standard';
+    // Load saved engine preference or default to 'standard'
+    const savedEngine = localStorage.getItem('pytalk_voice_engine');
+    this.currentEngine = (savedEngine === 'google' || savedEngine === 'standard') ? savedEngine : 'standard';
+
+    console.log(`[VoiceService] Initialized with engine: ${this.currentEngine}`);
 
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.getVoices();
+      // Load voices immediately
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        this.voicesLoaded = true;
+      }
+
+      // Also set up listener for when voices load
       window.speechSynthesis.onvoiceschanged = () => {
         this.voicesLoaded = true;
+        console.log('[VoiceService] Browser voices loaded:', window.speechSynthesis.getVoices().length);
       };
     }
   }
@@ -103,6 +114,8 @@ export class VoiceService {
 
   /**
    * Text to speech using the currently selected voice engine
+   * - Standard: Uses browser's Web Audio API (free, female voice)
+   * - Google: Uses Google Cloud TTS API (requires credentials, male voice)
    */
   async speak(text: string): Promise<void> {
     // Don't speak if muted
@@ -113,10 +126,12 @@ export class VoiceService {
         const audioBlob = await googleSpeechAPI.textToSpeech(text);
         await this.playAudioBlob(audioBlob);
       } catch (error) {
-        this.fallbackSpeak(text);
+        console.error('[VoiceService] Google TTS failed, falling back to browser TTS:', error);
+        this.browserSpeak(text);
       }
     } else {
-      this.fallbackSpeak(text);
+      // Standard engine - use browser's built-in TTS (free)
+      this.browserSpeak(text);
     }
   }
 
@@ -180,24 +195,69 @@ export class VoiceService {
   }
 
   /**
-   * Fallback to browser's built-in speech synthesis
+   * Browser's built-in speech synthesis (Standard Female Voice - Free)
    */
-  private fallbackSpeak(text: string): void {
+  private browserSpeak(text: string): void {
     if (!('speechSynthesis' in window)) {
+      console.warn('[VoiceService] Browser speech synthesis not available');
       return;
     }
 
     // Don't speak if muted
-    if (this.isMuted) return;
+    if (this.isMuted) {
+      console.log('[VoiceService] TTS is muted, skipping speech');
+      return;
+    }
 
+    // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
+    // Ensure voices are loaded
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      console.warn('[VoiceService] Voices not loaded yet, waiting for voiceschanged event...');
+
+      // Wait for voices to load with a timeout
+      const speakWhenReady = () => {
+        const loadedVoices = window.speechSynthesis.getVoices();
+        if (loadedVoices.length > 0) {
+          console.log('[VoiceService] Voices loaded, speaking now');
+          this.performBrowserSpeak(text, loadedVoices);
+        } else {
+          console.error('[VoiceService] ✗ Voices still not loaded after event');
+        }
+      };
+
+      // Set up one-time listener for voices loaded
+      const onVoicesChanged = () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        speakWhenReady();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+
+      // Also try with a timeout as fallback
+      setTimeout(() => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        const retriedVoices = window.speechSynthesis.getVoices();
+        if (retriedVoices.length > 0) {
+          console.log('[VoiceService] Voices loaded via timeout, speaking now');
+          this.performBrowserSpeak(text, retriedVoices);
+        } else {
+          console.error('[VoiceService] ✗ Failed to load voices after 1 second - TTS unavailable');
+        }
+      }, 1000);
+
+      return;
+    }
+
+    this.performBrowserSpeak(text, voices);
+  }
+
+  private performBrowserSpeak(text: string, voices: SpeechSynthesisVoice[]): void {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
 
-    const voices = window.speechSynthesis.getVoices();
-
-    // Prefer female English voices
+    // Prefer female English voices for standard engine
     const selectedVoice = voices.find(voice =>
       voice.lang.startsWith('en') && (
         voice.name.toLowerCase().includes('female') ||
@@ -210,6 +270,9 @@ export class VoiceService {
 
     if (selectedVoice) {
       utterance.voice = selectedVoice;
+      console.log(`[VoiceService] Using browser voice: ${selectedVoice.name}`);
+    } else {
+      console.warn('[VoiceService] No suitable voice found, using default');
     }
 
     utterance.pitch = 1.1;
@@ -218,11 +281,63 @@ export class VoiceService {
     const savedVolume = localStorage.getItem('pytalk_volume');
     if (savedVolume) {
       utterance.volume = Number(savedVolume) / 100;
+      console.log(`[VoiceService] Volume set to: ${savedVolume}%`);
     } else {
       utterance.volume = 0.7;
+      console.log('[VoiceService] Volume set to: 70% (default)');
     }
 
+    // Add event listeners for debugging
+    let speechStarted = false;
+
+    utterance.onstart = () => {
+      speechStarted = true;
+      console.log('[VoiceService] ✓ Speech started:', text.substring(0, 50));
+    };
+
+    utterance.onend = () => {
+      console.log('[VoiceService] ✓ Speech ended');
+    };
+
+    utterance.onerror = (event) => {
+      if (event.error === 'not-allowed') {
+        console.warn('[VoiceService] ⚠️ Speech blocked: User interaction required first');
+        console.warn('[VoiceService] TTS will work after user clicks or types on the page');
+      } else {
+        console.error('[VoiceService] ✗ Speech error:', event.error, event);
+      }
+    };
+
+    console.log(`[VoiceService] Speaking: "${text}"`);
+    console.log('[VoiceService] Speech synthesis state:', {
+      speaking: window.speechSynthesis.speaking,
+      pending: window.speechSynthesis.pending,
+      paused: window.speechSynthesis.paused
+    });
+
     window.speechSynthesis.speak(utterance);
+
+    // Check if speech actually started after a delay
+    setTimeout(() => {
+      if (!speechStarted) {
+        console.error('[VoiceService] WARNING: Speech was queued but did not start!');
+        console.error('[VoiceService] Current state:', {
+          speaking: window.speechSynthesis.speaking,
+          pending: window.speechSynthesis.pending,
+          paused: window.speechSynthesis.paused
+        });
+        console.error('[VoiceService] Possible issues:');
+        console.error('  1. System volume is muted or very low');
+        console.error('  2. Browser needs user interaction first (you clicked, so this should be fine)');
+        console.error('  3. Speech synthesis is suspended');
+
+        // Try to resume if suspended
+        if (window.speechSynthesis.paused) {
+          console.log('[VoiceService] Attempting to resume paused speech...');
+          window.speechSynthesis.resume();
+        }
+      }
+    }, 200);
   }
 }
 
