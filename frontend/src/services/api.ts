@@ -179,9 +179,10 @@ export const messageAPI = {
 
 // Voice API types - exported for use in voiceService
 export interface VoiceTranscriptionResponse {
-  text: string;           // Translated English text
-  alternatives: string[];  // Paraphrased versions
-  original: string;        // Original (possibly non-English) text
+  text: string;           // Transcribed text in original language
+  language: string;       // Detected language code (e.g., "en", "th", "en-US")
+  alternatives: string[];  // Paraphrased versions in same language
+  original: string;        // Original text (same as text now)
   confidence?: number;     // Confidence score (0-1)
   error?: string;          // Optional error field
 }
@@ -191,19 +192,16 @@ export const voiceAPI = {
    * Send an audio file to the backend Whisper API for transcription and paraphrasing.
    *
    * @param audioFile The uploaded audio file (webm, wav, etc.)
-   * @param language  The spoken language code (e.g., 'en', 'th', 'es')
    */
   transcribe: async (
-    audioFile: File,
-    language: string
+    audioFile: File
   ): Promise<VoiceTranscriptionResponse> => {
     const formData = new FormData();
     formData.append("file", audioFile);
-    formData.append("language", language);
 
     const response = await fetch(`${API_BASE_URL}/api/voice/transcribe`, {
       method: "POST",
-      body: formData, // No content-type header; browser handles it
+      body: formData,
     });
 
     if (!response.ok) {
@@ -234,8 +232,8 @@ export const googleSpeechAPI = {
   /**
    * Convert text to speech using Google Cloud TTS
    */
-  textToSpeech: async (text: string, language: string = 'en-US'): Promise<Blob> => {
-    const params = new URLSearchParams({ text, language });
+  textToSpeech: async (text: string): Promise<Blob> => {
+    const params = new URLSearchParams({ text });
 
     const response = await fetch(`${API_BASE_URL}/api/google-speech/text-to-speech?${params}`, {
       method: 'POST',
@@ -253,12 +251,10 @@ export const googleSpeechAPI = {
    * Convert speech to text using Google Cloud STT
    */
   speechToText: async (
-    audioFile: File,
-    language: string = 'en-US'
+    audioFile: File
   ): Promise<VoiceTranscriptionResponse> => {
     const formData = new FormData();
     formData.append('file', audioFile);
-    formData.append('language', language);
 
     const response = await fetch(`${API_BASE_URL}/api/google-speech/speech-to-text`, {
       method: 'POST',
@@ -285,6 +281,7 @@ export interface AnalyzeCommandResponse {
 export interface AnalyzeCommandRequest {
   conversation_id: number;
   command: string;
+  language?: string;
 }
 
 // Analyze Command API functions
@@ -298,6 +295,7 @@ export const analyzeAPI = {
       body: JSON.stringify({
         conversation_id,
         command,
+        language: 'en',
       }),
     });
   },

@@ -141,6 +141,13 @@ html, body {
   font-size: 12px;
   color: #495057;
   line-height: 1.4;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.workspace__paraphrase-item:hover {
+  background: var(--pytalk-accent);
+  color: white;
 }
 
 /* Chat Panel */
@@ -256,6 +263,10 @@ html, body {
 
 .workspace__mic-wrapper {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
 }
 
 .workspace__mic-inner {
@@ -270,6 +281,30 @@ html, body {
   transition: all 0.2s ease;
   box-shadow: 0 4px 16px rgba(27, 78, 43, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   border: 2px solid var(--pytalk-accent);
+}
+
+.workspace__language-selector {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1.5px solid var(--pytalk-border);
+  background: var(--pytalk-white);
+  color: var(--pytalk-deep);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.workspace__language-selector:hover {
+  border-color: var(--pytalk-accent);
+  background: #f8f9fa;
+}
+
+.workspace__language-selector:focus {
+  border-color: var(--pytalk-accent);
+  box-shadow: 0 0 0 3px rgba(90, 138, 106, 0.1);
 }
 
 .workspace__mic-inner:hover {

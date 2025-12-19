@@ -1,4 +1,6 @@
 import os
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, Optional
 from app.nlp_v2.semantic_parsing.intent_parser import parse_intent
 from app.nlp_v2.semantic_parsing.parameter_extractor import extract_parameters
@@ -12,10 +14,17 @@ from app.nlp_v2.semantic_parsing.command_executor import CommandExecutor, Execut
 
 
 try:
-    from semantic_matcher import HFSemanticMatcher
+    from app.nlp_v2.semantic_matcher import HFSemanticMatcher
     SEMANTIC_MATCHER_AVAILABLE = True
 except (ImportError, Exception) as e:
     SEMANTIC_MATCHER_AVAILABLE = False
+    print(f"Semantic matcher not available: {e}")
+
+try:
+    from app.nlp_v2.synonym_service import get_synonym_service
+    SYNONYM_SERVICE_AVAILABLE = True
+except (ImportError, Exception) as e:
+    SYNONYM_SERVICE_AVAILABLE = False
 
 try:
     from app.nlp_v2.auto_nl_interface_llm import NaturalLanguageInterface
@@ -25,11 +34,12 @@ except (ImportError, Exception) as e:
     print(f"LLM interface not available: {e}")
 
 
-def find_matching_methods_semantic(
+async def find_matching_methods_semantic_async(
     text: str,
     catalog: Catalog,
     class_name: str,
-    hf_token: Optional[str] = None
+    hf_token: Optional[str] = None,
+    use_synonyms: bool = True
 ) -> list[MatchResult]:
     methods = catalog.get_methods(class_name)
 
@@ -46,23 +56,89 @@ def find_matching_methods_semantic(
         for method in methods
     ]
 
+    synonyms = None
+    antonyms = None
+    if use_synonyms and SYNONYM_SERVICE_AVAILABLE:
+        try:
+            synonym_service = get_synonym_service()
+            synonym_input = [
+                {
+                    "name": m["name"],
+                    "description": m["description"]
+                }
+                for m in method_dicts
+            ]
+            synonym_data = await synonym_service.generate_synonyms_async(
+                synonym_input,
+                cache_key=f"{class_name}_v3"  # v3: includes antonyms
+            )
+            # Extract synonyms and antonyms from the returned data
+            if isinstance(synonym_data, dict) and 'synonyms' in synonym_data:
+                synonyms = synonym_data.get('synonyms')
+                antonyms = synonym_data.get('antonyms')
+                print(f"[SYNONYM SERVICE] Loaded synonyms for {len(synonyms)} methods")
+                print(f"[SYNONYM SERVICE] Loaded antonyms for {len(antonyms) if antonyms else 0} methods")
+            else:
+                # Backward compatibility: if old format returned, regenerate
+                synonym_service.clear_cache(f"{class_name}_v3")
+                synonym_data = await synonym_service.generate_synonyms_async(
+                    synonym_input,
+                    cache_key=None  # Don't cache if format is wrong
+                )
+                if isinstance(synonym_data, dict):
+                    synonyms = synonym_data.get('synonyms')
+                    antonyms = synonym_data.get('antonyms')
+                else:
+                    synonyms = None
+                    antonyms = None
+        except Exception as e:
+            print(f"Failed to generate synonyms, continuing without: {e}")
+            synonyms = None
+            antonyms = None
+
     matcher = HFSemanticMatcher(hf_token=hf_token)
     semantic_matches = matcher.find_best_match(
         command=text,
         methods=method_dicts,
         top_k=5,
-        min_confidence=0.2
+        min_confidence=0.2,
+        synonyms=synonyms,
+        antonyms=antonyms
     )
 
     results = []
     for method_dict, confidence in semantic_matches:
         results.append(MatchResult(
             method_info=method_dict["method_info"],
-            score=confidence * 100,  
+            score=confidence * 100,
             matched_component="semantic_similarity"
         ))
 
     return results
+
+
+def find_matching_methods_semantic(
+    text: str,
+    catalog: Catalog,
+    class_name: str,
+    hf_token: Optional[str] = None,
+    use_synonyms: bool = True
+) -> list[MatchResult]:
+    try:
+        loop = asyncio.get_running_loop()
+        if loop.is_running():
+            with ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    find_matching_methods_semantic_async(text, catalog, class_name, hf_token, use_synonyms)
+                )
+                return future.result()
+    except RuntimeError:
+        pass
+
+    return asyncio.run(find_matching_methods_semantic_async(
+        text, catalog, class_name, hf_token, use_synonyms
+    ))
 
 
 def process_command(
@@ -159,8 +235,8 @@ def process_command(
         trace.append(f"\nSelected: {best_match.method_info.name}")
         trace.append(f"Confidence: {best_match.score:.1f}")
 
-    # Check if confidence is below 100 and LLM fallback is enabled
-    if best_match.score < 100 and use_llm_fallback:
+    # Check if confidence is below threshold and LLM fallback is enabled
+    if best_match.score < confidence_threshold and use_llm_fallback:
         if verbose:
             trace.append(f"\nConfidence {best_match.score:.1f} < threshold {confidence_threshold}")
             trace.append("Falling back to LLM interface...")

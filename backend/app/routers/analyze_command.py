@@ -6,6 +6,7 @@ from app.database.connection import get_db
 from app.models.models import Conversation
 from app.nlp_v2.extract_catalog_from_source_code.ast_extractor import extract_from_file
 from app.nlp_v2.main import process_complex_command
+from app.nlp_v2.paraphrase_matcher import process_command_with_paraphrases_sync
 
 from app.models.schemas import AnalyzeCommandRequest
 
@@ -15,6 +16,7 @@ router = APIRouter(tags=["Analyze Command"])
 def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
     conversation_id = payload.conversation_id
     command = payload.command
+    language = payload.language or "en"
 
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
@@ -35,17 +37,28 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
 
         class_name = list(catalog.classes.keys())[0]
 
-        # Process with LLM fallback enabled
-        result = process_complex_command(
+        # Pre-warm synonyms for better performance (non-blocking)
+        try:
+            from app.nlp_v2.prewarming import prewarm_synonyms_sync
+            success = prewarm_synonyms_sync(catalog, class_name)
+            if success:
+                print(f"Synonyms pre-warmed for class '{class_name}'")
+        except Exception as e:
+            print(f"Pre-warming failed (non-critical): {e}")
+            # Continue without pre-warming
+
+        result = process_command_with_paraphrases_sync(
             text=command,
             catalog=catalog,
             class_name=class_name,
             verbose=False,
             use_semantic=True,
             hf_token=None,
-            confidence_threshold=30.0,
-            use_llm_fallback=True,
-            source_file=temp_path
+            confidence_threshold=50.0,
+            use_llm_fallback=False,  # Disable problematic LLM fallback
+            source_file=temp_path,
+            paraphrase_threshold=60.0,
+            max_paraphrases=5
         )
 
         return {

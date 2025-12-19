@@ -101,6 +101,7 @@ class MessageResponse(BaseModel):
 class AnalyzeCommandRequest(BaseModel):
     conversation_id: int
     command: str
+    language: Optional[str] = "en"
 
 class ExecuteCommandRequest(BaseModel):
     conversation_id: int

@@ -57,42 +57,60 @@ export class VoiceService {
 
   /**
    * Transcribe audio using the currently selected voice engine
+   * Defaults to Whisper (more reliable), with Google as fallback
    */
-  async transcribe(audioFile: File, language: string): Promise<VoiceTranscriptionResponse> {
-    if (this.currentEngine === 'google') {
+  async transcribe(audioFile: File): Promise<VoiceTranscriptionResponse> {
+    let result: VoiceTranscriptionResponse;
+
+    // Only use Google if explicitly selected by user
+    const useGoogle = this.currentEngine === 'google';
+
+    if (useGoogle) {
       try {
-        const languageCode = this.mapLanguageCode(language);
-        const result = await googleSpeechAPI.speechToText(audioFile, languageCode);
-        return result;
+        console.log(`[VoiceService] Using Google Speech (English)`);
+        result = await googleSpeechAPI.speechToText(audioFile);
+
+        // Check if Google actually transcribed anything
+        if (!result.text || result.text.trim() === '' || result.error) {
+          console.warn(`[VoiceService] Google returned empty/error result: ${result.error || 'empty text'}, falling back to Whisper`);
+          result = await voiceAPI.transcribe(audioFile);
+          console.log(`[VoiceService] Whisper fallback result: ${result.text}`);
+        } else {
+          console.log(`[VoiceService] Google transcription: "${result.text}", confidence: ${result.confidence}`);
+        }
       } catch (error) {
+        console.warn('[VoiceService] Google Speech failed, falling back to Whisper:', error);
         try {
-          const result = await voiceAPI.transcribe(audioFile, language);
-          return result;
+          result = await voiceAPI.transcribe(audioFile);
+          console.log(`[VoiceService] Whisper fallback result: ${result.text}`);
         } catch (fallbackError) {
           throw fallbackError;
         }
       }
     } else {
       try {
-        const result = await voiceAPI.transcribe(audioFile, language);
-        return result;
+        console.log(`[VoiceService] Using Whisper (English)`);
+        result = await voiceAPI.transcribe(audioFile);
+        console.log(`[VoiceService] Whisper result: text="${result.text}", confidence=${result.confidence}`);
       } catch (error) {
+        console.error('[VoiceService] Whisper failed:', error);
         throw error;
       }
     }
+
+    return result;
   }
 
   /**
    * Text to speech using the currently selected voice engine
    */
-  async speak(text: string, language: string = 'en'): Promise<void> {
+  async speak(text: string): Promise<void> {
     // Don't speak if muted
     if (this.isMuted) return;
 
     if (this.currentEngine === 'google') {
       try {
-        const languageCode = this.mapLanguageCode(language);
-        const audioBlob = await googleSpeechAPI.textToSpeech(text, languageCode);
+        const audioBlob = await googleSpeechAPI.textToSpeech(text);
         await this.playAudioBlob(audioBlob);
       } catch (error) {
         this.fallbackSpeak(text);
@@ -112,22 +130,6 @@ export class VoiceService {
     } catch (error) {
       return false;
     }
-  }
-
-  /**
-   * Map short language codes to full Google Speech language codes
-   */
-  private mapLanguageCode(lang: string): string {
-    const languageMap: Record<string, string> = {
-      'en': 'en-US',
-      'th': 'th-TH',
-      'es': 'es-ES',
-      'fr': 'fr-FR',
-      'de': 'de-DE',
-      'ja': 'ja-JP',
-      'zh': 'zh-CN',
-    };
-    return languageMap[lang] || 'en-US';
   }
 
   /**
@@ -178,7 +180,7 @@ export class VoiceService {
   }
 
   /**
-   * Fallback to browser's built-in speech synthesis (FEMALE voice)
+   * Fallback to browser's built-in speech synthesis
    */
   private fallbackSpeak(text: string): void {
     if (!('speechSynthesis' in window)) {
@@ -191,30 +193,27 @@ export class VoiceService {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
 
     const voices = window.speechSynthesis.getVoices();
 
-    const femaleVoice = voices.find(voice =>
-      voice.name.toLowerCase().includes('female') ||
-      voice.name.toLowerCase().includes('samantha') ||
-      voice.name.toLowerCase().includes('victoria') ||
-      voice.name.toLowerCase().includes('karen') ||
-      voice.name.toLowerCase().includes('zira') ||
-      (voice.name.toLowerCase().includes('google us english') && voice.name.toLowerCase().includes('female'))
-    );
+    // Prefer female English voices
+    const selectedVoice = voices.find(voice =>
+      voice.lang.startsWith('en') && (
+        voice.name.toLowerCase().includes('female') ||
+        voice.name.toLowerCase().includes('samantha') ||
+        voice.name.toLowerCase().includes('victoria') ||
+        voice.name.toLowerCase().includes('karen') ||
+        voice.name.toLowerCase().includes('zira')
+      )
+    ) || voices.find(v => v.lang.startsWith('en'));
 
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
-    } else {
-      const englishVoice = voices.find(v => v.lang.startsWith('en'));
-      if (englishVoice) {
-        utterance.voice = englishVoice;
-      }
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
     }
 
     utterance.pitch = 1.1;
     utterance.rate = 1.25;
-    utterance.lang = 'en-US';
 
     const savedVolume = localStorage.getItem('pytalk_volume');
     if (savedVolume) {

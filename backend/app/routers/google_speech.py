@@ -37,7 +37,7 @@ async def google_speech_status():
 
 
 @router.post("/text-to-speech")
-async def google_text_to_speech(text: str, language: str = "en-US"):
+async def google_text_to_speech(text: str):
     """
     Convert text to speech using Google Cloud Text-to-Speech API
     Returns audio file (MP3)
@@ -45,7 +45,7 @@ async def google_text_to_speech(text: str, language: str = "en-US"):
     if not GOOGLE_AVAILABLE or not GOOGLE_LIBS_AVAILABLE:
         raise HTTPException(status_code=503, detail="Google Speech API not available")
 
-    print(f"[Google TTS] Request received - Language: {language}, Text length: {len(text)} chars")
+    print(f"[Google TTS] Request received - Text length: {len(text)} chars")
 
     try:
         client = texttospeech.TextToSpeechClient()
@@ -53,19 +53,10 @@ async def google_text_to_speech(text: str, language: str = "en-US"):
 
         synthesis_input = texttospeech.SynthesisInput(text=text)
 
-        # Map language codes to voice names (using MALE voices)
-        # en-US-Standard-D is a deep male voice
-        # th-TH-Standard-A is a male voice for Thai
-        voice_map = {
-            "en-US": "en-US-Standard-D",  # Male voice
-            "th-TH": "th-TH-Standard-A",  # Male voice
-        }
-
-        voice_name = voice_map.get(language, "en-US-Standard-D")
-
+        # Use English voice only
         voice = texttospeech.VoiceSelectionParams(
-            language_code=language,
-            name=voice_name,
+            language_code="en-US",
+            name="en-US-Standard-D",
             ssml_gender=texttospeech.SsmlVoiceGender.MALE
         )
 
@@ -77,7 +68,7 @@ async def google_text_to_speech(text: str, language: str = "en-US"):
             sample_rate_hertz=24000  # High quality audio
         )
 
-        print(f"[Google TTS] Using voice: {voice_name}")
+        print(f"[Google TTS] Using voice: en-US-Standard-D")
 
         response = client.synthesize_speech(
             input=synthesis_input,
@@ -109,8 +100,7 @@ async def google_text_to_speech(text: str, language: str = "en-US"):
 
 @router.post("/speech-to-text")
 async def google_speech_to_text(
-    file: UploadFile = File(...),
-    language: str = "en-US"
+    file: UploadFile = File(...)
 ):
     """
     Convert audio to text using Google Cloud Speech-to-Text API
@@ -119,7 +109,7 @@ async def google_speech_to_text(
     if not GOOGLE_AVAILABLE or not GOOGLE_LIBS_AVAILABLE:
         raise HTTPException(status_code=503, detail="Google Speech API not available")
 
-    print(f"[Google STT] Request received - Language: {language}, File: {file.filename}")
+    print(f"[Google STT] Request received - File: {file.filename}")
 
     try:
         client = speech.SpeechClient()
@@ -137,7 +127,7 @@ async def google_speech_to_text(
             speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
                 sample_rate_hertz=48000,
-                language_code=language,
+                language_code="en-US",
                 enable_automatic_punctuation=True,
                 model="default",
                 audio_channel_count=1,
@@ -146,7 +136,7 @@ async def google_speech_to_text(
             speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.OGG_OPUS,
                 sample_rate_hertz=48000,
-                language_code=language,
+                language_code="en-US",
                 enable_automatic_punctuation=True,
                 model="default",
                 audio_channel_count=1,
@@ -154,7 +144,7 @@ async def google_speech_to_text(
             # Config 3: LINEAR16 (WAV)
             speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                language_code=language,
+                language_code="en-US",
                 enable_automatic_punctuation=True,
                 model="default",
             ),
@@ -186,25 +176,60 @@ async def google_speech_to_text(
             print("[Google STT] No speech detected in audio")
             return {
                 "text": "",
+                "language": "en",
                 "confidence": 0.0,
                 "alternatives": [],
-                "message": "No speech detected"
+                "original": "",
+                "error": "No speech detected in audio"
             }
 
         # Extract transcription and confidence
         results = []
+
         for result in response.results:
+            if not result.alternatives:
+                continue
+
             alternative = result.alternatives[0]
+
+            # Get confidence (might be 0.0 for streaming, use 1.0 as default for final results)
+            confidence = alternative.confidence if hasattr(alternative, 'confidence') and alternative.confidence > 0 else 0.95
+
             results.append({
                 "transcript": alternative.transcript,
-                "confidence": alternative.confidence
+                "confidence": confidence
             })
 
+        if not results:
+            print("[Google STT] No alternatives found in results")
+            return {
+                "text": "",
+                "language": "en",
+                "confidence": 0.0,
+                "alternatives": [],
+                "original": "",
+                "error": "No transcription alternatives found"
+            }
+
         main_result = results[0]
+
+        # Ensure we have actual text
+        if not main_result["transcript"] or not main_result["transcript"].strip():
+            print("[Google STT] Empty transcript returned")
+            return {
+                "text": "",
+                "language": "en",
+                "confidence": 0.0,
+                "alternatives": [],
+                "original": "",
+                "error": "Empty transcription"
+            }
+
         print(f"[Google STT] ✓ Transcription successful - Text: '{main_result['transcript']}', Confidence: {main_result['confidence']:.2f}")
 
         return {
             "text": main_result["transcript"],
+            "language": "en",
             "confidence": main_result["confidence"],
             "alternatives": [r["transcript"] for r in results[1:]] if len(results) > 1 else [],
             "original": main_result["transcript"]

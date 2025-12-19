@@ -3,7 +3,7 @@ import whisper
 import subprocess, tempfile
 import torch
 import platform
-from transformers import T5ForConditionalGeneration, T5Tokenizer, MarianMTModel, MarianTokenizer
+from transformers import T5ForConditionalGeneration, T5Tokenizer
 import pyttsx3
 
 router = APIRouter(prefix="/voice", tags=["voice"])
@@ -50,9 +50,6 @@ except Exception as e:
     tts_engine = None
     TTS_AVAILABLE = False
 
-# Cache Marian translation models
-translation_models = {}
-
 def paraphrase(text, n=3):
     if not T5_AVAILABLE or not t5_tokenizer or not t5_model:
         # Return the original text as alternatives if T5 is not available
@@ -74,20 +71,6 @@ def paraphrase(text, n=3):
         print(f"Paraphrasing error: {e}")
         return [text] * n
 
-def translate_to_english(text, src_lang):
-    """Translate non-English text to English using MarianMT"""
-    if src_lang not in translation_models:
-        model_name = f"Helsinki-NLP/opus-mt-{src_lang}-en"
-        tokenizer = MarianTokenizer.from_pretrained(model_name)
-        model = MarianMTModel.from_pretrained(model_name)
-        translation_models[src_lang] = (tokenizer, model)
-    else:
-        tokenizer, model = translation_models[src_lang]
-    
-    batch = tokenizer([text], return_tensors="pt", padding=True)
-    gen = model.generate(**batch)
-    return tokenizer.decode(gen[0], skip_special_tokens=True)
-
 def speak_text(text):
     if TTS_AVAILABLE and tts_engine:
         try:
@@ -100,8 +83,7 @@ def speak_text(text):
 
 @router.post("/transcribe")
 async def transcribe_audio(
-    file: UploadFile = File(...),
-    language: str = Form(...)
+    file: UploadFile = File(...)
 ):
     if not whisper_model:
         return {"error": "Whisper model not available"}
@@ -123,28 +105,30 @@ async def transcribe_audio(
             audio = whisper.load_audio(temp_wav.name)
             audio = whisper.pad_or_trim(audio)
             mel = whisper.log_mel_spectrogram(audio).to(whisper_model.device)
-            options = whisper.DecodingOptions(language=language)
+
+            # Use English only
+            options = whisper.DecodingOptions(language="en")
             result = whisper.decode(whisper_model, mel, options)
             text = result.text.strip()
 
+            print(f"[Whisper] Transcription: '{text}'")
+
         if not text:
-            return {"error": "Empty transcription"}
+            return {"error": "Empty transcription", "language": "en"}
 
-        # Translate if needed
-        text_en = text
-        if language != "en":
-            try:
-                text_en = translate_to_english(text, language)
-            except Exception:
-                text_en = "[Translation failed]"
+        # Generate paraphrases
+        alternatives = paraphrase(text, n=3)
 
-        # Generate 3 paraphrases
-        alternatives = paraphrase(text_en, n=3)
+        # Speak the text
+        speak_text(f"You said: {text}")
 
-        # Speak English text
-        speak_text(f"You said: {text_en}")
-
-        return {"text": text_en, "alternatives": alternatives, "original": text}
+        return {
+            "text": text,
+            "language": "en",
+            "alternatives": alternatives,
+            "original": text,
+            "confidence": 1.0
+        }
 
     except Exception as e:
         return {"error": str(e)}
