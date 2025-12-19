@@ -763,7 +763,7 @@ class Calculator:
         test_commands = [
             "add 100 and 250 then divide 10 by 5",
             "multiply 12 with 4 and add 5 to 10",
-            "subtract five from twenty, then multiply nine by 0",
+            "subtract five from twenty, then multiply nine by zero",
         ]
 
         run_poc(temp_file, test_commands)

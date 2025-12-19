@@ -4,13 +4,30 @@ from typing import List, Tuple
 import os
 import json
 import asyncio
-from pydantic_ai import Agent
+from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 import re
 from difflib import SequenceMatcher
+from functools import lru_cache
+import hashlib
 
 # Load environment variables
-load_dotenv(dotenv_path="app/nlp_v2/.env")
+load_dotenv(dotenv_path="app/nlp_v3/.env")
+
+# Initialize Anthropic client once
+_anthropic_client = None
+
+def get_anthropic_client():
+    global _anthropic_client
+    if _anthropic_client is None:
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+        _anthropic_client = AsyncAnthropic(api_key=api_key)
+    return _anthropic_client
+
+# Simple in-memory cache for paraphrases
+_paraphrase_cache = {}
 
 router = APIRouter(prefix="/user_command_paraphrasing_suggestion", tags=["Paraphrase"])
 
@@ -21,21 +38,20 @@ Rules:
 - Keep the same numbers and entities exactly as they appear
 - Keep the same intent and meaning
 - Use simple, clear language
-- Vary grammatical structure (active/passive, word order, sentence patterns)
-- Use synonyms where appropriate
-- Include a mix of variations:
-  * Very similar: only grammar/word order changes
-  * Moderately similar: some synonym replacements
-  * Less similar: different phrasing but same meaning
+- ONLY change word order OR replace with simple, common synonyms
+- Do NOT creatively rephrase or use complex alternatives
+- Include two types of variations:
+  * Word order changes only (same words, different arrangement)
+  * Simple synonym replacements (common, everyday alternatives)
 - Output ONLY valid JSON in this format: {"variants":["...", "..."]}
 - NO markdown, NO code blocks, NO explanations
 
 Examples:
 Input: "turn on the light"
-Output: {"variants":["switch on the light", "turn the light on", "switch the light on", "activate the light", "power on the light", "make the light turn on", "get the light on", "illuminate the room"]}
+Output: {"variants":["turn the light on", "switch on the light", "switch the light on", "power on the light", "turn on the lamp", "switch on the lamp"]}
 
 Input: "add 5 and 3"
-Output: {"variants":["sum 5 and 3", "5 plus 3", "combine 5 and 3", "add 3 and 5", "what is 5 plus 3", "calculate 5 plus 3", "5 added to 3", "total of 5 and 3"]}
+Output: {"variants":["5 plus 3", "add 3 and 5", "3 plus 5", "sum 5 and 3", "sum 3 and 5"]}
 """
 
 class ParaphraseRequest(BaseModel):
@@ -127,30 +143,28 @@ def sort_paraphrases_by_similarity(original_text: str, variants: List[str]) -> L
     return [variant for variant, score in scored_variants]
 
 async def generate_paraphrases(text: str, max_variants: int) -> List[str]:
-    """Generate paraphrases using Claude API"""
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+    """Generate paraphrases using Claude API with caching"""
+    # Check cache first
+    cache_key = f"{text.lower().strip()}:{max_variants}"
+    if cache_key in _paraphrase_cache:
+        return _paraphrase_cache[cache_key]
 
-    # Use Claude Haiku for fast paraphrase generation
-    agent = Agent("anthropic:claude-3-haiku-20240307", system_prompt=PARAPHRASE_SYSTEM_PROMPT)
+    client = get_anthropic_client()
 
-    prompt = f"""Generate {max_variants} alternative phrasings for this sentence/command: "{text}"
-
-Generate a diverse mix of variations:
-- Some with only grammar/word order changes (very similar)
-- Some with synonym replacements (moderately similar)
-- Some with rephrasing (less similar but same meaning)
-
-Keep numbers and key entities exactly as they appear.
-Output ONLY valid JSON: {{"variants":["...", "..."]}}
-"""
+    # Simplified, shorter prompt for faster response
+    prompt = f'Generate {max_variants} variations for: "{text}"\nOutput JSON: {{"variants":["...", "..."]}}'
 
     try:
-        result = await agent.run(prompt)
-        response_text = str(result.data if hasattr(result, 'data') else result)
+        # Direct API call with minimal tokens for speed
+        message = await client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=300,  # Reduced from default, enough for paraphrases
+            temperature=0.7,  # Some creativity but consistent
+            system=PARAPHRASE_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}]
+        )
 
-        print(f"Claude response (first 200 chars): {response_text[:200]}")
+        response_text = message.content[0].text.strip()
 
         json_str = extract_json_string(response_text)
         parsed = json.loads(json_str)
@@ -164,7 +178,12 @@ Output ONLY valid JSON: {{"variants":["...", "..."]}}
         sorted_variants = sort_paraphrases_by_similarity(text, validated_variants)
 
         # Ensure we don't exceed max_variants
-        return sorted_variants[:max_variants]
+        result = sorted_variants[:max_variants]
+
+        # Cache the result
+        _paraphrase_cache[cache_key] = result
+
+        return result
 
     except Exception as e:
         print(f"Error generating paraphrases: {e}")

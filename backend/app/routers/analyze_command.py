@@ -4,13 +4,59 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
-from app.nlp_v2.extract_catalog_from_source_code.ast_extractor import extract_from_file
-from app.nlp_v2.main import process_complex_command
-from app.nlp_v2.paraphrase_matcher import process_command_with_paraphrases_sync
+from app.nlp_v3.utils import extract_methods_from_file
+from app.nlp_v3.main import HonestNLPPipeline
 
 from app.models.schemas import AnalyzeCommandRequest
 
+# Global pipeline instance (reused across requests for performance)
+_pipeline_cache = {}
+
 router = APIRouter(tags=["Analyze Command"])
+
+@router.post("/prewarm_pipeline")
+def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
+    """Pre-warm the NLP pipeline for faster first command processing"""
+    conversation_id = payload.conversation_id
+
+    convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not convo.code:
+        raise HTTPException(status_code=400, detail="This conversation has no uploaded code")
+
+    import tempfile, os
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as temp_file:
+        temp_file.write(convo.code.encode("utf-8"))
+        temp_path = temp_file.name
+
+    try:
+        # Extract methods from the uploaded Python file
+        methods = extract_methods_from_file(temp_path)
+
+        if not methods:
+            raise HTTPException(status_code=400, detail="No public methods found in uploaded file")
+
+        # Initialize pipeline in cache
+        cache_key = f"conv_{conversation_id}"
+
+        if cache_key not in _pipeline_cache:
+            print(f"Pre-warming NLP v3 pipeline for conversation {conversation_id}")
+            pipeline = HonestNLPPipeline()
+            pipeline.initialize(methods)
+            _pipeline_cache[cache_key] = pipeline
+            return {"status": "initialized", "message": "Pipeline pre-warmed successfully"}
+        else:
+            return {"status": "already_cached", "message": "Pipeline already initialized"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error pre-warming pipeline: {str(e)}")
+
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
 
 @router.post("/analyze_command")
 def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
@@ -31,35 +77,72 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         temp_path = temp_file.name
 
     try:
-        catalog = extract_from_file(temp_path)
-        if not catalog.classes:
-            raise HTTPException(status_code=400, detail="No class found in uploaded file")
+        # Extract methods from the uploaded Python file
+        methods = extract_methods_from_file(temp_path)
 
-        class_name = list(catalog.classes.keys())[0]
+        if not methods:
+            raise HTTPException(status_code=400, detail="No public methods found in uploaded file")
 
-        # Pre-warm synonyms for better performance (non-blocking)
-        try:
-            from app.nlp_v2.prewarming import prewarm_synonyms_sync
-            success = prewarm_synonyms_sync(catalog, class_name)
-            if success:
-                print(f"Synonyms pre-warmed for class '{class_name}'")
-        except Exception as e:
-            print(f"Pre-warming failed (non-critical): {e}")
-            # Continue without pre-warming
+        # Extract class name (for response compatibility)
+        import ast
+        with open(temp_path, 'r') as f:
+            tree = ast.parse(f.read())
+        class_name = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                class_name = node.name
+                break
 
-        result = process_command_with_paraphrases_sync(
-            text=command,
-            catalog=catalog,
-            class_name=class_name,
-            verbose=False,
-            use_semantic=True,
-            hf_token=None,
-            confidence_threshold=50.0,
-            use_llm_fallback=False,  # Disable problematic LLM fallback
-            source_file=temp_path,
-            paraphrase_threshold=60.0,
-            max_paraphrases=5
-        )
+        if not class_name:
+            class_name = "UnknownClass"
+
+        # Use cached pipeline or create new one per conversation
+        cache_key = f"conv_{conversation_id}"
+
+        if cache_key not in _pipeline_cache:
+            print(f"Initializing NLP v3 pipeline for conversation {conversation_id}")
+            pipeline = HonestNLPPipeline()
+            pipeline.initialize(methods)
+            _pipeline_cache[cache_key] = pipeline
+        else:
+            pipeline = _pipeline_cache[cache_key]
+
+        # Process the command
+        results = pipeline.process_command(command, methods, top_k=1)
+
+        if not results:
+            return {
+                "class_name": class_name,
+                "file_name": convo.file_name,
+                "result": {
+                    "success": False,
+                    "message": "No matching methods found",
+                    "confidence": 0.0
+                }
+            }
+
+        # Extract top result
+        action_verb, match_score = results[0]
+
+        # Format result to match nlp_v2 response format
+        result = {
+            "success": True,
+            "method": match_score.method_name,
+            "parameters": match_score.extracted_params,
+            "confidence": match_score.total_score * 100,  # Convert to percentage
+            "executable": match_score.get_method_call(),  # This is what frontend expects!
+            "intent_type": "nlp_v3",
+            "source": "nlp_v3",
+            # Additional v3-specific fields
+            "explanation": match_score.explain(),
+            "breakdown": {
+                "semantic_score": match_score.semantic_score * 100,
+                "intent_score": match_score.intent_score * 100,
+                "synonym_boost": match_score.synonym_boost * 100,
+                "param_relevance": match_score.param_relevance * 100,
+                "phrasal_verb_match": match_score.phrasal_verb_match * 100
+            }
+        }
 
         return {
             "class_name": class_name,

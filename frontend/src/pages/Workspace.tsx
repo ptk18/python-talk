@@ -151,6 +151,11 @@ export default function Workspace() {
             await fetchMessages();
             await fetchAvailableMethods();
             await syncCodeFromBackend();
+
+            // Pre-warm NLP pipeline in background for faster first command
+            analyzeAPI.prewarmPipeline(parseInt(conversationId))
+                .then(() => console.log('NLP pipeline pre-warmed'))
+                .catch(err => console.warn('Pipeline pre-warm failed:', err));
         } catch (err) {
             console.error("Failed to initialize session:", err);
         }

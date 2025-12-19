@@ -299,6 +299,20 @@ export const analyzeAPI = {
       }),
     });
   },
+
+  prewarmPipeline: async (conversation_id: number): Promise<{ status: string; message: string }> => {
+    return apiCall(`/api/prewarm_pipeline`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        conversation_id,
+        command: '',  // Not used for prewarming
+        language: 'en',
+      }),
+    });
+  },
 };
 
 // Execute Command types

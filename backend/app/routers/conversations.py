@@ -6,7 +6,7 @@ import os
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ConversationCreate, ConversationResponse
-from app.nlp_v2.extract_catalog_from_source_code.ast_extractor import extract_from_file
+from app.nlp_v3.catalog import extract_from_file
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
