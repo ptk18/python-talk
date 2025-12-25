@@ -69,12 +69,15 @@ export class VoiceService {
   /**
    * Transcribe audio using the currently selected voice engine
    * Defaults to Whisper (more reliable), with Google as fallback
+   * @param audioFile - Audio file to transcribe
+   * @param language - Language code ('en' or 'th')
    */
-  async transcribe(audioFile: File): Promise<VoiceTranscriptionResponse> {
+  async transcribe(audioFile: File, language: string = 'en'): Promise<VoiceTranscriptionResponse> {
     let result: VoiceTranscriptionResponse;
 
-    // Only use Google if explicitly selected by user
-    const useGoogle = this.currentEngine === 'google';
+    // Only use Google if explicitly selected by user AND language is English
+    // Google doesn't support Thai in our current setup
+    const useGoogle = this.currentEngine === 'google' && language === 'en';
 
     if (useGoogle) {
       try {
@@ -84,7 +87,7 @@ export class VoiceService {
         // Check if Google actually transcribed anything
         if (!result.text || result.text.trim() === '' || result.error) {
           console.warn(`[VoiceService] Google returned empty/error result: ${result.error || 'empty text'}, falling back to Whisper`);
-          result = await voiceAPI.transcribe(audioFile);
+          result = await voiceAPI.transcribe(audioFile, language);
           console.log(`[VoiceService] Whisper fallback result: ${result.text}`);
         } else {
           console.log(`[VoiceService] Google transcription: "${result.text}", confidence: ${result.confidence}`);
@@ -92,7 +95,7 @@ export class VoiceService {
       } catch (error) {
         console.warn('[VoiceService] Google Speech failed, falling back to Whisper:', error);
         try {
-          result = await voiceAPI.transcribe(audioFile);
+          result = await voiceAPI.transcribe(audioFile, language);
           console.log(`[VoiceService] Whisper fallback result: ${result.text}`);
         } catch (fallbackError) {
           throw fallbackError;
@@ -100,8 +103,9 @@ export class VoiceService {
       }
     } else {
       try {
-        console.log(`[VoiceService] Using Whisper (English)`);
-        result = await voiceAPI.transcribe(audioFile);
+        const langName = language === 'th' ? 'Thai' : 'English';
+        console.log(`[VoiceService] Using Whisper (${langName})`);
+        result = await voiceAPI.transcribe(audioFile, language);
         console.log(`[VoiceService] Whisper result: text="${result.text}", confidence=${result.confidence}`);
       } catch (error) {
         console.error('[VoiceService] Whisper failed:', error);

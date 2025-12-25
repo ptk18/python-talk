@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import "./Navbar.css";
 import { useTTS } from "../context/TTSContext";
+import { useLanguage } from "../context/LanguageContext";
 
 interface NavbarProps {
     rightButton?: {
@@ -15,6 +16,7 @@ export default function Navbar({ rightButton }: NavbarProps) {
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { ttsEnabled, toggleTTS } = useTTS();
+    const { language, toggleLanguage } = useLanguage();
 
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
@@ -61,6 +63,13 @@ export default function Navbar({ rightButton }: NavbarProps) {
                     >
                         Profile
                     </Link>
+                    <button
+                        className="navbar__lang-toggle"
+                        onClick={toggleLanguage}
+                        title={`Switch to ${language === 'en' ? 'Thai' : 'English'}`}
+                    >
+                        {language === 'en' ? 'EN' : 'TH'}
+                    </button>
                     <button
                         className="navbar__tts-toggle"
                         onClick={toggleTTS}
@@ -140,6 +149,13 @@ export default function Navbar({ rightButton }: NavbarProps) {
                     >
                         Profile
                     </Link>
+                    <button
+                        className="navbar__lang-toggle navbar__lang-toggle--sidebar"
+                        onClick={toggleLanguage}
+                        title={`Switch to ${language === 'en' ? 'Thai' : 'English'}`}
+                    >
+                        <span>{language === 'en' ? '🇬🇧 English' : '🇹🇭 ไทย'}</span>
+                    </button>
                     <button
                         className="navbar__tts-toggle navbar__tts-toggle--sidebar"
                         onClick={toggleTTS}

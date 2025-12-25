@@ -45,6 +45,35 @@
     color: #0e391c;
 }
 
+.navbar__lang-toggle {
+    background: var(--deep);
+    border: 2px solid var(--deep);
+    color: white;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: "Jaldi", sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.navbar__lang-toggle:hover {
+    background: #0e391c;
+    border-color: #0e391c;
+    transform: translateY(-2px);
+}
+
+.navbar__lang-toggle--sidebar {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 18px;
+}
+
 .navbar__tts-toggle {
     background: none;
     border: none;

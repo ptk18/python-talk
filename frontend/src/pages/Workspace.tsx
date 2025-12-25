@@ -16,6 +16,7 @@ import type { Message, AvailableMethodsResponse } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useCode } from "../context/CodeContext";
 import { useFiles } from "../context/FileContext";
+import { useLanguage } from "../context/LanguageContext";
 import { voiceService } from "../services/voiceService";
 
 export default function Workspace() {
@@ -25,13 +26,14 @@ export default function Workspace() {
     const conversationId = searchParams.get("conversationId");
     const { user } = useAuth();
     const { code, setCode, syncCodeFromBackend, setConversationId } = useCode();
-    const { 
-        currentFile, 
-        currentCode, 
+    const { language } = useLanguage();
+    const {
+        currentFile,
+        currentCode,
         setCurrentCode,
-        loadFiles, 
-        loadFile, 
-        saveFile 
+        loadFiles,
+        loadFile,
+        saveFile
     } = useFiles();
 
     const [isChatActive, setIsChatActive] = useState(false);
@@ -614,13 +616,13 @@ export default function Workspace() {
                     );
 
                     try {
-                        const result = await voiceService.transcribe(audioFile);
+                        const result = await voiceService.transcribe(audioFile, language);
                         const text = result.text || `[Error: ${result.error || "Unknown"}]`;
 
                         if (text.includes("[Error")) {
                             voiceService.speak("I couldn't understand that. Please try again");
                         } else {
-                            console.log(`Transcribed text: ${text}`);
+                            console.log(`Transcribed text (${language}): ${text}`);
                             voiceService.speak("Voice command received");
                         }
 

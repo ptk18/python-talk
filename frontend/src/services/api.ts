@@ -192,12 +192,15 @@ export const voiceAPI = {
    * Send an audio file to the backend Whisper API for transcription and paraphrasing.
    *
    * @param audioFile The uploaded audio file (webm, wav, etc.)
+   * @param language Language code ('en' for English, 'th' for Thai)
    */
   transcribe: async (
-    audioFile: File
+    audioFile: File,
+    language: string = 'en'
   ): Promise<VoiceTranscriptionResponse> => {
     const formData = new FormData();
     formData.append("file", audioFile);
+    formData.append("language", language);
 
     const response = await fetch(`${API_BASE_URL}/api/voice/transcribe`, {
       method: "POST",

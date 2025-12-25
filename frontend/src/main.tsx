@@ -13,6 +13,7 @@ import "./index.css";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { TTSProvider } from "./context/TTSContext";
+import { LanguageProvider } from "./context/LanguageContext";
 import { CodeProvider } from "./context/CodeContext";
 import { FileProvider } from "./context/FileContext";
 import { voiceService } from "./services/voiceService";
@@ -26,21 +27,23 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <AuthProvider>
       <ThemeProvider>
         <TTSProvider>
-          <CodeProvider>
-            <FileProvider>
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Login />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/signup" element={<Signup />} />
-                  <Route path="/homeReal" element={<HomeReal />} />
-                  <Route path="/workspace" element={<Workspace />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/setting" element={<Setting />} />
-                </Routes>
-              </BrowserRouter>
-            </FileProvider>
-          </CodeProvider>
+          <LanguageProvider>
+            <CodeProvider>
+              <FileProvider>
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/" element={<Login />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<Signup />} />
+                    <Route path="/homeReal" element={<HomeReal />} />
+                    <Route path="/workspace" element={<Workspace />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/setting" element={<Setting />} />
+                  </Routes>
+                </BrowserRouter>
+              </FileProvider>
+            </CodeProvider>
+          </LanguageProvider>
         </TTSProvider>
       </ThemeProvider>
     </AuthProvider>
