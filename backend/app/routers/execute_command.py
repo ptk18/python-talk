@@ -44,11 +44,10 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
     module_path = os.path.join(session_dir, safe_module_fname)
     runner_path = os.path.join(session_dir, "runner.py")
 
-    # 1) Ensure module file is written (only write if not exists or overwrite if you prefer)
-    if not os.path.exists(module_path):
-        # write the module source to file
-        with open(module_path, "w", encoding="utf-8") as f:
-            f.write(convo.code)
+    # 1) Always write/overwrite the module file to ensure it matches the database
+    # This ensures that if a conversation is recreated or updated, the file is current
+    with open(module_path, "w", encoding="utf-8") as f:
+        f.write(convo.code)
 
     # 2) Detect class name using extract_from_file (works off a file path)
     try:
@@ -359,6 +358,7 @@ def get_file(conversation_id: int = Query(..., description="Conversation ID"),
 def list_files(conversation_id: int = Query(..., description="Conversation ID")):
     """
     List all Python files in the conversation session directory.
+    Returns files with uploaded files first, then runner.py
     """
     session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
 
@@ -370,8 +370,12 @@ def list_files(conversation_id: int = Query(..., description="Conversation ID"))
         for filename in os.listdir(session_dir):
             if filename.endswith('.py'):
                 files.append(filename)
-        
-        return {"conversation_id": conversation_id, "files": sorted(files)}
+
+        # Sort files: uploaded files first (not runner.py), then runner.py
+        uploaded_files = sorted([f for f in files if f != 'runner.py'])
+        runner_files = [f for f in files if f == 'runner.py']
+
+        return {"conversation_id": conversation_id, "files": uploaded_files + runner_files}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 

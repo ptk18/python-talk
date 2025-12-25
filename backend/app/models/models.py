@@ -17,10 +17,10 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False)
-    email = Column(String, unique=True, nullable=True)
+    email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=True)  # For old users
-    password_hash = Column(String, nullable=True)  # For new auth system
-    gender = Column(Enum(GenderEnum), nullable=False)
+    password_hash = Column(String, nullable=False)  # For new auth system
+    gender = Column(Enum(GenderEnum), nullable=True)
     full_name = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     address = Column(Text, nullable=True)

@@ -4,3 +4,6 @@ import sys
 obj = SmartHome()
 # session runner - commands will be appended below
 print(obj.turn_ac_off())
+print(obj.turn_all_on())
+print(obj.turn_tv_on())
+print(obj.turn_ac_on())

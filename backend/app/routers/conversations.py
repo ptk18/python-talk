@@ -100,10 +100,22 @@ def get_available_methods(conversation_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/{conversation_id}")
 def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
-    """Delete a conversation by ID"""
+    """Delete a conversation by ID and clean up associated session files"""
+    import shutil
+
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Clean up session directory
+    BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
+    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+
+    if os.path.exists(session_dir):
+        try:
+            shutil.rmtree(session_dir)
+        except Exception as e:
+            print(f"Warning: Failed to delete session directory {session_dir}: {e}")
 
     db.delete(convo)
     db.commit()

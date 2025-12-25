@@ -30,6 +30,7 @@ class SignupRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: dict
 
 
 def hash_password(password: str) -> str:
@@ -61,7 +62,10 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     )
 
     token = create_access_token({"sub": str(user.id), "email": user.email})
-    return TokenResponse(access_token=token)
+    return TokenResponse(
+        access_token=token,
+        user={"id": user.id, "username": user.username, "email": user.email}
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -72,6 +76,9 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     token = create_access_token({"sub": str(user.id), "email": user.email})
-    return TokenResponse(access_token=token)
+    return TokenResponse(
+        access_token=token,
+        user={"id": user.id, "username": user.username, "email": user.email}
+    )
 
 
