@@ -28,7 +28,7 @@
       <div class="user-section" @click="goToProfile">
         <div class="user-avatar">{{ userInitial }}</div>
         <div class="user-info">
-          <div class="user-name">{{ userInfo.name || 'User' }}</div>
+          <div class="user-name">{{ userInfo.username || 'User' }}</div>
           <div class="user-email">{{ userInfo.email || 'user@example.com' }}</div>
         </div>
       </div>
@@ -69,14 +69,21 @@ export default {
     ]
 
     const userInitial = computed(() => {
-      const source = userInfo.value.name || userInfo.value.email || 'U'
+      const source = userInfo.value.username || userInfo.value.email || 'U'
       return source.charAt(0).toUpperCase()
     })
 
     const loadUserInfo = () => {
-      const stored = localStorage.getItem('userInfo')
+      // Try to get user info from auth store first
+      const stored = localStorage.getItem('auth_user')
       if (stored) {
         userInfo.value = JSON.parse(stored)
+      } else {
+        // Fallback to old userInfo key
+        const oldStored = localStorage.getItem('userInfo')
+        if (oldStored) {
+          userInfo.value = JSON.parse(oldStored)
+        }
       }
     }
 

@@ -38,24 +38,54 @@
             </div>
           </div>
 
-          <!-- Voice Model Selection Section -->
+          <!-- TTS Enable/Disable Section -->
           <div class="settings-section">
             <div class="settings-header">
-              <h3 class="section-title">Voice Model Selection</h3>
-              <p class="section-description">Select a voice model for speech recognition and synthesis</p>
+              <h3 class="section-title">Text-to-Speech</h3>
+              <p class="section-description">Enable or disable voice feedback</p>
+            </div>
+            <div class="toggle-container">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Enable TTS</div>
+                  <div class="toggle-description">Turn voice responses on or off</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="ttsEnabledState" @change="toggleTTS">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <button
+                class="test-tts-btn"
+                @click="testTTS"
+                :disabled="!ttsEnabledState"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 9V15H7L12 20V4L7 9H3ZM16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12Z" fill="currentColor"/>
+                </svg>
+                Test Voice
+              </button>
+            </div>
+          </div>
+
+          <!-- TTS Model Selection Section -->
+          <div class="settings-section">
+            <div class="settings-header">
+              <h3 class="section-title">Text-to-Speech Model</h3>
+              <p class="section-description">Select the TTS engine for voice output</p>
             </div>
             <div class="settings-options">
-              <div 
-                v-for="voice in voiceModels" 
+              <div
+                v-for="voice in ttsModels"
                 :key="voice.id"
                 class="option-card"
-                :class="{ 'active': selectedVoiceModel === voice.id }"
-                @click="selectVoiceModel(voice.id)"
+                :class="{ 'active': selectedTTSModel === voice.id, 'disabled': !ttsEnabledState }"
+                @click="ttsEnabledState && selectVoiceModel(voice.id)"
               >
                 <div class="option-content">
                   <div class="option-icon-voice">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 14C13.1 14 14 13.1 14 12V6C14 4.9 13.1 4 12 4C10.9 4 10 4.9 10 6V12C10 13.1 10.9 14 12 14ZM19 12C19 15.87 15.87 19 12 19V21H16V23H8V21H12V19C8.13 19 5 15.87 5 12H7C7 14.76 9.24 17 12 17C14.76 17 17 14.76 17 12H19Z" fill="currentColor"/>
+                      <path d="M3 9V15H7L12 20V4L7 9H3ZM16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12ZM14 3.23V5.29C16.89 6.15 19 8.83 19 12C19 15.17 16.89 17.85 14 18.71V20.77C18.01 19.86 21 16.28 21 12C21 7.72 18.01 4.14 14 3.23Z" fill="currentColor"/>
                     </svg>
                   </div>
                   <div class="option-info">
@@ -63,7 +93,7 @@
                     <div class="option-subtitle">{{ voice.description }}</div>
                   </div>
                 </div>
-                <div class="option-check" v-if="selectedVoiceModel === voice.id">
+                <div class="option-check" v-if="selectedTTSModel === voice.id">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z" fill="currentColor"/>
                   </svg>
@@ -77,90 +107,87 @@
   </div>
 </template>
 
-<script>
-import Sidebar from '../components/Sidebar.vue'
+<script setup>
+import { ref, computed, onMounted } from 'vue';
+import Sidebar from '../components/Sidebar.vue';
+import { useLanguage } from '../composables/useLanguage';
+import { useTTS } from '../composables/useTTS';
+import { voiceService } from '../services/voiceService';
 
-export default {
-  name: 'Settings',
-  components: {
-    Sidebar
-  },
-  data() {
-    return {
-      languages: [
-        { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
-        { code: 'th', name: 'Thai', nativeName: 'ไทย', flag: '🇹🇭' }
-      ],
-      voiceModels: [
-        { 
-          id: 'whisper-base', 
-          name: 'Whisper Base', 
-          description: 'Fast and efficient, good for general use' 
-        },
-        { 
-          id: 'whisper-small', 
-          name: 'Whisper Small', 
-          description: 'Balanced performance and accuracy' 
-        },
-        { 
-          id: 'whisper-medium', 
-          name: 'Whisper Medium', 
-          description: 'Higher accuracy, slightly slower' 
-        },
-        { 
-          id: 'whisper-large', 
-          name: 'Whisper Large', 
-          description: 'Best accuracy, requires more resources' 
-        },
-        { 
-          id: 'google-cloud', 
-          name: 'Google Cloud Speech', 
-          description: 'Cloud-based, high accuracy' 
-        },
-        { 
-          id: 'azure-speech', 
-          name: 'Azure Speech', 
-          description: 'Microsoft Azure speech services' 
-        }
-      ],
-      selectedLanguage: 'en',
-      selectedVoiceModel: 'whisper-base'
+const { language, setLanguage } = useLanguage();
+const { ttsEnabled, ttsEngine, setTTSEnabled, setTTSEngine } = useTTS();
+
+const languages = [
+  { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
+  { code: 'th', name: 'Thai', nativeName: 'ไทย', flag: '🇹🇭' }
+];
+
+const googleAvailable = ref(false);
+const ttsEnabledState = ref(true);
+
+const ttsModels = computed(() => {
+  const models = [
+    {
+      id: 'browser',
+      name: 'Browser TTS',
+      description: 'Built-in browser speech synthesis (offline)'
     }
-  },
-  mounted() {
-    this.loadSettings()
-  },
-  methods: {
-    selectLanguage(code) {
-      this.selectedLanguage = code
-      this.saveSettings()
-    },
-    selectVoiceModel(id) {
-      this.selectedVoiceModel = id
-      this.saveSettings()
-    },
-    loadSettings() {
-      const settings = localStorage.getItem('appSettings')
-      if (settings) {
-        try {
-          const parsed = JSON.parse(settings)
-          this.selectedLanguage = parsed.language || 'en'
-          this.selectedVoiceModel = parsed.voiceModel || 'whisper-base'
-        } catch (error) {
-          console.error('Error loading settings:', error)
-        }
-      }
-    },
-    saveSettings() {
-      const settings = {
-        language: this.selectedLanguage,
-        voiceModel: this.selectedVoiceModel,
-        updatedAt: new Date().toISOString()
-      }
-      localStorage.setItem('appSettings', JSON.stringify(settings))
-    }
+  ];
+
+  if (googleAvailable.value) {
+    models.push({
+      id: 'google',
+      name: 'Google Cloud TTS',
+      description: 'High-quality cloud-based text-to-speech'
+    });
   }
-}
+
+  return models;
+});
+
+const selectedLanguage = computed(() => language.value);
+const selectedTTSModel = computed(() => ttsEngine.value);
+
+const selectLanguage = (code) => {
+  setLanguage(code);
+};
+
+const selectVoiceModel = (id) => {
+  setTTSEngine(id);
+  voiceService.setTTSEngine(id);
+  console.log(`[Settings] TTS engine changed to: ${id}`);
+};
+
+const toggleTTS = () => {
+  setTTSEnabled(ttsEnabledState.value);
+  console.log(`[Settings] TTS ${ttsEnabledState.value ? 'enabled' : 'disabled'}`);
+};
+
+const testTTS = () => {
+  // Enable audio context first
+  voiceService.enableAudioContext();
+  const testMessage = selectedTTSModel.value === 'google'
+    ? 'Testing Google Cloud Text to Speech. This is a high quality voice synthesis.'
+    : 'Testing browser text to speech. This uses your browser\'s built-in voice.';
+  voiceService.speak(testMessage);
+  console.log('[Settings] Testing TTS with message:', testMessage);
+};
+
+onMounted(async () => {
+  // Force check Google availability with delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  googleAvailable.value = voiceService.isGoogleAvailable();
+
+  ttsEnabledState.value = ttsEnabled.value;
+  console.log('[Settings] TTS enabled:', ttsEnabledState.value);
+  console.log('[Settings] TTS engine:', selectedTTSModel.value);
+  console.log('[Settings] Google TTS available:', googleAvailable.value);
+
+  // If Google is available, suggest using it
+  if (googleAvailable.value && selectedTTSModel.value === 'browser') {
+    console.log('[Settings] 💡 TIP: Google Cloud TTS is available and may work better than browser TTS.');
+  }
+});
 </script>
 
 <style scoped>
@@ -291,6 +318,122 @@ export default {
   border-radius: 50%;
   color: white;
   flex-shrink: 0;
+}
+
+.option-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.option-card.disabled:hover {
+  border-color: #e8e8e8;
+  background: #fafafa;
+  transform: none;
+  box-shadow: none;
+}
+
+.toggle-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+}
+
+.toggle-info {
+  flex: 1;
+}
+
+.toggle-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  font-family: 'Jaldi', sans-serif;
+  margin-bottom: 4px;
+}
+
+.toggle-description {
+  font-size: 13px;
+  color: #666;
+  font-family: 'Jaldi', sans-serif;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 56px;
+  height: 28px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 28px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #024A14;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(28px);
+}
+
+.test-tts-btn {
+  padding: 12px 24px;
+  background: #024A14;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Jaldi', sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.test-tts-btn:hover:not(:disabled) {
+  background: #035A1A;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 74, 20, 0.2);
+}
+
+.test-tts-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .page-title {

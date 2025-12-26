@@ -331,3 +331,37 @@ export const paraphraseAPI = {
     });
   },
 };
+
+export const translateAPI = {
+  translateToEnglish: async (text) => {
+    return apiCall(`/api/translate/text`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        source_lang: "th",
+        target_lang: "en",
+      }),
+    });
+  },
+
+  translate: async (text, sourceLang, targetLang) => {
+    return apiCall(`/api/translate/text`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        source_lang: sourceLang,
+        target_lang: targetLang,
+      }),
+    });
+  },
+
+  checkStatus: async () => {
+    return apiCall(`/api/translate/status`);
+  },
+};

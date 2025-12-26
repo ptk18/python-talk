@@ -218,14 +218,18 @@ html, body {
 .workspace__mic-inner {
   width: 44px;
   height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 50%;
   background: #666;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
   border: none;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .workspace__language-selector {
@@ -255,20 +259,20 @@ html, body {
 
 .workspace__mic-inner:hover {
   background: #555;
-  transform: scale(1.05);
 }
 
 .workspace__mic-inner--recording {
   background: #dc3545;
-  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+  animation: micPulse 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse-recording {
+@keyframes micPulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.8), 0 4px 20px rgba(220, 53, 69, 0.4);
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
   }
   50% {
-    box-shadow: 0 0 0 10px rgba(220, 53, 69, 0), 0 4px 20px rgba(220, 53, 69, 0.4);
+    box-shadow: 0 0 0 8px rgba(220, 53, 69, 0);
   }
 }
 
@@ -281,33 +285,9 @@ html, body {
 }
 
 .workspace__mic-inner:active {
-  transform: scale(1.02);
   box-shadow: 0 2px 8px rgba(27, 78, 43, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.workspace__mic-inner:active .workspace__mic {
-  transform: scale(0.92);
-}
-
-.workspace__mic-pulse {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: rgba(220, 53, 69, 0.3);
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
-  }
-}
 
 .workspace__input-form {
   flex: 1;
@@ -927,6 +907,92 @@ html, body {
   }
 }
 
+/* Status Bar for Loading States */
+.workspace__status-bar {
+  position: fixed;
+  top: 80px;
+  left: 260px;
+  right: 0;
+  z-index: 1500;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.workspace__status-content {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  padding: 16px 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-left: 4px solid #024A14;
+}
+
+.workspace__status-bar--transcribing .workspace__status-content {
+  border-left-color: #0B5B0A;
+}
+
+.workspace__status-bar--processing .workspace__status-content {
+  border-left-color: #024A14;
+}
+
+.workspace__status-spinner {
+  color: #024A14;
+  flex-shrink: 0;
+}
+
+.workspace__status-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  font-family: 'Jaldi', sans-serif;
+}
+
+.workspace__status-progress {
+  flex: 1;
+  height: 4px;
+  background: #e8e8e8;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.workspace__status-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #024A14, #0B5B0A);
+  border-radius: 2px;
+  animation: progressBar 2s ease-in-out infinite;
+}
+
+@keyframes progressBar {
+  0% {
+    width: 0%;
+    margin-left: 0%;
+  }
+  50% {
+    width: 50%;
+    margin-left: 25%;
+  }
+  100% {
+    width: 0%;
+    margin-left: 100%;
+  }
+}
+
 /* Responsive */
 @media (min-width: 1920px) {
   .workspace__container {
@@ -986,6 +1052,21 @@ html, body {
 
   .workspace__methods-panel.open {
     right: 0;
+  }
+
+  .workspace__status-bar {
+    left: 0;
+    padding: 0 16px;
+  }
+
+  .workspace__status-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .workspace__status-text {
+    font-size: 13px;
   }
 }
 

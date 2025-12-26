@@ -10,3 +10,4 @@ backend/hf_cache/
 *.incomplete
 plans/
 google-credentials.json
+*.md

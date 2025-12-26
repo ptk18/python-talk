@@ -39,32 +39,6 @@
               </span>
             </div>
 
-            <div
-              v-if="msg.sender === 'user' && msg.interpretedCommand"
-              class="workspace__command-card"
-              :style="{ alignSelf: 'flex-end', marginRight: '60px', marginTop: '4px', width: 'max-content', maxWidth: '400px' }"
-            >
-              <button
-                class="workspace__paraphrase-toggle"
-                @click="handleToggleParaphrases(msg)"
-                :disabled="loadingParaphrases.has(msg.id)"
-              >
-                <span v-if="loadingParaphrases.has(msg.id)">Generating suggestions...</span>
-                <span v-else-if="expandedParaphrases.has(msg.id)">▼ Hide </span>
-                <span v-else>▶ Other ways to say it</span>
-              </button>
-
-              <div v-if="expandedParaphrases.has(msg.id) && msg.paraphrases && msg.paraphrases.length > 0" class="workspace__paraphrases-list">
-                <div
-                  v-for="(paraphrase, idx) in msg.paraphrases"
-                  :key="idx"
-                  class="workspace__paraphrase-item"
-                  @click="message = paraphrase"
-                >
-                  {{ paraphrase }}
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -89,7 +63,6 @@
                   fill="currentColor"
                 />
               </svg>
-              <div v-if="isRecording" class="workspace__mic-pulse"></div>
             </div>
 
             <form class="workspace__input-form" @submit.prevent="handleSend">
@@ -275,6 +248,35 @@
       </section>
     </div>
 
+    <!-- Loading Status Bar -->
+    <div v-if="isTranscribing" class="workspace__status-bar workspace__status-bar--transcribing">
+      <div class="workspace__status-content">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="workspace__status-spinner">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="60" stroke-dashoffset="0">
+            <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        <span class="workspace__status-text">Transcribing your voice...</span>
+        <div class="workspace__status-progress">
+          <div class="workspace__status-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="isProcessingCommand" class="workspace__status-bar workspace__status-bar--processing">
+      <div class="workspace__status-content">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="workspace__status-spinner">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="60" stroke-dashoffset="0">
+            <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        <span class="workspace__status-text">Processing and mapping command...</span>
+        <div class="workspace__status-progress">
+          <div class="workspace__status-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Overlay for methods panel -->
     <div
       v-if="isMethodsPanelOpen"
@@ -324,7 +326,7 @@ import { useRoute, useRouter } from 'vue-router';
 import Sidebar from '../components/Sidebar.vue';
 import MonacoEditor from '../components/MonacoEditor.vue';
 import FilePanel from '../components/FilePanel.vue';
-import { messageAPI, conversationAPI, executeAPI, analyzeAPI, paraphraseAPI, fileAPI } from '../services/api';
+import { messageAPI, conversationAPI, executeAPI, analyzeAPI, paraphraseAPI, fileAPI, translateAPI } from '../services/api';
 import { useAuth } from '../composables/useAuth';
 import { useCode } from '../composables/useCode';
 import { useFile } from '../composables/useFile';
@@ -364,6 +366,8 @@ export default {
     const isRunning = ref(false);
     const isTextMode = ref(true);
     const isRecording = ref(false);
+    const isTranscribing = ref(false);
+    const isProcessingCommand = ref(false);
     const mediaRecorder = ref(null);
     const audioChunks = ref([]);
     const editorRef = ref(null);
@@ -436,9 +440,53 @@ export default {
       message.value = '';
 
       try {
+        isProcessingCommand.value = true;
+        console.log('');
+        console.log('═════════════════════════════════════════════════════════════');
+        console.log('📝 COMMAND PROCESSING PIPELINE');
+        console.log('═════════════════════════════════════════════════════════════');
+        console.log('Current Language:', language.value === 'en' ? 'English' : 'Thai');
+        console.log('STT Model Used:', language.value === 'en' ? 'Whisper English (distil-whisper/distil-large-v3)' : 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)');
+        console.log('Original Input:', msgText);
+        console.log('─────────────────────────────────────────────────────────────');
+
+        // Step 1: Translate Thai to English if needed
+        let commandForAnalysis = msgText;
+        let translatedText = null;
+
+        if (language.value === 'th') {
+          try {
+            console.log('🔄 TRANSLATION STEP');
+            console.log('Calling Google Cloud Translate API...');
+            console.log('Source Language: Thai');
+            console.log('Target Language: English');
+
+            const translateResult = await translateAPI.translateToEnglish(msgText);
+            commandForAnalysis = translateResult.translated_text;
+            translatedText = translateResult.translated_text;
+
+            console.log('✅ Translation Result:', translatedText);
+            console.log('─────────────────────────────────────────────────────────────');
+            voiceService.speak("Command translated");
+          } catch (translateErr) {
+            console.error("❌ Translation failed:", translateErr);
+            voiceService.speak("Translation failed, please try again");
+            alert("Translation failed: " + translateErr.message);
+            return; // Stop if translation fails
+          }
+        } else {
+          console.log('Translation: Not required (English mode)');
+          console.log('Translated Text: null');
+          console.log('─────────────────────────────────────────────────────────────');
+        }
+
+        // Step 2: Save original message (Thai or English)
         const userMsg = await messageAPI.create(parseInt(conversationId.value), 'user', msgText);
 
-        const data = await analyzeAPI.analyzeCommand(Number(conversationId.value), msgText);
+        // Step 3: Analyze using English command
+        console.log('🔍 COMMAND ANALYSIS STEP');
+        console.log('Text for Analysis:', commandForAnalysis);
+        const data = await analyzeAPI.analyzeCommand(Number(conversationId.value), commandForAnalysis);
 
         const allResults = data.results && data.results.length > 0 ? data.results : [data.result].filter(r => r);
 
@@ -460,6 +508,15 @@ export default {
         } else {
           summary = 'No matching commands found';
         }
+
+        console.log('✅ Processed Command(s):', summary);
+        console.log('─────────────────────────────────────────────────────────────');
+        console.log('📊 SUMMARY');
+        console.log('Transcribed Text:', msgText);
+        console.log('Translated Text:', translatedText || 'null');
+        console.log('Final Processed Command(s):', summary);
+        console.log('═════════════════════════════════════════════════════════════');
+        console.log('');
 
         await messageAPI.create(parseInt(conversationId.value), 'system', summary);
 
@@ -506,6 +563,8 @@ export default {
         console.error('Failed to send or analyze message:', err);
         voiceService.speak('I encountered an error. Please try again');
         alert('Error: ' + err.message);
+      } finally {
+        isProcessingCommand.value = false;
       }
     };
 
@@ -752,6 +811,8 @@ export default {
 
     const handleMicClick = async () => {
       playClickSound();
+      // Enable audio context on mic click
+      voiceService.enableAudioContext();
 
       if (!isRecording.value) {
         try {
@@ -774,12 +835,21 @@ export default {
             );
 
             try {
+              isTranscribing.value = true;
+              console.log('🎤 VOICE TRANSCRIPTION START');
+              console.log('Language:', language.value === 'en' ? 'English' : 'Thai');
+              console.log('STT Model:', language.value === 'en'
+                ? 'Whisper English (distil-whisper/distil-large-v3)'
+                : 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)');
+
               const result = await voiceService.transcribe(audioFile, language.value);
               const text = result.text || `[Error: ${result.error || 'Unknown'}]`;
 
               if (text.includes('[Error')) {
+                console.log('❌ Transcription failed:', text);
                 voiceService.speak("I couldn't understand that. Please try again");
               } else {
+                console.log('✅ Transcribed Text:', text);
                 voiceService.speak('Voice command received');
               }
 
@@ -788,6 +858,8 @@ export default {
               console.error('Voice transcription error:', err);
               voiceService.speak('Voice transcription error');
               alert('Error transcribing voice: ' + err.message);
+            } finally {
+              isTranscribing.value = false;
             }
           };
 
@@ -878,6 +950,17 @@ export default {
       }
     });
 
+    // Log language mode changes
+    watch(language, (newLang) => {
+      console.log('═══════════════════════════════════════════');
+      console.log('🌐 LANGUAGE MODE CHANGED');
+      console.log('═══════════════════════════════════════════');
+      console.log('Current Language:', newLang === 'en' ? 'English' : 'Thai');
+      console.log('STT Model:', newLang === 'en' ? 'Whisper English (distil-whisper/distil-large-v3)' : 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)');
+      console.log('Translation Required:', newLang === 'th' ? 'Yes (Thai → English)' : 'No');
+      console.log('═══════════════════════════════════════════');
+    });
+
     watch([code, currentFile, conversationId], async () => {
       const refreshRunnerFile = async () => {
         if (conversationId.value && currentFile.value === 'runner.py' && code.value !== currentCode.value) {
@@ -918,6 +1001,8 @@ export default {
       const greetOnInteraction = () => {
         if (!hasGreeted.value && conversationId.value) {
           hasGreeted.value = true;
+          // Enable audio context first
+          voiceService.enableAudioContext();
           const greeting = getGreeting();
           voiceService.speak(greeting);
           document.removeEventListener('click', greetOnInteraction);
@@ -977,6 +1062,8 @@ export default {
       isRunning,
       isTextMode,
       isRecording,
+      isTranscribing,
+      isProcessingCommand,
       editorRef,
       isSaving,
       isRefreshing,

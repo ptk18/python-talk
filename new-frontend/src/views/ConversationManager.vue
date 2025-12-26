@@ -201,6 +201,8 @@ export default {
       const greetOnInteraction = () => {
         if (!hasGreeted.value && user.value) {
           hasGreeted.value = true;
+          // Enable audio context first
+          voiceService.enableAudioContext();
           const greeting = getGreeting();
           voiceService.speak(greeting);
           document.removeEventListener('click', greetOnInteraction);

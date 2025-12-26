@@ -60,24 +60,73 @@ class NLPPipeline:
         return all_results
 
     def _extract_numeric_params(self, command: str, method: MethodInfo) -> Dict[str, any]:
-        """Extract numeric parameters using dependency parsing"""
+        """Extract numeric parameters using dependency parsing and word2number"""
         doc = self.dependency_parser.nlp(command)
         params = {}
 
-        numbers = []
-        for token in doc:
-            if token.like_num or token.pos_ == "NUM":
-                try:
-                    value = float(token.text) if '.' in token.text else int(token.text)
-                    numbers.append(value)
-                except ValueError:
-                    try:
-                        from word2number import w2n
-                        word_value = w2n.word_to_num(token.text)
-                        numbers.append(word_value)
-                    except (ValueError, ImportError):
-                        continue
+        # Group consecutive number tokens into phrases
+        number_groups = []
+        current_group = []
 
+        for token in doc:
+            if token.pos_ == "NUM":
+                current_group.append(token)
+            elif token.text in ['-'] and current_group:
+                # Hyphen within a number (e.g., "ninety-eight")
+                current_group.append(token)
+            elif token.text.lower() == 'and' and current_group:
+                # "and" can be within a number or between numbers
+                # Within: "four hundred AND ninety"
+                # Between: "ninety-eight AND eight hundred"
+
+                # Look ahead to see if next is a number
+                next_idx = token.i + 1
+                if next_idx < len(doc) and doc[next_idx].pos_ == 'NUM':
+                    # Check if previous number is a scale word (hundred, thousand, million)
+                    if current_group and current_group[-1].text.lower() in ['hundred', 'thousand', 'million']:
+                        # "hundred AND ninety" - within number
+                        current_group.append(token)
+                    else:
+                        # "ninety-eight AND eight" - between numbers
+                        if current_group:
+                            number_groups.append(current_group)
+                        current_group = []
+                else:
+                    current_group.append(token)
+            else:
+                if current_group:
+                    number_groups.append(current_group)
+                    current_group = []
+
+        # Don't forget the last group
+        if current_group:
+            number_groups.append(current_group)
+
+        # Convert each number group to a numeric value
+        numbers = []
+        for group in number_groups:
+            phrase = ' '.join([t.text for t in group])
+
+            # Try to parse as direct number first
+            try:
+                value = float(phrase) if '.' in phrase else int(phrase)
+                numbers.append(value)
+                continue
+            except ValueError:
+                pass
+
+            # Use word2number to convert text to number
+            try:
+                from word2number import w2n
+                # Clean up the phrase (remove hyphens, normalize spacing)
+                clean_phrase = phrase.replace('-', ' ').replace('  ', ' ').strip()
+                word_value = w2n.word_to_num(clean_phrase)
+                numbers.append(word_value)
+            except (ValueError, ImportError, AttributeError):
+                # If word2number fails, skip this group
+                continue
+
+        # Map extracted numbers to method parameters
         for i, param_name in enumerate(method.params):
             if i < len(numbers):
                 params[param_name] = numbers[i]
