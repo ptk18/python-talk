@@ -166,85 +166,135 @@ class VoiceService {
     if ('speechSynthesis' in window) {
       console.log('[VoiceService] Using browser speech synthesis');
 
-      // Safari/iOS workaround: cancel any pending speech first
-      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-        console.log('[VoiceService] Canceling previous speech (Safari workaround)');
-        window.speechSynthesis.cancel();
-      }
+      // Cancel any previous speech
+      window.speechSynthesis.cancel();
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      utterance.lang = 'en-US'; // Explicitly set language
+      // Function to speak after voices are loaded
+      const speakNow = () => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        utterance.lang = 'en-US';
 
-      // Try to set a voice (helps with some browsers)
-      const voices = window.speechSynthesis.getVoices();
-      console.log(`[VoiceService] Available voices: ${voices.length}`);
+        // Get voices fresh (important for Chrome)
+        const voices = window.speechSynthesis.getVoices();
+        console.log(`[VoiceService] Available voices: ${voices.length}`);
 
-      if (voices.length > 0) {
-        // Prefer English voices
-        const englishVoice = voices.find(voice => voice.lang.startsWith('en-US'))
-                          || voices.find(voice => voice.lang.startsWith('en'));
-        if (englishVoice) {
-          utterance.voice = englishVoice;
-          console.log(`[VoiceService] Selected voice: ${englishVoice.name} (${englishVoice.lang})`);
+        if (voices.length > 0) {
+          // Log all available English voices for debugging
+          const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+          console.log('[VoiceService] English voices:', englishVoices.map(v => `${v.name} (${v.lang})`));
+
+          // Try to find the best quality voice
+          const englishVoice =
+            voices.find(voice => voice.name.includes('Google') && voice.lang === 'en-US') ||
+            voices.find(voice => voice.name.includes('Samantha')) ||
+            voices.find(voice => voice.name.includes('Microsoft') && voice.lang === 'en-US') ||
+            voices.find(voice => voice.lang === 'en-US') ||
+            voices.find(voice => voice.lang.startsWith('en'));
+
+          if (englishVoice) {
+            utterance.voice = englishVoice;
+            console.log(`[VoiceService] Selected voice: ${englishVoice.name} (${englishVoice.lang})`);
+          } else {
+            console.log('[VoiceService] No English voice found, using default');
+          }
         } else {
-          console.log('[VoiceService] No English voice found, using default');
+          console.warn('[VoiceService] No voices available yet, using default');
         }
-      } else {
-        console.warn('[VoiceService] No voices available yet, using default');
-      }
 
-      utterance.onstart = () => {
-        console.log('[VoiceService] ✓ Browser TTS started:', text.substring(0, 50));
-      };
+        utterance.onstart = () => {
+          console.log('[VoiceService] ✓ Browser TTS started:', text.substring(0, 50));
+        };
 
-      utterance.onend = () => {
-        console.log('[VoiceService] ✓ Browser TTS ended');
-      };
+        utterance.onend = () => {
+          console.log('[VoiceService] ✓ Browser TTS ended');
+        };
 
-      utterance.onerror = (event) => {
-        console.error('[VoiceService] ✗ Browser TTS error:', event);
-        console.error('[VoiceService] Error details:', {
-          error: event.error,
-          charIndex: event.charIndex,
-          elapsedTime: event.elapsedTime
+        utterance.onerror = (event) => {
+          // Ignore canceled errors when we intentionally cancel
+          if (event.error === 'canceled') {
+            console.log('[VoiceService] Speech was canceled (expected)');
+            return;
+          }
+
+          console.error('[VoiceService] ✗ Browser TTS error:', event);
+          console.error('[VoiceService] Error details:', {
+            error: event.error,
+            charIndex: event.charIndex,
+            elapsedTime: event.elapsedTime
+          });
+
+          if (event.error === 'not-allowed') {
+            console.warn('[VoiceService] Browser TTS blocked by autoplay policy. User interaction required first.');
+          } else if (event.error === 'interrupted') {
+            console.warn('[VoiceService] Speech was interrupted');
+          }
+        };
+
+        // Check synthesis state before speaking
+        console.log('[VoiceService] SpeechSynthesis state:', {
+          speaking: window.speechSynthesis.speaking,
+          pending: window.speechSynthesis.pending,
+          paused: window.speechSynthesis.paused
         });
-        if (event.error === 'not-allowed') {
-          console.warn('[VoiceService] Browser TTS blocked by autoplay policy. User interaction required first.');
-        } else if (event.error === 'canceled') {
-          console.warn('[VoiceService] Speech was canceled');
-        } else if (event.error === 'interrupted') {
-          console.warn('[VoiceService] Speech was interrupted');
+
+        window.speechSynthesis.speak(utterance);
+        console.log('[VoiceService] Browser TTS queued');
+
+        // Safari workaround: force resume if needed
+        setTimeout(() => {
+          if (window.speechSynthesis.paused) {
+            console.log('[VoiceService] Forcing resume (Safari workaround)');
+            window.speechSynthesis.resume();
+          }
+        }, 100);
+      };
+
+      // Ensure voices are loaded before speaking (Chrome workaround)
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        // Voices already loaded
+        speakNow();
+      } else {
+        // Wait for voices to load
+        console.log('[VoiceService] Waiting for voices to load...');
+        let voiceLoadAttempts = 0;
+        const maxAttempts = 10;
+        let hasSpoken = false;
+
+        const checkVoices = () => {
+          const voices = window.speechSynthesis.getVoices();
+          if (voices.length > 0 && !hasSpoken) {
+            hasSpoken = true;
+            console.log('[VoiceService] Voices loaded successfully');
+            speakNow();
+          } else if (voiceLoadAttempts < maxAttempts) {
+            voiceLoadAttempts++;
+            setTimeout(checkVoices, 100);
+          } else if (!hasSpoken) {
+            hasSpoken = true;
+            console.warn('[VoiceService] Voices not loaded after timeout, speaking anyway');
+            speakNow();
+          }
+        };
+
+        // Try both methods to load voices
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+          window.speechSynthesis.onvoiceschanged = () => {
+            if (!hasSpoken) {
+              hasSpoken = true;
+              console.log('[VoiceService] Voices changed event fired');
+              speakNow();
+              window.speechSynthesis.onvoiceschanged = null;
+            }
+          };
         }
-      };
 
-      utterance.onpause = () => {
-        console.log('[VoiceService] Speech paused');
-      };
-
-      utterance.onresume = () => {
-        console.log('[VoiceService] Speech resumed');
-      };
-
-      // Check synthesis state before speaking
-      console.log('[VoiceService] SpeechSynthesis state:', {
-        speaking: window.speechSynthesis.speaking,
-        pending: window.speechSynthesis.pending,
-        paused: window.speechSynthesis.paused
-      });
-
-      window.speechSynthesis.speak(utterance);
-      console.log('[VoiceService] Browser TTS queued');
-
-      // Safari workaround: force resume if needed
-      setTimeout(() => {
-        if (window.speechSynthesis.paused) {
-          console.log('[VoiceService] Forcing resume (Safari workaround)');
-          window.speechSynthesis.resume();
-        }
-      }, 100);
+        // Also poll as backup
+        checkVoices();
+      }
     } else {
       console.warn('[VoiceService] Speech synthesis not supported in this browser');
     }
