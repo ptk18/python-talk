@@ -3,9 +3,9 @@
     <Sidebar />
     <main class="main-content">
       <header class="top-header">
-        <h2 class="page-title">Profile</h2>
+        <h2 class="page-title">{{ t.profile.pageTitle }}</h2>
       </header>
-      
+
       <div class="content-area profile-content">
         <div class="profile-card">
           <div class="profile-header">
@@ -18,52 +18,52 @@
 
           <div class="profile-details">
             <div class="detail-section">
-              <h3 class="section-title">Personal Information</h3>
+              <h3 class="section-title">{{ t.profile.personalInformation }}</h3>
               <div class="detail-item">
-                <label>Full Name</label>
-                <input 
-                  type="text" 
+                <label>{{ t.profile.fullName }}</label>
+                <input
+                  type="text"
                   v-model="profileData.name"
                   class="profile-input"
-                  placeholder="Enter your full name"
+                  :placeholder="t.profile.enterFullName"
                 />
               </div>
               <div class="detail-item">
-                <label>Email</label>
-                <input 
-                  type="email" 
+                <label>{{ t.profile.email }}</label>
+                <input
+                  type="email"
                   v-model="profileData.email"
                   class="profile-input"
-                  placeholder="Enter your email"
+                  :placeholder="t.profile.enterEmail"
                 />
               </div>
             </div>
 
             <div class="detail-section">
-              <h3 class="section-title">Account Settings</h3>
+              <h3 class="section-title">{{ t.profile.accountSettings }}</h3>
               <div class="detail-item">
-                <label>Change Password</label>
-                <input 
-                  type="password" 
+                <label>{{ t.profile.changePassword }}</label>
+                <input
+                  type="password"
                   v-model="profileData.password"
                   class="profile-input"
-                  placeholder="Enter new password"
+                  :placeholder="t.profile.enterNewPassword"
                 />
               </div>
               <div class="detail-item">
-                <label>Confirm Password</label>
-                <input 
-                  type="password" 
+                <label>{{ t.profile.confirmPassword }}</label>
+                <input
+                  type="password"
                   v-model="profileData.confirmPassword"
                   class="profile-input"
-                  placeholder="Confirm new password"
+                  :placeholder="t.profile.confirmNewPassword"
                 />
               </div>
             </div>
 
             <div class="profile-actions">
-              <button class="save-button" @click="saveProfile">Save Changes</button>
-              <button class="cancel-button" @click="cancelEdit">Cancel</button>
+              <button class="save-button" @click="saveProfile">{{ t.profile.saveChanges }}</button>
+              <button class="cancel-button" @click="cancelEdit">{{ t.profile.cancel }}</button>
             </div>
 
             <div v-if="message" :class="['message', messageType]">
@@ -77,12 +77,20 @@
 </template>
 
 <script>
+import { computed } from 'vue'
+import { useLanguage } from '../composables/useLanguage'
+import { useTranslations } from '../utils/translations'
 import Sidebar from '../components/Sidebar.vue'
 
 export default {
   name: 'Profile',
   components: {
     Sidebar
+  },
+  setup() {
+    const { language } = useLanguage()
+    const t = computed(() => useTranslations(language.value))
+    return { t }
   },
   data() {
     return {
@@ -112,12 +120,12 @@ export default {
     saveProfile() {
       // Validation
       if (!this.profileData.name || !this.profileData.email) {
-        this.showMessage('Please fill in all required fields', 'error')
+        this.showMessage(this.t.profile.fillAllFields, 'error')
         return
       }
 
       if (this.profileData.password && this.profileData.password !== this.profileData.confirmPassword) {
-        this.showMessage('Passwords do not match', 'error')
+        this.showMessage(this.t.profile.passwordsDoNotMatch, 'error')
         return
       }
 
@@ -130,9 +138,9 @@ export default {
       localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo))
       this.userInfo = updatedUserInfo
       window.dispatchEvent(new Event('userInfoUpdated'))
-      
-      this.showMessage('Profile updated successfully!', 'success')
-      
+
+      this.showMessage(this.t.profile.profileUpdated, 'success')
+
       // Clear password fields
       this.profileData.password = ''
       this.profileData.confirmPassword = ''

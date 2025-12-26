@@ -69,7 +69,7 @@
               <input
                 type="text"
                 class="workspace__input"
-                placeholder="Type your message..."
+                :placeholder="t.workspace.typeYourMessage"
                 v-model="message"
               />
               <button type="submit" class="workspace__send-btn" aria-label="Send message">
@@ -191,7 +191,7 @@
 
         <div class="workspace__output-section">
           <div class="workspace__output-header">
-            <h3>Output</h3>
+            <h3>{{ t.workspace.output }}</h3>
             <div class="workspace__output-actions">
               <!-- Mode Toggle Switch -->
               <div class="workspace__mode-toggle" @click="toggleOutputMode">
@@ -234,7 +234,7 @@
               style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #1e1e1e; padding: 10px;"
             >
               <div style="margin-bottom: 10px; color: #d4d4d4; font-size: 14px;">
-                Turtle Graphics Stream
+                {{ t.workspace.turtleGraphicsStream }}
               </div>
               <img
                 id="turtle-video"
@@ -242,7 +242,7 @@
                 alt="Turtle graphics stream"
               />
             </div>
-            <pre v-else>{{ output || 'Output will appear here...' }}</pre>
+            <pre v-else>{{ output || t.workspace.outputWillAppear }}</pre>
           </div>
         </div>
       </section>
@@ -256,7 +256,7 @@
             <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
           </circle>
         </svg>
-        <span class="workspace__status-text">Transcribing your voice...</span>
+        <span class="workspace__status-text">{{ language === 'th' ? 'กำลังแปลงเสียงของคุณ...' : 'Transcribing your voice...' }}</span>
         <div class="workspace__status-progress">
           <div class="workspace__status-progress-bar"></div>
         </div>
@@ -270,7 +270,7 @@
             <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
           </circle>
         </svg>
-        <span class="workspace__status-text">Processing and mapping command...</span>
+        <span class="workspace__status-text">{{ language === 'th' ? 'กำลังประมวลผลและจับคู่คำสั่ง...' : 'Processing and mapping command...' }}</span>
         <div class="workspace__status-progress">
           <div class="workspace__status-progress-bar"></div>
         </div>
@@ -288,7 +288,7 @@
     <div class="workspace__methods-panel" :class="{ 'open': isMethodsPanelOpen }">
       <div class="workspace__methods-panel-header">
         <h3 class="workspace__methods-panel-title">
-          {{ availableMethods?.file_name || 'Available Methods' }}
+          {{ availableMethods?.file_name || t.workspace.availableMethods }}
         </h3>
         <button class="workspace__methods-panel-close" @click="toggleMethodsPanel" title="Close panel">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -331,6 +331,7 @@ import { useAuth } from '../composables/useAuth';
 import { useCode } from '../composables/useCode';
 import { useFile } from '../composables/useFile';
 import { useLanguage } from '../composables/useLanguage';
+import { useTranslations } from '../utils/translations';
 import { voiceService } from '../services/voiceService';
 import scorpioIcon from '../assets/scorpio.svg';
 import userIcon from '../assets/user.svg';
@@ -348,6 +349,7 @@ export default {
     const { user } = useAuth();
     const { code, setCode, syncCodeFromBackend, setConversationId } = useCode();
     const { language } = useLanguage();
+    const t = computed(() => useTranslations(language.value));
     const {
       currentFile,
       currentCode,
@@ -441,14 +443,25 @@ export default {
 
       try {
         isProcessingCommand.value = true;
-        console.log('');
-        console.log('═════════════════════════════════════════════════════════════');
-        console.log('📝 COMMAND PROCESSING PIPELINE');
-        console.log('═════════════════════════════════════════════════════════════');
-        console.log('Current Language:', language.value === 'en' ? 'English' : 'Thai');
-        console.log('STT Model Used:', language.value === 'en' ? 'Whisper English (distil-whisper/distil-large-v3)' : 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)');
-        console.log('Original Input:', msgText);
-        console.log('─────────────────────────────────────────────────────────────');
+
+        // Timing variables
+        const startTime = performance.now();
+        let translateStartTime, translateEndTime, analyzeStartTime, analyzeEndTime;
+        let translationTime = 0;
+        let commandProcessingTime = 0;
+
+        // Safari-compatible logging
+        const logGroup = () => {
+          console.log('');
+          console.log('═════════════════════════════════════════════════════════════');
+          console.log('📝 COMMAND PROCESSING PIPELINE');
+          console.log('═════════════════════════════════════════════════════════════');
+          console.log('Current Language Mode:', language.value === 'en' ? 'English' : 'Thai');
+          console.log('TTS Model Chosen:', language.value === 'en' ? 'Whisper English (distil-whisper/distil-large-v3)' : 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)');
+          console.log('Transcribed Text:', msgText);
+          console.log('─────────────────────────────────────────────────────────────');
+        };
+        logGroup();
 
         // Step 1: Translate Thai to English if needed
         let commandForAnalysis = msgText;
@@ -461,11 +474,16 @@ export default {
             console.log('Source Language: Thai');
             console.log('Target Language: English');
 
+            translateStartTime = performance.now();
             const translateResult = await translateAPI.translateToEnglish(msgText);
+            translateEndTime = performance.now();
+            translationTime = (translateEndTime - translateStartTime) / 1000; // Convert to seconds
+
             commandForAnalysis = translateResult.translated_text;
             translatedText = translateResult.translated_text;
 
             console.log('✅ Translation Result:', translatedText);
+            console.log('Time to Translate Transcribed Text:', translationTime.toFixed(3), 'seconds');
             console.log('─────────────────────────────────────────────────────────────');
             voiceService.speak("Command translated");
           } catch (translateErr) {
@@ -477,6 +495,7 @@ export default {
         } else {
           console.log('Translation: Not required (English mode)');
           console.log('Translated Text: null');
+          console.log('Time to Translate Transcribed Text: 0 seconds (not applicable)');
           console.log('─────────────────────────────────────────────────────────────');
         }
 
@@ -486,7 +505,11 @@ export default {
         // Step 3: Analyze using English command
         console.log('🔍 COMMAND ANALYSIS STEP');
         console.log('Text for Analysis:', commandForAnalysis);
+
+        analyzeStartTime = performance.now();
         const data = await analyzeAPI.analyzeCommand(Number(conversationId.value), commandForAnalysis);
+        analyzeEndTime = performance.now();
+        commandProcessingTime = (analyzeEndTime - analyzeStartTime) / 1000; // Convert to seconds
 
         const allResults = data.results && data.results.length > 0 ? data.results : [data.result].filter(r => r);
 
@@ -510,11 +533,16 @@ export default {
         }
 
         console.log('✅ Processed Command(s):', summary);
+        console.log('Time to Process Commands:', commandProcessingTime.toFixed(3), 'seconds');
         console.log('─────────────────────────────────────────────────────────────');
         console.log('📊 SUMMARY');
+        console.log('Current Language Mode:', language.value === 'en' ? 'English' : 'Thai');
+        console.log('TTS Model Chosen:', language.value === 'en' ? 'Whisper English (distil-whisper/distil-large-v3)' : 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)');
         console.log('Transcribed Text:', msgText);
         console.log('Translated Text:', translatedText || 'null');
-        console.log('Final Processed Command(s):', summary);
+        console.log('Time to Translate Transcribed Text:', translationTime > 0 ? translationTime.toFixed(3) + ' seconds' : '0 seconds (not applicable)');
+        console.log('Processed Commands:', summary);
+        console.log('Time to Process Commands:', commandProcessingTime.toFixed(3), 'seconds');
         console.log('═════════════════════════════════════════════════════════════');
         console.log('');
 
@@ -842,14 +870,20 @@ export default {
                 ? 'Whisper English (distil-whisper/distil-large-v3)'
                 : 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)');
 
+              const transcribeStartTime = performance.now();
               const result = await voiceService.transcribe(audioFile, language.value);
+              const transcribeEndTime = performance.now();
+              const transcriptionTime = (transcribeEndTime - transcribeStartTime) / 1000; // Convert to seconds
+
               const text = result.text || `[Error: ${result.error || 'Unknown'}]`;
 
               if (text.includes('[Error')) {
                 console.log('❌ Transcription failed:', text);
+                console.log('Time to Transcribe TTS:', transcriptionTime.toFixed(3), 'seconds');
                 voiceService.speak("I couldn't understand that. Please try again");
               } else {
                 console.log('✅ Transcribed Text:', text);
+                console.log('Time to Transcribe TTS:', transcriptionTime.toFixed(3), 'seconds');
                 voiceService.speak('Voice command received');
               }
 
@@ -1076,6 +1110,8 @@ export default {
       scorpioIcon,
       userIcon,
       isMethodsPanelOpen,
+      language,
+      t,
       formatTime,
       handleSend,
       handleSave,

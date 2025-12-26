@@ -65,6 +65,12 @@ class VoiceService {
     // Also trigger voice loading for browser TTS
     if ('speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
+
+      // Chrome workaround: speak a silent utterance to unlock TTS
+      const unlock = new SpeechSynthesisUtterance('');
+      unlock.volume = 0;
+      window.speechSynthesis.speak(unlock);
+      console.log('[VoiceService] Chrome TTS unlocked with silent utterance');
     }
   }
 

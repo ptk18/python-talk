@@ -3,16 +3,16 @@
     <Sidebar />
     <main class="main-content">
       <header class="top-header">
-        <h2 class="page-title">Settings</h2>
+        <h2 class="page-title">{{ t.settings.pageTitle }}</h2>
       </header>
-      
+
       <div class="content-area settings-content">
         <div class="settings-container">
           <!-- Language Selection Section -->
           <div class="settings-section">
             <div class="settings-header">
-              <h3 class="section-title">Language Selection</h3>
-              <p class="section-description">Choose your preferred language for the application</p>
+              <h3 class="section-title">{{ t.settings.languageSelection }}</h3>
+              <p class="section-description">{{ t.settings.languageDescription }}</p>
             </div>
             <div class="settings-options">
               <div 
@@ -41,14 +41,14 @@
           <!-- TTS Enable/Disable Section -->
           <div class="settings-section">
             <div class="settings-header">
-              <h3 class="section-title">Text-to-Speech</h3>
-              <p class="section-description">Enable or disable voice feedback</p>
+              <h3 class="section-title">{{ t.settings.textToSpeech }}</h3>
+              <p class="section-description">{{ t.settings.ttsDescription }}</p>
             </div>
             <div class="toggle-container">
               <div class="toggle-row">
                 <div class="toggle-info">
-                  <div class="toggle-label">Enable TTS</div>
-                  <div class="toggle-description">Turn voice responses on or off</div>
+                  <div class="toggle-label">{{ t.settings.enableTTS }}</div>
+                  <div class="toggle-description">{{ t.settings.turnVoiceOnOff }}</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" v-model="ttsEnabledState" @change="toggleTTS">
@@ -63,7 +63,7 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M3 9V15H7L12 20V4L7 9H3ZM16.5 12C16.5 10.23 15.48 8.71 14 7.97V16.02C15.48 15.29 16.5 13.77 16.5 12Z" fill="currentColor"/>
                 </svg>
-                Test Voice
+                {{ t.settings.testVoice }}
               </button>
             </div>
           </div>
@@ -71,8 +71,8 @@
           <!-- TTS Model Selection Section -->
           <div class="settings-section">
             <div class="settings-header">
-              <h3 class="section-title">Text-to-Speech Model</h3>
-              <p class="section-description">Select the TTS engine for voice output</p>
+              <h3 class="section-title">{{ t.settings.ttsModel }}</h3>
+              <p class="section-description">{{ t.settings.ttsModelDescription }}</p>
             </div>
             <div class="settings-options">
               <div
@@ -112,15 +112,18 @@ import { ref, computed, onMounted } from 'vue';
 import Sidebar from '../components/Sidebar.vue';
 import { useLanguage } from '../composables/useLanguage';
 import { useTTS } from '../composables/useTTS';
+import { useTranslations } from '../utils/translations';
 import { voiceService } from '../services/voiceService';
 
 const { language, setLanguage } = useLanguage();
 const { ttsEnabled, ttsEngine, setTTSEnabled, setTTSEngine } = useTTS();
 
-const languages = [
-  { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
-  { code: 'th', name: 'Thai', nativeName: 'ไทย', flag: '🇹🇭' }
-];
+const t = computed(() => useTranslations(language.value));
+
+const languages = computed(() => [
+  { code: 'en', name: t.value.settings.english, nativeName: 'English', flag: '🇺🇸' },
+  { code: 'th', name: t.value.settings.thai, nativeName: 'ไทย', flag: '🇹🇭' }
+]);
 
 const googleAvailable = ref(false);
 const ttsEnabledState = ref(true);
@@ -129,16 +132,16 @@ const ttsModels = computed(() => {
   const models = [
     {
       id: 'browser',
-      name: 'Browser TTS',
-      description: 'Built-in browser speech synthesis (offline)'
+      name: t.value.settings.browserTTS,
+      description: t.value.settings.browserTTSDescription
     }
   ];
 
   if (googleAvailable.value) {
     models.push({
       id: 'google',
-      name: 'Google Cloud TTS',
-      description: 'High-quality cloud-based text-to-speech'
+      name: t.value.settings.googleTTS,
+      description: t.value.settings.googleTTSDescription
     });
   }
 

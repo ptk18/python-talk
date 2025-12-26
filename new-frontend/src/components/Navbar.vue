@@ -18,21 +18,21 @@
           :class="{ 'is-active': $route.path === '/' }"
           @click="closeSidebar"
         >
-          Home
+          {{ t.navbar.home }}
         </router-link>
         <router-link
           to="/settings"
           :class="{ 'is-active': $route.path === '/settings' }"
           @click="closeSidebar"
         >
-          Settings
+          {{ t.navbar.settings }}
         </router-link>
         <router-link
           to="/profile"
           :class="{ 'is-active': $route.path === '/profile' }"
           @click="closeSidebar"
         >
-          Profile
+          {{ t.navbar.profile }}
         </router-link>
         <button
           class="navbar__lang-toggle"
@@ -80,21 +80,21 @@
           :class="{ 'is-active': $route.path === '/' }"
           @click="closeSidebar"
         >
-          Home
+          {{ t.navbar.home }}
         </router-link>
         <router-link
           to="/settings"
           :class="{ 'is-active': $route.path === '/settings' }"
           @click="closeSidebar"
         >
-          Settings
+          {{ t.navbar.settings }}
         </router-link>
         <router-link
           to="/profile"
           :class="{ 'is-active': $route.path === '/profile' }"
           @click="closeSidebar"
         >
-          Profile
+          {{ t.navbar.profile }}
         </router-link>
         <button
           class="navbar__lang-toggle navbar__lang-toggle--sidebar"
@@ -116,7 +116,7 @@
             <line v-if="!ttsEnabled" x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <line v-if="!ttsEnabled" x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <span>{{ ttsEnabled ? 'Voice On' : 'Voice Off' }}</span>
+          <span>{{ ttsEnabled ? t.sidebar.voiceOn : t.sidebar.voiceOff }}</span>
         </button>
       </nav>
       <div v-if="rightButton" class="navbar__sidebar-button">
@@ -132,10 +132,11 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTTS } from '../composables/useTTS';
 import { useLanguage } from '../composables/useLanguage';
+import { useTranslations } from '../utils/translations';
 
 export default {
   name: 'Navbar',
@@ -150,6 +151,8 @@ export default {
     const isSidebarOpen = ref(false);
     const { ttsEnabled, setTTSEnabled } = useTTS();
     const { language, setLanguage } = useLanguage();
+
+    const t = computed(() => useTranslations(language.value));
 
     const toggleSidebar = () => {
       isSidebarOpen.value = !isSidebarOpen.value;
@@ -179,6 +182,7 @@ export default {
       isSidebarOpen,
       ttsEnabled,
       language,
+      t,
       toggleSidebar,
       closeSidebar,
       toggleTTS,

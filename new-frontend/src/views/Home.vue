@@ -4,7 +4,7 @@
     <main class="main-content">
       <div class="content-area">
         <section class="featured-section">
-          <h2 class="section-title">Featured Apps</h2>
+          <h2 class="section-title">{{ t.home.featuredApps }}</h2>
           <div class="app-grid">
             <AppCard
               v-for="app in featuredApps"
@@ -32,7 +32,10 @@
 </template>
 
 <script>
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useLanguage } from '../composables/useLanguage'
+import { useTranslations } from '../utils/translations'
 import Sidebar from '../components/Sidebar.vue'
 import AppCard from '../components/AppCard.vue'
 import codeGeneratorIcon from '../assets/F-code-generator.png'
@@ -46,6 +49,8 @@ export default {
   },
   setup() {
     const router = useRouter()
+    const { language } = useLanguage()
+    const t = computed(() => useTranslations(language.value))
 
     const handleAppClick = (app) => {
       if (app.route) {
@@ -55,38 +60,41 @@ export default {
       }
     }
 
+    const featuredApps = computed(() => [
+      {
+        id: 1,
+        name: t.value.home.pytalkWorkspace,
+        icon: codeGeneratorIcon,
+        category: t.value.home.codeAssistant,
+        rating: 4.5,
+        route: '/conversation-manager'
+      },
+      {
+        id: 2,
+        name: t.value.home.smartHome,
+        icon: smartHomeIcon,
+        category: t.value.home.connectToYourHome,
+        rating: 4.7
+      },
+      {
+        id: 3,
+        name: t.value.home.reflexTest,
+        icon: '💬',
+        category: t.value.home.entertainment,
+        rating: 4.6,
+        url: 'http://localhost:3010/'
+      }
+    ])
+
     return {
-      handleAppClick
+      handleAppClick,
+      featuredApps,
+      t
     }
   },
   data() {
     return {
       searchQuery: '',
-      featuredApps: [
-        {
-          id: 1,
-          name: 'PyTalk Workspace',
-          icon: codeGeneratorIcon,
-          category: 'Code Assistant',
-          rating: 4.5,
-          route: '/conversation-manager'
-        },
-        {
-          id: 2,
-          name: 'Smart Home',
-          icon: smartHomeIcon,
-          category: 'Connect to your home',
-          rating: 4.7
-        },
-        {
-          id: 3,
-          name: 'ReflexTest',
-          icon: '💬',
-          category: 'Entertainment',
-          rating: 4.6,
-          url: 'http://localhost:3010/'
-        }
-      ],
       categories: []
     }
   }

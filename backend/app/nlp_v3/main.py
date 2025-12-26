@@ -109,7 +109,11 @@ class NLPPipeline:
 
             # Try to parse as direct number first
             try:
-                value = float(phrase) if '.' in phrase else int(phrase)
+                # Remove all commas from numbers (e.g., "9,89" -> "989", "78,956" -> "78956")
+                # Only treat "." as decimal separator
+                clean_phrase = phrase.replace(',', '')
+
+                value = float(clean_phrase) if '.' in clean_phrase else int(clean_phrase)
                 numbers.append(value)
                 continue
             except ValueError:
