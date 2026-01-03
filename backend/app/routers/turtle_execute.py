@@ -5,10 +5,16 @@ import httpx
 
 router = APIRouter(tags=["Turtle Execute"])
 
-# Streaming device configuration
-# STREAM_DEVICE_IP = "192.168.4.228"
-STREAM_DEVICE_IP = "127.0.0.1"
-STREAM_DEVICE_PORT = "8001"
+# Streaming device configuration (override via env to support remote devices)
+STREAM_DEVICE_BASE_URL = os.getenv("STREAM_DEVICE_BASE_URL")
+STREAM_DEVICE_IP = os.getenv("STREAM_DEVICE_IP", "192.168.4.228")
+STREAM_DEVICE_PORT = os.getenv("STREAM_DEVICE_PORT", "8001")
+
+def _get_stream_device_base_url() -> str:
+    """Return the base URL used to reach the streaming device."""
+    if STREAM_DEVICE_BASE_URL:
+        return STREAM_DEVICE_BASE_URL.rstrip("/")
+    return f"http://{STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}"
 
 BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
 
@@ -82,7 +88,7 @@ async def run_turtle(conversation_id: int):
             )
 
         # Send all files to streaming device
-        stream_device_url = f"http://{STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}/run_turtle/{conversation_id}"
+        stream_device_url = f"{_get_stream_device_base_url()}/run_turtle/{conversation_id}"
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
@@ -100,13 +106,14 @@ async def run_turtle(conversation_id: int):
             return {
                 "result": "Turtle execution triggered on streaming device",
                 "conversation_id": conversation_id,
-                "device_response": result
+                "device_response": result,
+                "ws_url": f"wss://stream.se.kmitl.ac.th/subscribe/{conversation_id}"
             }
 
     except httpx.RequestError as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Could not connect to streaming device at {STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}. Error: {str(e)}"
+            detail=f"Could not connect to streaming device at {_get_stream_device_base_url()}. Error: {str(e)}"
         )
     except Exception as e:
         raise HTTPException(

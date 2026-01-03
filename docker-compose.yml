@@ -4,13 +4,20 @@ services:
     platform: linux/amd64
     ports:
       - "3005:3005"
+      - "5050:5050"
     volumes:
       - ./backend:/app
+    environment:
+      - STREAM_DEVICE_BASE_URL=http://192.168.4.228:8001
     networks:
       - python_talk_net
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_BASE_URL=https://turing.se.kmitl.ac.th/pytalk/api
+        - VITE_WS_BASE_URL=ws://192.168.4.228:5050
     platform: linux/amd64
     ports:
       - "1643:1643"

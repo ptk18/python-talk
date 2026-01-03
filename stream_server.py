@@ -38,14 +38,25 @@ async def subscribe(websocket, sub_path = ''):
 # async def handler(websocket, path):
 async def handler(websocket):
     path = websocket.request.path
-    path_S = path.split("/")
-    print("got ", path_S)
-    if path_S[1] == "publish":
-        await publish(websocket, path_S[2])
-    elif path_S[1] == "subscribe":
-        await subscribe(websocket, path_S[2])
-    else:
-        await websocket.close()
+    path_parts = [segment for segment in path.split("/") if segment]
+    print("got ", path_parts)
+
+    # Support deployments served from a sub-path (e.g. /pytalk/ws/*)
+    try:
+        if "publish" in path_parts:
+            idx = path_parts.index("publish")
+            conversation_id = path_parts[idx + 1]
+            await publish(websocket, conversation_id)
+            return
+        if "subscribe" in path_parts:
+            idx = path_parts.index("subscribe")
+            conversation_id = path_parts[idx + 1]
+            await subscribe(websocket, conversation_id)
+            return
+    except (ValueError, IndexError):
+        pass  # Fall through to close
+
+    await websocket.close()
 
 async def main():
     async with websockets.serve(handler, "0.0.0.0", 5050):

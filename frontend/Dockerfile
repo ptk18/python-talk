@@ -9,8 +9,15 @@ COPY package*.json ./
 # Install dependencies - remove lock file to avoid npm optional dependencies bug
 RUN rm -f package-lock.json && npm install
 
+# Copy environment files first
+COPY .env* ./
+
 # Copy rest of the source
 COPY . .
+
+# Build args for environment variables
+ARG VITE_API_BASE_URL
+ARG VITE_WS_BASE_URL
 
 # Build
 RUN npm run build
