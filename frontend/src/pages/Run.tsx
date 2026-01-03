@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
+import { API_BASE_URL } from "../config/api.ts"
 import "./styles/Run.css";
 import { speak } from "../utils/tts";
 
@@ -21,7 +21,7 @@ export default function Run() {
     const [isTurtleCode, setIsTurtleCode] = useState<boolean | null>(null);
     const [showTurtlePrompt, setShowTurtlePrompt] = useState(false);
     const [wsStatus, setWsStatus] = useState('disconnected');
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+    const API_BASE = API_BASE_URL;
     const location = useLocation();
     const { conversationId: rawConversationId, executable, file_name } = location.state || {};
     

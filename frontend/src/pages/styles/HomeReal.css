@@ -11,12 +11,13 @@
 /* Full canvas */
 .homeReal__viewport {
     width: 100vw;
-    height: 100vh;
+    min-height: 100vh;
     background: var(--bg);
     font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     color: var(--deep);
-    display: grid;
-    grid-template-rows: auto auto 1fr;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 /* Navbar */
@@ -60,7 +61,7 @@
     max-width: 1600px;
     margin: 45px auto 18px;
     display: grid;
-    grid-template-columns: minmax(300px, 1fr) auto auto;
+    grid-template-columns: minmax(340px, 1fr) auto auto;
     gap: 18px;
     align-items: center;
 }
@@ -124,19 +125,38 @@
     padding: 0 24px;
 }
 
+.homeReal__uploadGroup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+}
+
+.homeReal__fileName {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(27, 78, 43, 0.75);
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* White panel */
 .homeReal__panel {
     width: 83%;
     max-width: 1600px;
-    margin: 0 auto 24px;
+    margin: 0 auto 72px;
     background: #ffffff;
     border-radius: var(--panelRadius);
     box-shadow: var(--shadow);
     padding: 26px;
-    height: 560px;
-    /* match other pages’ inner panel height */
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 /* Search */
@@ -189,21 +209,63 @@
     color: #9aa19e;
 }
 
-/* Rows (faint separators) */
-/* .homeReal__list {
-    margin-top: 8px;
-    border-radius: 8px;
-    overflow: hidden;
+/* List */
+.homeReal__list {
+    margin-top: 12px;
+    border-radius: 12px;
+    padding: 6px 8px 24px;
+    background: linear-gradient(145deg, #f9fbf9 0%, #ffffff 60%);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, .05);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(27, 78, 43, 0.4) transparent;
+}
+
+.homeReal__list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.homeReal__list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.homeReal__list::-webkit-scrollbar-thumb {
+    background: rgba(27, 78, 43, 0.35);
+    border-radius: 10px;
 }
 
 .homeReal__row {
-    height: 72px;
-    border-bottom: 1.2px solid rgba(0, 0, 0, .06);
+    padding: 16px 18px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(27, 78, 43, 0.08);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, .04);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 
-.homeReal__row:last-child {
-    border-bottom: none;
-} */
+.homeReal__row:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, .08);
+}
+
+.homeReal__row strong {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--deep);
+}
+
+.homeReal__row small {
+    color: rgba(27, 78, 43, 0.7);
+    font-weight: 500;
+    margin-top: 6px;
+    display: inline-block;
+}
 
 /* Small tweaks for narrower windows */
 @media (max-width:1280px) {
@@ -216,33 +278,49 @@
 @media (max-width: 768px) {
     .homeReal__headerRow {
         width: 95%;
-        grid-template-columns: 1fr;
-        gap: 12px;
-        margin: 30px auto 15px;
+        grid-template-columns: minmax(200px, 1fr) auto auto;
+        gap: 10px;
+        margin: 26px auto 14px;
+        align-items: stretch;
     }
 
     .homeReal__titleWrapper {
-        height: 44px;
+        height: 40px;
+        padding: 0 10px;
+        border-radius: 6px;
     }
 
     .homeReal__titleLabel {
-        font-size: 16px;
+        font-size: 14px;
+        margin-right: 6px;
     }
 
     .homeReal__titleInput {
-        font-size: 16px;
+        font-size: 14px;
     }
 
     .homeReal__btn {
-        height: 44px;
-        font-size: 16px;
-        padding: 0 16px;
+        height: 40px;
+        font-size: 14px;
+        padding: 0 14px;
+        border-radius: 10px;
+    }
+
+    .homeReal__uploadGroup {
+        gap: 4px;
+    }
+
+    .homeReal__fileName {
+        max-width: 180px;
+        font-size: 11px;
     }
 
     .homeReal__panel {
         width: 95%;
         padding: 20px;
-        height: 500px;
+        flex: 1;
+        min-height: 0;
+        margin: 0 auto 60px;
     }
 
     .homeReal__search {
@@ -259,37 +337,51 @@
 @media (max-width: 480px) {
     .homeReal__headerRow {
         width: 98%;
-        margin: 20px auto 12px;
+        grid-template-columns: minmax(140px, 1fr) minmax(90px, auto) minmax(80px, auto);
+        gap: 8px;
+        margin: 26px auto 18px;
     }
 
     .homeReal__titleWrapper {
-        height: 40px;
-        padding: 0 12px;
+        height: 36px;
+        padding: 0 8px;
     }
 
     .homeReal__titleLabel {
-        font-size: 14px;
-        margin-right: 6px;
+        font-size: 12px;
+        margin-right: 5px;
     }
 
     .homeReal__titleInput {
-        font-size: 14px;
+        font-size: 12px;
     }
 
     .homeReal__btn {
-        height: 40px;
-        font-size: 14px;
-        padding: 0 14px;
+        height: 36px;
+        font-size: 12px;
+        padding: 0 12px;
+        border-radius: 8px;
+        gap: 6px;
     }
 
     .homeReal__btn img {
-        height: 14px;
+        height: 12px;
+    }
+
+    .homeReal__uploadGroup {
+        gap: 3px;
+    }
+
+    .homeReal__fileName {
+        max-width: 150px;
+        font-size: 11px;
     }
 
     .homeReal__panel {
-        width: 98%;
+        width: 92%;
         padding: 16px;
-        height: 450px;
+        flex: 1;
+        margin: 0 auto 72px;
     }
 
     .homeReal__searchWrap {

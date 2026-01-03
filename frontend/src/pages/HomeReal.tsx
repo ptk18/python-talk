@@ -101,7 +101,7 @@ export default function HomeReal() {
     return (
         <div className="homeReal__viewport">
             {/* Top bar */}
-            <Navbar />
+            <Navbar showTTSToggle />
 
             {/* Title + actions */}
             <div className="homeReal__headerRow">
@@ -121,10 +121,16 @@ export default function HomeReal() {
                     style={{ display: "none" }}
                     onChange={handleFileChange}
                 />
-                <button className="homeReal__btn" onClick={handleFileSelect}>
-                    Upload File <img src={UploadIcon} alt="" />
-                </button>
-                {selectedFile && <span style={{ fontSize: "12px", marginLeft: "8px" }}>{selectedFile.name}</span>}
+                <div className="homeReal__uploadGroup">
+                    <button className="homeReal__btn" onClick={handleFileSelect}>
+                        Upload File <img src={UploadIcon} alt="" />
+                    </button>
+                    {selectedFile && (
+                        <span className="homeReal__fileName" title={selectedFile.name}>
+                            {selectedFile.name}
+                        </span>
+                    )}
+                </div>
                 <button className="homeReal__btn homeReal__btn--create" onClick={handleCreate}>Create</button>
             </div>
 

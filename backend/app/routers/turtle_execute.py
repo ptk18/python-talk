@@ -6,7 +6,8 @@ import httpx
 router = APIRouter(tags=["Turtle Execute"])
 
 # Streaming device configuration
-STREAM_DEVICE_IP = "192.168.4.228"
+# STREAM_DEVICE_IP = "192.168.4.228"
+STREAM_DEVICE_IP = "127.0.0.1"
 STREAM_DEVICE_PORT = "8001"
 
 BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")

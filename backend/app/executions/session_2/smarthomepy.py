@@ -11,6 +11,7 @@ class SmartHome:
     def turn_light_on(self):
         """Turn the light on"""
         self.light_on = True
+        print("Light is:", self.is_light_on)
 
     def turn_light_off(self):
         """Turn the light off"""

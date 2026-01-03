@@ -1,6 +1,6 @@
-from smarthomepy import SmartHome
+from turtle_treepy import TurtleTree
 import sys
 
-obj = SmartHome()
+obj = TurtleTree()
 # session runner - commands will be appended below
-print(obj.turn_ac_off())
+print(obj.run())

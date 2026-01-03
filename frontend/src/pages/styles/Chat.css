@@ -69,11 +69,12 @@
 .chat__container {
   width: 90%;
   max-width: 1600px;
-  height: 580px;
-  margin: 20px auto 0;
+  height: clamp(420px, calc(100vh - 320px), 540px);
+  margin: 20px auto 40px;
   display: flex;
   gap: 20px;
   position: relative;
+  transition: height 0.3s ease;
 }
 
 /* Left sidebar for available methods */
@@ -173,10 +174,12 @@ html[data-theme="dark"] .chat__method-name {
   height: 100%;
   background: var(--white);
   border-radius: 10px;
-  /* padding: 20px; */
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   transition: height 0.3s ease;
 }
 
@@ -226,10 +229,11 @@ html[data-theme="dark"] .chat__copy-btn:hover {
 
 /* Scroll area */
 .chat__scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0px 12px;
+  padding: 12px 12px 24px;
 }
 
 .chat__scroll::-webkit-scrollbar {

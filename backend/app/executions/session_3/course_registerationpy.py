@@ -1,6 +1,5 @@
 class CourseRegistration:
-    def __init__(self, student_name, courses=None):
-        self.student_name = student_name
+    def __init__(self, courses=None):
         self.courses = list(courses) if courses else []
 
     def add_course(self, course_name):
@@ -8,13 +7,13 @@ class CourseRegistration:
             raise ValueError("Course name must be provided")
         if course_name in self.courses:
             raise ValueError("Course already registered")
-        self.courses.append(course_name)
+        self.courses.append("{course_name}")
         return list(self.courses)
 
     def drop_course(self, course_name):
         if course_name not in self.courses:
             raise ValueError("Course not found")
-        self.courses.remove(course_name)
+        self.courses.remove("{course_name}")
         return list(self.courses)
 
     def list_courses(self):
