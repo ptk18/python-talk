@@ -3,6 +3,7 @@ import { useAuth } from '../composables/useAuth'
 import Home from '../views/Home.vue'
 import ConversationManager from '../views/ConversationManager.vue'
 import Workspace from '../views/Workspace.vue'
+import TurtlePlayground from '../views/TurtlePlayground.vue'
 import Login from '../views/Login.vue'
 import SignUp from '../views/SignUp.vue'
 import Profile from '../views/Profile.vue'
@@ -25,6 +26,12 @@ const routes = [
     path: '/workspace',
     name: 'Workspace',
     component: Workspace,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/turtle-playground',
+    name: 'TurtlePlayground',
+    component: TurtlePlayground,
     meta: { requiresAuth: true }
   },
   {

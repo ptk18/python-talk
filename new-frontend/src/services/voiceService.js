@@ -97,7 +97,7 @@ class VoiceService {
 
     if (currentEngine === 'google' && this.googleAvailable) {
       console.log('[VoiceService] Using Google Speech API');
-      return await googleSpeechAPI.speechToText(audioFile);
+      return await googleSpeechAPI.speechToText(audioFile, language);
     } else {
       const modelName = language === 'th'
         ? 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)'

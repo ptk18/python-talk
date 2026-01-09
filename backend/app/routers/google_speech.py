@@ -100,7 +100,8 @@ async def google_text_to_speech(text: str):
 
 @router.post("/speech-to-text")
 async def google_speech_to_text(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    language: str = "en"
 ):
     """
     Convert audio to text using Google Cloud Speech-to-Text API
@@ -109,7 +110,16 @@ async def google_speech_to_text(
     if not GOOGLE_AVAILABLE or not GOOGLE_LIBS_AVAILABLE:
         raise HTTPException(status_code=503, detail="Google Speech API not available")
 
-    print(f"[Google STT] Request received - File: {file.filename}")
+    # Map language codes to Google Speech API format
+    language_map = {
+        "en": "en-US",
+        "th": "th-TH",
+        "thai": "th-TH",
+        "ไทย": "th-TH",
+    }
+    language_code = language_map.get(language.lower(), "en-US")
+
+    print(f"[Google STT] Request received - File: {file.filename}, Language: {language} -> {language_code}")
 
     try:
         client = speech.SpeechClient()
@@ -127,7 +137,7 @@ async def google_speech_to_text(
             speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
                 sample_rate_hertz=48000,
-                language_code="en-US",
+                language_code=language_code,
                 enable_automatic_punctuation=True,
                 model="default",
                 audio_channel_count=1,
@@ -136,7 +146,7 @@ async def google_speech_to_text(
             speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.OGG_OPUS,
                 sample_rate_hertz=48000,
-                language_code="en-US",
+                language_code=language_code,
                 enable_automatic_punctuation=True,
                 model="default",
                 audio_channel_count=1,
@@ -144,7 +154,7 @@ async def google_speech_to_text(
             # Config 3: LINEAR16 (WAV)
             speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                language_code="en-US",
+                language_code=language_code,
                 enable_automatic_punctuation=True,
                 model="default",
             ),
@@ -176,7 +186,7 @@ async def google_speech_to_text(
             print("[Google STT] No speech detected in audio")
             return {
                 "text": "",
-                "language": "en",
+                "language": language,
                 "confidence": 0.0,
                 "alternatives": [],
                 "original": "",
@@ -204,7 +214,7 @@ async def google_speech_to_text(
             print("[Google STT] No alternatives found in results")
             return {
                 "text": "",
-                "language": "en",
+                "language": language,
                 "confidence": 0.0,
                 "alternatives": [],
                 "original": "",
@@ -218,18 +228,18 @@ async def google_speech_to_text(
             print("[Google STT] Empty transcript returned")
             return {
                 "text": "",
-                "language": "en",
+                "language": language,
                 "confidence": 0.0,
                 "alternatives": [],
                 "original": "",
                 "error": "Empty transcription"
             }
 
-        print(f"[Google STT] ✓ Transcription successful - Text: '{main_result['transcript']}', Confidence: {main_result['confidence']:.2f}")
+        print(f"[Google STT] ✓ Transcription successful - Text: '{main_result['transcript']}', Confidence: {main_result['confidence']:.2f}, Language: {language_code}")
 
         return {
             "text": main_result["transcript"],
-            "language": "en",
+            "language": language,
             "confidence": main_result["confidence"],
             "alternatives": [r["transcript"] for r in results[1:]] if len(results) > 1 else [],
             "original": main_result["transcript"]

@@ -12,6 +12,13 @@ from .entity_normalizer import EntityNormalizer
 
 
 class NLPPipeline:
+    # Measurement units that should be filtered from object matching
+    # These are descriptive words, not method indicators
+    MEASUREMENT_UNITS = {
+        'steps', 'step', 'degrees', 'degree', 'pixels', 'pixel',
+        'units', 'unit', 'times', 'time', 'seconds', 'second'
+    }
+
     def __init__(self):
         self.semantic_matcher = LocalSemanticMatcher()
         self.dependency_parser = DependencyParser()
@@ -157,6 +164,10 @@ class NLPPipeline:
         object_nouns.extend([obj.lower() for obj in action_objects])
         object_nouns = list(set(object_nouns))  # deduplicate
 
+        # Filter out measurement units - these are descriptive words, not method indicators
+        # e.g., "move 50 steps forward" - "steps" should not match against "st" method
+        object_nouns = [obj for obj in object_nouns if obj not in self.MEASUREMENT_UNITS]
+
         action_verb_normalized = action_verb.replace('_', ' ')
 
         # Normalize entities in object nouns
@@ -222,13 +233,21 @@ class NLPPipeline:
             normalized_entity_match = 0.0
 
             if object_nouns:
-                # Direct matching (original)
-                matched_objects = sum(1 for obj in object_nouns if obj in method_name_lower)
+                # Direct matching - check if object word appears in method name
+                # Require minimum length of 3 to avoid false positives from short strings
+                # e.g., "st" in "steps" should NOT match, but "forward" in "forward" should
+                matched_objects = sum(
+                    1 for obj in object_nouns
+                    if obj in method_name_lower and len(obj) >= 3
+                )
                 object_match_score = matched_objects / len(object_nouns) if object_nouns else 0
 
-                # Normalized entity matching (NEW)
+                # Normalized entity matching
                 if object_nouns_normalized:
-                    matched_normalized = sum(1 for obj in object_nouns_normalized if obj in method_name_lower)
+                    matched_normalized = sum(
+                        1 for obj in object_nouns_normalized
+                        if obj in method_name_lower and len(obj) >= 3
+                    )
                     normalized_entity_match = matched_normalized / len(object_nouns_normalized) if object_nouns_normalized else 0
 
                 # Take the better of the two
@@ -261,9 +280,14 @@ class NLPPipeline:
                                 break
 
             # Verb-only matching (for non-phrasal verbs)
+            # CRITICAL: Direct verb-to-method name match (e.g., "left" -> left())
             verb_match = 0.0
-            if not '_' in action_verb:
-                if action_verb.lower() in method_name_lower:
+            if '_' not in action_verb:
+                if action_verb.lower() == method_name_lower:
+                    # Exact match: verb IS the method name
+                    verb_match = 1.0
+                elif action_verb.lower() in method_name_lower:
+                    # Partial match: verb is part of method name
                     verb_match = 0.5
 
             # IMPROVED: Parameter extraction with numeric values
@@ -316,14 +340,15 @@ class NLPPipeline:
 
             # REBALANCED scoring weights - prioritize deterministic matches
             total = (
-                exact_match_score * 0.35 +      # NEW - Exact verb+object match (highest priority)
-                synonym_verb_match * 0.22 +     # LLM-powered synonym matching
-                object_match_score * 0.18 +     # Entity/object matching with normalization
-                phrasal_match * 0.10 +          # Phrasal verb patterns
-                code_similarity * 0.08 +        # NEW - CodeBERT similarity (code-aware)
-                semantic_score * 0.04 +         # Semantic similarity (safety net only)
-                param_score * 0.02 +            # Parameter extraction bonus
-                fuzzy_score * 0.01              # NEW - Fuzzy matching for typos
+                verb_match * 0.30 +             # Direct verb-to-method match (e.g., "left" -> left())
+                exact_match_score * 0.25 +      # Exact verb+object match (highest priority)
+                synonym_verb_match * 0.18 +     # LLM-powered synonym matching
+                object_match_score * 0.12 +     # Entity/object matching with normalization
+                phrasal_match * 0.08 +          # Phrasal verb patterns
+                code_similarity * 0.04 +        # CodeBERT similarity (code-aware)
+                semantic_score * 0.02 +         # Semantic similarity (safety net only)
+                param_score * 0.005 +           # Parameter extraction bonus
+                fuzzy_score * 0.005             # Fuzzy matching for typos
             )
 
             scores.append(MatchScore(

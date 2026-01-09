@@ -129,9 +129,10 @@ export const googleSpeechAPI = {
     return response.blob();
   },
 
-  speechToText: async (audioFile) => {
+  speechToText: async (audioFile, language = 'en') => {
     const formData = new FormData();
     formData.append('file', audioFile);
+    formData.append('language', language);
 
     const response = await fetch(`${API_BASE_URL}/api/google-speech/speech-to-text`, {
       method: 'POST',
@@ -363,5 +364,32 @@ export const translateAPI = {
 
   checkStatus: async () => {
     return apiCall(`/api/translate/status`);
+  },
+};
+
+export const turtleAPI = {
+  analyzeCommand: async (command, language = 'en') => {
+    return apiCall(`/api/analyze_turtle_command`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        command,
+        language,
+      }),
+    });
+  },
+
+  getMethods: async () => {
+    return apiCall(`/api/turtle_methods`, {
+      method: 'GET',
+    });
+  },
+
+  prewarmPipeline: async () => {
+    return apiCall(`/api/prewarm_turtle_pipeline`, {
+      method: 'POST',
+    });
   },
 };

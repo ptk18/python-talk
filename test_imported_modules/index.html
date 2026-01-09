@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turtle Introspection Playground</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Left Panel: Code Editor + Methods -->
+    <div class="left-panel">
+      <div class="code-section">
+        <div class="section-header">
+          <h3>Code Editor</h3>
+          <span class="hint">Type "import turtle" to see available methods</span>
+        </div>
+        <textarea id="code-editor" placeholder="# Write your Python code here
+import turtle
+
+# Your turtle commands will appear in the methods panel"></textarea>
+      </div>
+
+      <div class="methods-section">
+        <div class="section-header">
+          <h3>Available Methods</h3>
+          <span id="module-status" class="status">No module detected</span>
+        </div>
+        <div id="methods-panel" class="methods-panel">
+          <p class="empty-state">Import a module to see available methods</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Turtle Canvas + Command Input -->
+    <div class="right-panel">
+      <div class="canvas-section">
+        <div class="section-header">
+          <h3>Turtle Canvas</h3>
+          <div class="canvas-controls">
+            <button id="clear-btn" class="btn btn-secondary">Clear</button>
+            <button id="reset-btn" class="btn btn-secondary">Reset</button>
+          </div>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="turtle-canvas" width="500" height="400"></canvas>
+          <div id="turtle-indicator" class="turtle-indicator"></div>
+        </div>
+      </div>
+
+      <div class="command-section">
+        <div class="section-header">
+          <h3>Command Input</h3>
+        </div>
+        <div class="command-input-wrapper">
+          <input type="text" id="command-input" placeholder="e.g., forward(100) or t.left(90)" />
+          <button id="run-btn" class="btn btn-primary">Run</button>
+        </div>
+        <div id="output" class="output">
+          <p class="output-placeholder">Command output will appear here...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="turtle.js"></script>
+  <script src="introspection.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

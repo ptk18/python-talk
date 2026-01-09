@@ -26,7 +26,25 @@ export const translations = {
       smartHome: 'Smart Home',
       connectToYourHome: 'Connect to your home',
       reflexTest: 'ReflexTest',
-      entertainment: 'Entertainment'
+      entertainment: 'Entertainment',
+      turtlePlayground: 'Turtle Playground',
+      learningTools: 'Learning Tools'
+    },
+
+    // Turtle Playground
+    turtlePlayground: {
+      pageTitle: 'Turtle Playground',
+      canvas: 'Canvas',
+      commandHistory: 'Command History',
+      clearCanvas: 'Clear',
+      resetTurtle: 'Reset',
+      typeCommand: 'Type a turtle command...',
+      executeCommand: 'Execute',
+      listening: 'Listening',
+      voiceCommandReceived: 'Voice command received',
+      commandExecuted: 'Command executed',
+      invalidCommand: 'Invalid command',
+      speakCommand: 'Say a command like "move forward 100" or "turn left 90"'
     },
 
     // Settings Page
@@ -131,7 +149,25 @@ export const translations = {
       smartHome: 'Smart Home',
       connectToYourHome: 'เชื่อมต่อกับบ้านของคุณ',
       reflexTest: 'ReflexTest',
-      entertainment: 'บันเทิง'
+      entertainment: 'บันเทิง',
+      turtlePlayground: 'สนามเล่นเต่า',
+      learningTools: 'เครื่องมือการเรียนรู้'
+    },
+
+    // Turtle Playground
+    turtlePlayground: {
+      pageTitle: 'สนามเล่นเต่า',
+      canvas: 'แคนวาส',
+      commandHistory: 'ประวัติคำสั่ง',
+      clearCanvas: 'ล้าง',
+      resetTurtle: 'รีเซ็ต',
+      typeCommand: 'พิมพ์คำสั่งเต่า...',
+      executeCommand: 'ดำเนินการ',
+      listening: 'กำลังฟัง',
+      voiceCommandReceived: 'รับคำสั่งเสียงแล้ว',
+      commandExecuted: 'คำสั่งสำเร็จ',
+      invalidCommand: 'คำสั่งไม่ถูกต้อง',
+      speakCommand: 'พูดคำสั่ง เช่น "เดินหน้า 100" หรือ "เลี้ยวซ้าย 90"'
     },
 
     // Settings Page

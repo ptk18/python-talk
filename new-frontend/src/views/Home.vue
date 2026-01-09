@@ -71,13 +71,21 @@ export default {
       },
       {
         id: 2,
+        name: t.value.home.turtlePlayground,
+        icon: '🐢',
+        category: t.value.home.learningTools,
+        rating: 4.8,
+        route: '/turtle-playground'
+      },
+      {
+        id: 3,
         name: t.value.home.smartHome,
         icon: smartHomeIcon,
         category: t.value.home.connectToYourHome,
         rating: 4.7
       },
       {
-        id: 3,
+        id: 4,
         name: t.value.home.reflexTest,
         icon: '💬',
         category: t.value.home.entertainment,
