@@ -44,7 +44,9 @@ export const translations = {
       voiceCommandReceived: 'Voice command received',
       commandExecuted: 'Command executed',
       invalidCommand: 'Invalid command',
-      speakCommand: 'Say a command like "move forward 100" or "turn left 90"'
+      speakCommand: 'Say a command like "move forward 100" or "turn left 90"',
+      canvasCleared: 'Canvas cleared',
+      turtleReset: 'Turtle reset'
     },
 
     // Settings Page
@@ -167,7 +169,9 @@ export const translations = {
       voiceCommandReceived: 'รับคำสั่งเสียงแล้ว',
       commandExecuted: 'คำสั่งสำเร็จ',
       invalidCommand: 'คำสั่งไม่ถูกต้อง',
-      speakCommand: 'พูดคำสั่ง เช่น "เดินหน้า 100" หรือ "เลี้ยวซ้าย 90"'
+      speakCommand: 'พูดคำสั่ง เช่น "เดินหน้า 100" หรือ "เลี้ยวซ้าย 90"',
+      canvasCleared: 'ล้างแคนวาสแล้ว',
+      turtleReset: 'รีเซ็ตเต่าแล้ว'
     },
 
     // Settings Page

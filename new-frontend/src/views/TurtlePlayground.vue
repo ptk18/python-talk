@@ -8,8 +8,30 @@
           <!-- Code Editor Section -->
           <section class="turtle-playground__code-panel">
             <div class="turtle-playground__code-header">
-              <h3>{{ language === 'th' ? 'โค้ดเอดิเตอร์' : 'Code Editor' }}</h3>
-              <span class="turtle-playground__code-hint">{{ language === 'th' ? 'คำสั่งเสียงจะถูกเพิ่มที่นี่อัตโนมัติ' : 'Voice commands will be appended here automatically' }}</span>
+              <div class="turtle-playground__code-title">
+                <h3>{{ language === 'th' ? 'โค้ดเอดิเตอร์' : 'Code Editor' }}</h3>
+                <span class="turtle-playground__code-hint">{{ language === 'th' ? 'คำสั่งเสียงจะถูกเพิ่มที่นี่อัตโนมัติ' : 'Voice commands will be appended here automatically' }}</span>
+              </div>
+              <div class="turtle-playground__code-actions">
+                <button class="turtle-playground__icon-btn" @click="handleUndo" :title="language === 'th' ? 'ย้อนกลับ' : 'Undo'">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 10h13a4 4 0 0 1 0 8H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M7 6l-4 4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+                <button class="turtle-playground__icon-btn" @click="handleRedo" :title="language === 'th' ? 'ทำซ้ำ' : 'Redo'">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 10H8a4 4 0 0 0 0 8h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M17 6l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+                <button class="turtle-playground__icon-btn" @click="handleSettingsClick" :title="language === 'th' ? 'การตั้งค่า' : 'Settings'">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div class="turtle-playground__code-editor">
               <MonacoEditor
@@ -71,17 +93,16 @@
             <div class="turtle-playground__canvas-header">
               <h3>{{ t.turtlePlayground.canvas }}</h3>
               <div class="turtle-playground__canvas-controls">
-                <button
-                  class="turtle-playground__btn turtle-playground__btn--secondary"
-                  @click="handleClear"
-                >
-                  {{ t.turtlePlayground.clearCanvas }}
+                <button class="turtle-playground__canvas-btn" @click="handleClear" :title="t.turtlePlayground.clearCanvas">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
                 </button>
-                <button
-                  class="turtle-playground__btn turtle-playground__btn--secondary"
-                  @click="handleReset"
-                >
-                  {{ t.turtlePlayground.resetTurtle }}
+                <button class="turtle-playground__canvas-btn" @click="handleReset" :title="t.turtlePlayground.resetTurtle">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M1 4v6h6M23 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
                 </button>
               </div>
             </div>
@@ -99,11 +120,8 @@
             </div>
           </section>
 
-          <!-- Command Input Section -->
+          <!-- Command Input Section (Simplified) -->
           <section class="turtle-playground__command-panel">
-            <div class="turtle-playground__command-header">
-              <h3>{{ language === 'th' ? 'คำสั่ง' : 'Command Input' }}</h3>
-            </div>
             <div class="turtle-playground__command-input-area">
               <div class="turtle-playground__input-row">
                 <div
@@ -124,7 +142,7 @@
                 <input
                   type="text"
                   class="turtle-playground__command-input"
-                  :placeholder="language === 'th' ? 'เช่น forward(100) หรือ t.left(90)' : 'e.g., forward(100) or t.left(90)'"
+                  :placeholder="language === 'th' ? 'เช่น forward(100) หรือ พูดคำสั่ง...' : 'e.g., forward(100) or speak a command...'"
                   v-model="commandText"
                   @keydown.enter.prevent="handleRunCommand"
                 />
@@ -133,12 +151,10 @@
                   @click="handleRunCommand"
                   :disabled="isProcessing"
                 >
-                  {{ language === 'th' ? 'รัน' : 'Run' }}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 3l14 9-14 9V3z" fill="currentColor"/>
+                  </svg>
                 </button>
-              </div>
-              <div class="turtle-playground__command-output">
-                <pre v-if="commandOutput">{{ commandOutput }}</pre>
-                <span v-else class="turtle-playground__output-placeholder">{{ language === 'th' ? 'ผลลัพธ์จะแสดงที่นี่...' : 'Command output will appear here...' }}</span>
               </div>
             </div>
           </section>
@@ -173,6 +189,14 @@
           </div>
         </div>
       </div>
+
+      <!-- Alert Box -->
+      <transition name="alert-slide">
+        <div v-if="showAlert" :class="['turtle-playground__alert', `turtle-playground__alert--${alertType}`]">
+          <span class="turtle-playground__alert-text">{{ alertMessage }}</span>
+          <button class="turtle-playground__alert-close" @click="showAlert = false">&times;</button>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -201,7 +225,6 @@ export default {
     const canvasWrapper = ref(null);
     const monacoEditor = ref(null);
     const commandText = ref('');
-    const commandOutput = ref('');
     const codeContent = ref(`import turtle
 
 t = turtle.Turtle()
@@ -211,6 +234,20 @@ t = turtle.Turtle()
     const isProcessing = ref(false);
     const mediaRecorder = ref(null);
     const audioChunks = ref([]);
+
+    // Alert box state
+    const alertMessage = ref('');
+    const alertType = ref('success');
+    const showAlert = ref(false);
+    let alertTimeout = null;
+
+    const showAlertBox = (message, type = 'success', duration = 3500) => {
+      if (alertTimeout) clearTimeout(alertTimeout);
+      alertMessage.value = message;
+      alertType.value = type;
+      showAlert.value = true;
+      alertTimeout = setTimeout(() => { showAlert.value = false; }, duration);
+    };
 
     const availableMethods = ref([]);
     const methodCategories = ref([]);
@@ -259,6 +296,13 @@ t = turtle.Turtle()
 
     const insertMethod = (method) => {
       commandText.value = `${method.name}(${method.params.join(', ')})`;
+    };
+
+    // Editor toolbar handlers
+    const handleUndo = () => { monacoEditor.value?.undo(); };
+    const handleRedo = () => { monacoEditor.value?.redo(); };
+    const handleSettingsClick = () => {
+      showAlertBox(language.value === 'th' ? 'เร็วๆ นี้' : 'Coming soon', 'success', 2000);
     };
 
     const appendToCodeEditor = (command, comment = null) => {
@@ -314,7 +358,7 @@ t = turtle.Turtle()
             }
           }
 
-          commandOutput.value = outputs.join('\n');
+          showAlertBox(outputs.join(' | '), allSuccess ? 'success' : 'error');
           appendToCodeEditor(codeLines.join('\n'), originalText || cmd);
 
           if (allSuccess) {
@@ -325,13 +369,13 @@ t = turtle.Turtle()
             return { success: false, error: 'Some commands failed' };
           }
         } else {
-          commandOutput.value = result.error || t.value.turtlePlayground.invalidCommand;
+          showAlertBox(result.error || t.value.turtlePlayground.invalidCommand, 'error');
           voiceService.speak(t.value.turtlePlayground.invalidCommand);
           return { success: false, error: result.error };
         }
       } catch (err) {
         console.error('[TurtlePlayground] Command error:', err);
-        commandOutput.value = 'Error: ' + err.message;
+        showAlertBox(err.message, 'error');
         voiceService.speak(t.value.turtlePlayground.invalidCommand);
         return { success: false, error: err.message };
       } finally {
@@ -346,7 +390,7 @@ t = turtle.Turtle()
       const directResult = executeDirectCommand(cmd);
 
       if (directResult.success) {
-        commandOutput.value = directResult.result;
+        showAlertBox(directResult.result, 'success');
         appendToCodeEditor(`t.${cmd}`);
         voiceService.speak(t.value.turtlePlayground.commandExecuted);
       } else {
@@ -381,12 +425,12 @@ t = turtle.Turtle()
                 isTranscribing.value = false;
                 await processNaturalLanguageCommand(transcribedText, transcribedText);
               } else {
-                commandOutput.value = 'Transcription failed. Please try again.';
+                showAlertBox(language.value === 'th' ? 'แปลงเสียงไม่สำเร็จ กรุณาลองอีกครั้ง' : 'Transcription failed. Please try again.', 'error');
                 voiceService.speak(t.value.turtlePlayground.invalidCommand);
                 isTranscribing.value = false;
               }
             } catch (err) {
-              commandOutput.value = 'Error: ' + err.message;
+              showAlertBox(err.message, 'error');
               voiceService.speak(t.value.turtlePlayground.invalidCommand);
               isTranscribing.value = false;
             }
@@ -409,18 +453,20 @@ t = turtle.Turtle()
     const handleClear = () => {
       if (turtle) {
         turtle.clear();
-        commandOutput.value = 'Canvas cleared';
+        const msg = t.value.turtlePlayground.canvasCleared || 'Canvas cleared';
+        showAlertBox(msg, 'success');
         appendToCodeEditor('t.clear()');
-        voiceService.speak('Canvas cleared');
+        voiceService.speak(msg);
       }
     };
 
     const handleReset = () => {
       if (turtle) {
         turtle.reset();
-        commandOutput.value = 'Turtle reset';
+        const msg = t.value.turtlePlayground.turtleReset || 'Turtle reset';
+        showAlertBox(msg, 'success');
         appendToCodeEditor('t.reset()');
-        voiceService.speak('Turtle reset');
+        voiceService.speak(msg);
       }
     };
 
@@ -432,7 +478,6 @@ t = turtle.Turtle()
       canvasWrapper,
       monacoEditor,
       commandText,
-      commandOutput,
       codeContent,
       isRecording,
       isTranscribing,
@@ -441,6 +486,11 @@ t = turtle.Turtle()
       methodCategories,
       activeModules,
       expandedCategories,
+      // Alert box
+      alertMessage,
+      alertType,
+      showAlert,
+      // Handlers
       handleCodeUpdate,
       toggleCategory,
       insertMethod,
@@ -448,6 +498,9 @@ t = turtle.Turtle()
       handleMicClick,
       handleClear,
       handleReset,
+      handleUndo,
+      handleRedo,
+      handleSettingsClick,
     };
   }
 };
