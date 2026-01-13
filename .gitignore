@@ -11,3 +11,6 @@ backend/hf_cache/
 plans/
 google-credentials.json
 *.md
+
+# Node modules - ignore in all directories
+node_modules/
