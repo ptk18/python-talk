@@ -9,6 +9,8 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
+import hashlib
+
 from app.database.connection import get_db
 from app.models import crud, models
 
@@ -33,12 +35,28 @@ class TokenResponse(BaseModel):
     user: dict
 
 
+# def hash_password(password: str) -> str:
+#     return pwd_context.hash(password)
+
+
+# def verify_password(password: str, hashed: str) -> bool:
+#     return pwd_context.verify(password, hashed)
+
+import hashlib
+
+def _normalize_password(password: str) -> str:
+    out = hashlib.sha256(password.encode("utf-8")).hexdigest()
+    print("DEBUG normalize bytes:", len(out.encode("utf-8")))  # should always be 64 bytes
+    return out
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    print("DEBUG raw bytes:", len(password.encode("utf-8")))
+    return pwd_context.hash(_normalize_password(password))
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    return pwd_context.verify(password, hashed)
+    return pwd_context.verify(_normalize_password(password), hashed)
+
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
