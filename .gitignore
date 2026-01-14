@@ -14,3 +14,4 @@ google-credentials.json
 
 # Node modules - ignore in all directories
 node_modules/
+.npm-cache/

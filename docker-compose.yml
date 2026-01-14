@@ -9,15 +9,50 @@ services:
     networks:
       - python_talk_net
 
-  frontend:
-    build: ./frontend
+  main-app:
+    build: ./main-app
     platform: linux/amd64
     ports:
-      - "5173:5173"
+      - "3001:3001"
+    volumes:
+      - ./main-app:/app
+      - /app/node_modules
     depends_on:
       - backend
     networks:
       - python_talk_net
+    environment:
+      - VITE_API_URL=http://backend:8000
+
+  codespace-app:
+    build: ./codespace-app
+    platform: linux/amd64
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./codespace-app:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - python_talk_net
+    environment:
+      - VITE_API_URL=http://backend:8000
+
+  turtle-app:
+    build: ./turtle-app
+    platform: linux/amd64
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./turtle-app:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - python_talk_net
+    environment:
+      - VITE_API_URL=http://backend:8000
 
 networks:
   python_talk_net:
