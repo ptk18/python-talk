@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, List, Any
 import asyncio
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from app.nlp_v3.turtle_introspector import (
@@ -19,32 +20,34 @@ _turtle_pipeline: Optional[NLPPipeline] = None
 _pipeline_initialized: bool = False
 _direct_commands: Optional[Dict[str, List[str]]] = None
 _no_arg_commands: Optional[set] = None
+_turtle_lock = threading.Lock()
 
 
 def _build_direct_command_maps():
-    """Build command maps from introspector (called once, cached)."""
+    """Build command maps from introspector (called once, cached, thread-safe)."""
     global _direct_commands, _no_arg_commands
-    if _direct_commands is not None:
-        return
+    with _turtle_lock:
+        if _direct_commands is not None:
+            return
 
-    introspector = get_introspector()
-    introspector.introspect()
+        introspector = get_introspector()
+        introspector.introspect()
 
-    _direct_commands = {}
-    _no_arg_commands = set()
+        _direct_commands = {}
+        _no_arg_commands = set()
 
-    for method in introspector._methods:
-        detail = introspector._detailed_methods.get(method.name)
-        if not detail:
-            continue
+        for method in introspector._methods:
+            detail = introspector._detailed_methods.get(method.name)
+            if not detail:
+                continue
 
-        names = [method.name] + (detail.aliases if detail.aliases else [])
+            names = [method.name] + (detail.aliases if detail.aliases else [])
 
-        if not method.params:
-            _no_arg_commands.update(names)
-        else:
-            for name in names:
-                _direct_commands[name] = method.params
+            if not method.params:
+                _no_arg_commands.update(names)
+            else:
+                for name in names:
+                    _direct_commands[name] = method.params
 
 
 class TurtleCommandRequest(BaseModel):
@@ -79,19 +82,21 @@ class TurtleMethodsResponse(BaseModel):
 
 
 def _get_turtle_pipeline() -> NLPPipeline:
+    """Get or initialize turtle pipeline (thread-safe)."""
     global _turtle_pipeline, _pipeline_initialized
 
-    if _turtle_pipeline is None:
-        print("[TurtleCommands] Initializing NLP pipeline...")
-        _turtle_pipeline = NLPPipeline()
+    with _turtle_lock:
+        if _turtle_pipeline is None:
+            print("[TurtleCommands] Initializing NLP pipeline...")
+            _turtle_pipeline = NLPPipeline()
 
-    if not _pipeline_initialized:
-        methods = get_introspector().get_canonical_methods_only()
-        _turtle_pipeline.initialize(methods)
-        _pipeline_initialized = True
-        print(f"[TurtleCommands] Pipeline ready with {len(methods)} methods")
+        if not _pipeline_initialized:
+            methods = get_introspector().get_canonical_methods_only()
+            _turtle_pipeline.initialize(methods)
+            _pipeline_initialized = True
+            print(f"[TurtleCommands] Pipeline ready with {len(methods)} methods")
 
-    return _turtle_pipeline
+        return _turtle_pipeline
 
 
 def _try_direct_match(command: str) -> Optional[Dict]:

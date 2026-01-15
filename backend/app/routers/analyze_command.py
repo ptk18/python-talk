@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
@@ -9,8 +10,9 @@ from app.nlp_v3.main import NLPPipeline
 
 from app.models.schemas import AnalyzeCommandRequest
 
-# Global pipeline instance (reused across requests for performance)
+# Global pipeline instance (reused across requests for performance) with thread lock
 _pipeline_cache = {}
+_cache_lock = threading.Lock()
 
 router = APIRouter(tags=["Analyze Command"])
 
@@ -38,17 +40,18 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
         if not methods:
             raise HTTPException(status_code=400, detail="No public methods found in uploaded file")
 
-        # Initialize pipeline in cache
+        # Initialize pipeline in cache (thread-safe)
         cache_key = f"conv_{conversation_id}"
 
-        if cache_key not in _pipeline_cache:
-            print(f"Pre-warming NLP v3 pipeline for conversation {conversation_id}")
-            pipeline = NLPPipeline()
-            pipeline.initialize(methods)
-            _pipeline_cache[cache_key] = pipeline
-            return {"status": "initialized", "message": "Pipeline pre-warmed successfully"}
-        else:
-            return {"status": "already_cached", "message": "Pipeline already initialized"}
+        with _cache_lock:
+            if cache_key not in _pipeline_cache:
+                print(f"Pre-warming NLP v3 pipeline for conversation {conversation_id}")
+                pipeline = NLPPipeline()
+                pipeline.initialize(methods)
+                _pipeline_cache[cache_key] = pipeline
+                return {"status": "initialized", "message": "Pipeline pre-warmed successfully"}
+            else:
+                return {"status": "already_cached", "message": "Pipeline already initialized"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error pre-warming pipeline: {str(e)}")
@@ -64,12 +67,13 @@ def invalidate_pipeline_cache(payload: AnalyzeCommandRequest, db: Session = Depe
     conversation_id = payload.conversation_id
     cache_key = f"conv_{conversation_id}"
 
-    if cache_key in _pipeline_cache:
-        del _pipeline_cache[cache_key]
-        print(f"Invalidated pipeline cache for conversation {conversation_id}")
-        return {"status": "invalidated", "message": "Pipeline cache cleared successfully"}
-    else:
-        return {"status": "not_cached", "message": "No cache found for this conversation"}
+    with _cache_lock:
+        if cache_key in _pipeline_cache:
+            del _pipeline_cache[cache_key]
+            print(f"Invalidated pipeline cache for conversation {conversation_id}")
+            return {"status": "invalidated", "message": "Pipeline cache cleared successfully"}
+        else:
+            return {"status": "not_cached", "message": "No cache found for this conversation"}
 
 
 @router.post("/analyze_command")
@@ -110,16 +114,17 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         if not class_name:
             class_name = "UnknownClass"
 
-        # Use cached pipeline or create new one per conversation
+        # Use cached pipeline or create new one per conversation (thread-safe)
         cache_key = f"conv_{conversation_id}"
 
-        if cache_key not in _pipeline_cache:
-            print(f"Initializing NLP v3 pipeline for conversation {conversation_id}")
-            pipeline = NLPPipeline()
-            pipeline.initialize(methods)
-            _pipeline_cache[cache_key] = pipeline
-        else:
-            pipeline = _pipeline_cache[cache_key]
+        with _cache_lock:
+            if cache_key not in _pipeline_cache:
+                print(f"Initializing NLP v3 pipeline for conversation {conversation_id}")
+                pipeline = NLPPipeline()
+                pipeline.initialize(methods)
+                _pipeline_cache[cache_key] = pipeline
+            else:
+                pipeline = _pipeline_cache[cache_key]
 
         # Process the command - remove top_k limit to get all results
         results = pipeline.process_command(command, methods, top_k=None)

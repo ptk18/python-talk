@@ -1,11 +1,33 @@
 import { API_BASE_URL } from '../config/api';
 
+// Token management
+const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'auth_user';
+
+export const getAuthToken = () => localStorage.getItem(TOKEN_KEY);
+export const setAuthToken = (token) => localStorage.setItem(TOKEN_KEY, token);
+export const removeAuthToken = () => localStorage.removeItem(TOKEN_KEY);
+
+export const getAuthUser = () => {
+  const user = localStorage.getItem(USER_KEY);
+  return user ? JSON.parse(user) : null;
+};
+export const setAuthUser = (user) => localStorage.setItem(USER_KEY, JSON.stringify(user));
+export const removeAuthUser = () => localStorage.removeItem(USER_KEY);
+
+export const logout = () => {
+  removeAuthToken();
+  removeAuthUser();
+};
+
 const apiCall = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
+  const token = getAuthToken();
 
   const config = {
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     },
     ...options,
@@ -27,24 +49,45 @@ export const authAPI = {
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
 
-    return apiCall('/api/v1/auth/login', {
+    const response = await apiCall('/api/v1/auth/login', {
       method: 'POST',
       headers: {},
       body: formData,
     });
+
+    // Store token and user after successful login
+    if (response.access_token) {
+      setAuthToken(response.access_token);
+      setAuthUser(response.user);
+    }
+    return response;
   },
 
   signup: async (userData) => {
-    return apiCall('/api/v1/auth/signup', {
+    const response = await apiCall('/api/v1/auth/signup', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
+
+    // Store token and user after successful signup
+    if (response.access_token) {
+      setAuthToken(response.access_token);
+      setAuthUser(response.user);
+    }
+    return response;
+  },
+
+  logout: () => {
+    logout();
   },
 };
 
 export const conversationAPI = {
   async getByUser(userId) {
-    const res = await fetch(`${API_BASE_URL}/api/conversations/${userId}`);
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE_URL}/api/conversations/${userId}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
     if (!res.ok) {
       throw new Error(`Failed to fetch conversations: ${res.statusText}`);
     }
@@ -52,9 +95,13 @@ export const conversationAPI = {
   },
 
   create: async (userId, data) => {
+    const token = getAuthToken();
     const res = await fetch(`${API_BASE_URL}/api/conversations/${userId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to create conversation');
@@ -95,8 +142,10 @@ export const voiceAPI = {
     formData.append("file", audioFile);
     formData.append("language", language);
 
+    const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/voice/transcribe`, {
       method: "POST",
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
     });
 
@@ -116,9 +165,11 @@ export const googleSpeechAPI = {
 
   textToSpeech: async (text) => {
     const params = new URLSearchParams({ text });
+    const token = getAuthToken();
 
     const response = await fetch(`${API_BASE_URL}/api/google-speech/text-to-speech?${params}`, {
       method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
 
     if (!response.ok) {
@@ -134,8 +185,10 @@ export const googleSpeechAPI = {
     formData.append('file', audioFile);
     formData.append('language', language);
 
+    const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/google-speech/speech-to-text`, {
       method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
     });
 

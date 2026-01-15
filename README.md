@@ -1,9 +1,28 @@
-Run
+# Py-Talk
+
+Voice-activated Python learning platform with NLP command parsing.
+
+## Setup
+
+### Backend
+
+```bash
 cd backend
+pip install -r requirements.txt
 uvicorn app.main:app --reload
-uvicorn app.main:app --reload-exclude "*" --reload (use this one)
+```
 
+### Frontend (run each in separate terminal)
 
-for frontend run
+```bash
+cd main-app && npm install && npm run dev
+cd codespace-app && npm install && npm run dev
+cd turtle-app && npm install && npm run dev
+```
 
-http://127.0.0.1:5500/frontend/user.html
+## Ports
+
+- Backend: 8000
+- Main App: 3001
+- Codespace: 3002
+- Turtle App: 3003

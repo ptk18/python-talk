@@ -67,6 +67,11 @@ export default {
     const { ttsEnabled, setTTSEnabled } = useTTS()
     const t = computed(() => useTranslations(language.value))
 
+    const getAppUrl = (port, path) => {
+      const hostname = window.location.hostname
+      return `${window.location.protocol}//${hostname}:${port}${path}`
+    }
+
     const handleAppClick = (app) => {
       if (app.route) {
         router.push(app.route)
@@ -82,7 +87,7 @@ export default {
         icon: codeGeneratorIcon,
         category: t.value.home.codeAssistant,
         rating: 4.5,
-        route: '/conversation-manager'
+        url: getAppUrl(3002, '/conversation-manager')
       },
       {
         id: 2,
@@ -90,7 +95,7 @@ export default {
         icon: '🐢',
         category: t.value.home.learningTools,
         rating: 4.8,
-        route: '/turtle-playground'
+        url: getAppUrl(3003, '/turtle-playground')
       },
       {
         id: 3,

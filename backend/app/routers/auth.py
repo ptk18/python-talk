@@ -1,24 +1,28 @@
+import os
+import hashlib
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import jwt
 from jwt import InvalidTokenError
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
-import hashlib
-
 from app.database.connection import get_db
 from app.models import crud, models
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-SECRET_KEY = "CHANGE_ME_DEV_ONLY"
+# Load SECRET_KEY from environment variable
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 4
+
+# OAuth2 scheme for token extraction
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -35,27 +39,41 @@ class TokenResponse(BaseModel):
     user: dict
 
 
-# def hash_password(password: str) -> str:
-#     return pwd_context.hash(password)
-
-
-# def verify_password(password: str, hashed: str) -> bool:
-#     return pwd_context.verify(password, hashed)
-
-import hashlib
-
 def _normalize_password(password: str) -> str:
-    out = hashlib.sha256(password.encode("utf-8")).hexdigest()
-    print("DEBUG normalize bytes:", len(out.encode("utf-8")))  # should always be 64 bytes
-    return out
+    """Normalize password to fixed-length hash for bcrypt compatibility."""
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
 
 def hash_password(password: str) -> str:
-    print("DEBUG raw bytes:", len(password.encode("utf-8")))
     return pwd_context.hash(_normalize_password(password))
 
 
 def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(_normalize_password(password), hashed)
+
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> models.User:
+    """Validate JWT token and return current user. Use as dependency for protected endpoints."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except InvalidTokenError:
+        raise credentials_exception
+
+    user = crud.get_user(db, int(user_id))
+    if user is None:
+        raise credentials_exception
+    return user
 
 
 

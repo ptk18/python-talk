@@ -32,10 +32,11 @@
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLanguage } from '../composables/useLanguage'
 import { useTranslations } from '../utils/translations'
+import { useAuth } from '../composables/useAuth'
 import Sidebar from '../components/Sidebar.vue'
 import AppCard from '../components/AppCard.vue'
 import codeGeneratorIcon from '../assets/F-code-generator.png'
@@ -50,7 +51,14 @@ export default {
   setup() {
     const router = useRouter()
     const { language } = useLanguage()
+    const { user } = useAuth()
     const t = computed(() => useTranslations(language.value))
+
+    onMounted(() => {
+      if (!user.value) {
+        router.push('/login')
+      }
+    })
 
     const handleAppClick = (app) => {
       if (app.route) {

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form
 import subprocess, tempfile
+import threading
 import torch
 from transformers import pipeline, T5ForConditionalGeneration, T5Tokenizer
 import io
@@ -13,49 +14,52 @@ router = APIRouter(prefix="/voice", tags=["voice"])
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
 
-# Initialize pipelines as None (lazy loading)
+# Initialize pipelines as None (lazy loading) with thread lock
 thai_pipe = None
 english_pipe = None
+_pipe_lock = threading.Lock()
 
 def get_thai_pipe():
-    """Lazy load Thai Whisper model"""
+    """Lazy load Thai Whisper model (thread-safe)"""
     global thai_pipe
-    if thai_pipe is None:
-        print("Loading Thai Whisper model...")
-        thai_pipe = pipeline(
-            task="automatic-speech-recognition",
-            model="nectec/Pathumma-whisper-th-large-v3",
-            torch_dtype=torch_dtype,
-            device=device,
-            chunk_length_s=30,
-            batch_size=8,
-        )
-        thai_pipe.model.config.forced_decoder_ids = thai_pipe.tokenizer.get_decoder_prompt_ids(
-            language="th",
-            task="transcribe"
-        )
-        print("Thai Whisper model loaded successfully")
-    return thai_pipe
+    with _pipe_lock:
+        if thai_pipe is None:
+            print("Loading Thai Whisper model...")
+            thai_pipe = pipeline(
+                task="automatic-speech-recognition",
+                model="nectec/Pathumma-whisper-th-large-v3",
+                torch_dtype=torch_dtype,
+                device=device,
+                chunk_length_s=30,
+                batch_size=8,
+            )
+            thai_pipe.model.config.forced_decoder_ids = thai_pipe.tokenizer.get_decoder_prompt_ids(
+                language="th",
+                task="transcribe"
+            )
+            print("Thai Whisper model loaded successfully")
+        return thai_pipe
 
 def get_english_pipe():
-    """Lazy load English Whisper model"""
+    """Lazy load English Whisper model (thread-safe)"""
     global english_pipe
-    if english_pipe is None:
-        print("Loading English Whisper model...")
-        english_pipe = pipeline(
-            task="automatic-speech-recognition",
-            model="distil-whisper/distil-large-v3",
-            torch_dtype=torch_dtype,
-            device=device,
-            chunk_length_s=30,
-            batch_size=8,
-        )
-        english_pipe.model.config.forced_decoder_ids = english_pipe.tokenizer.get_decoder_prompt_ids(
-            language="en",
-            task="transcribe"
-        )
-        print("English Whisper model loaded successfully")
-    return english_pipe
+    with _pipe_lock:
+        if english_pipe is None:
+            print("Loading English Whisper model...")
+            english_pipe = pipeline(
+                task="automatic-speech-recognition",
+                model="distil-whisper/distil-large-v3",
+                torch_dtype=torch_dtype,
+                device=device,
+                chunk_length_s=30,
+                batch_size=8,
+            )
+            english_pipe.model.config.forced_decoder_ids = english_pipe.tokenizer.get_decoder_prompt_ids(
+                language="en",
+                task="transcribe"
+            )
+            print("English Whisper model loaded successfully")
+        return english_pipe
 
 try:
     # Load English paraphrasing model

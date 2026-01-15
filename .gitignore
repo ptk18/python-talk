@@ -12,6 +12,8 @@ plans/
 google-credentials.json
 *.md
 
+extra_files/
+
 # Node modules - ignore in all directories
 node_modules/
 .npm-cache/
