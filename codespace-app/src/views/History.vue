@@ -11,7 +11,7 @@
           <div v-if="chatHistory.length === 0" class="empty-state">
             <h3>No Chat History</h3>
             <p>Your chat conversations will appear here</p>
-            <router-link to="/chat" class="start-chat-button">Start New Chat</router-link>
+            <router-link to="/conversation-manager" class="start-chat-button">Start New Chat</router-link>
           </div>
           
           <div v-else class="history-list">
@@ -161,7 +161,7 @@ export default {
       }
     },
     continueChat(chatId) {
-      this.$router.push({ path: '/chat', query: { id: chatId } })
+      this.$router.push({ path: '/conversation-manager', query: { id: chatId } })
     },
     startEdit(chatId, chat) {
       this.editingChatId = chatId

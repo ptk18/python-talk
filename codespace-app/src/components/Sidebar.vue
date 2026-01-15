@@ -38,10 +38,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useLanguage } from '../composables/useLanguage'
 import { useTranslations } from '../utils/translations'
 import appIcon from '../assets/app-icon.svg'
-import homeIcon from '../assets/side-home-icon.svg'
+import historyIcon from '../assets/side-history-icon.svg'
 import runIcon from '../assets/side-run-icon.svg'
 import logoutIcon from '../assets/side-logout-icon.svg'
-import settingsIcon from '../assets/side-setting-icon.svg'
 
 export default {
   name: 'Sidebar',
@@ -54,9 +53,8 @@ export default {
     const t = computed(() => useTranslations(language.value))
 
     const navItems = computed(() => [
-      { id: 1, label: t.value.sidebar.home, iconSvg: homeIcon, path: '/conversation-manager' },
-      { id: 2, label: t.value.sidebar.codeSpace, iconSvg: runIcon, path: '/workspace' },
-      { id: 3, label: t.value.sidebar.settings, iconSvg: settingsIcon, path: '/settings' }
+      { id: 1, label: t.value.sidebar.history, iconSvg: historyIcon, path: '/history' },
+      { id: 2, label: t.value.sidebar.codeSpace, iconSvg: runIcon, path: '/workspace' }
     ])
 
     const userInitial = computed(() => {

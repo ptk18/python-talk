@@ -83,7 +83,7 @@ export default {
     const featuredApps = computed(() => [
       {
         id: 1,
-        name: t.value.home.pytalkWorkspace,
+        name: 'Codespace',
         icon: codeGeneratorIcon,
         category: t.value.home.codeAssistant,
         rating: 4.5,
@@ -103,14 +103,6 @@ export default {
         icon: smartHomeIcon,
         category: t.value.home.connectToYourHome,
         rating: 4.7
-      },
-      {
-        id: 4,
-        name: t.value.home.reflexTest,
-        icon: '💬',
-        category: t.value.home.entertainment,
-        rating: 4.6,
-        url: 'http://localhost:3010/'
       }
     ])
 

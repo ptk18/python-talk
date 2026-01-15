@@ -15,8 +15,8 @@
               <p class="section-description">{{ t.settings.languageDescription }}</p>
             </div>
             <div class="settings-options">
-              <div 
-                v-for="lang in languages" 
+              <div
+                v-for="lang in languages"
                 :key="lang.code"
                 class="option-card"
                 :class="{ 'active': selectedLanguage === lang.code }"
@@ -188,7 +188,7 @@ onMounted(async () => {
 
   // If Google is available, suggest using it
   if (googleAvailable.value && selectedTTSModel.value === 'browser') {
-    console.log('[Settings] 💡 TIP: Google Cloud TTS is available and may work better than browser TTS.');
+    console.log('[Settings] TIP: Google Cloud TTS is available and may work better than browser TTS.');
   }
 });
 </script>
@@ -464,4 +464,3 @@ onMounted(async () => {
   }
 }
 </style>
-

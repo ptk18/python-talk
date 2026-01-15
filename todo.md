@@ -1,4 +1,3 @@
 # To FIx UI
-- [x] remove turtle-playground__command-output and show the processed command output with alert box
-- [x] add redo, undo, settings buttons in code editor
-- [x] make turtle palyground UI design simple and minimalistic yet consistent to the py-talk system default theme but think about better UX with simple, clean and minimalistic UI design
+- [x] clicking to app-card from the main app currently redirecting to login page, I want to redirect directly to each individual app directly
+- [x] and while redirecting to the app, it is showing this page see in this pic >> Screenshot 2569-01-15 at 14.46.33.png, only after refreshing the page or clicking the tab show the actual page

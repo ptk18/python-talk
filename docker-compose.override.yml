@@ -1,0 +1,12 @@
+# Development override - uses native ARM builds for faster local development
+# This file is automatically merged with docker-compose.yml
+# For production builds, use: docker compose -f docker-compose.yml build
+services:
+  backend:
+    platform: linux/arm64
+  main-app:
+    platform: linux/arm64
+  codespace-app:
+    platform: linux/arm64
+  turtle-app:
+    platform: linux/arm64

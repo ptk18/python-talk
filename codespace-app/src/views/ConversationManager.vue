@@ -164,10 +164,6 @@ export default {
     };
 
     const handleCreate = async () => {
-      if (!user.value) {
-        router.push('/login');
-        return;
-      }
       if (!title.value.trim() || !selectedFile.value) {
         voiceService.speak('Please enter a title and select a Python file');
         alert('Please enter a title and select a Python file.');
@@ -222,12 +218,6 @@ export default {
     };
 
     onMounted(() => {
-      // Redirect to login if not authenticated
-      if (!user.value) {
-        router.push('/login');
-        return;
-      }
-
       fetchConversations();
 
       const greetOnInteraction = () => {

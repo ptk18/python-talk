@@ -7,7 +7,6 @@ import History from '../views/History.vue'
 import Login from '../views/Login.vue'
 import SignUp from '../views/SignUp.vue'
 import Profile from '../views/Profile.vue'
-import Settings from '../views/Settings.vue'
 
 const routes = [
   {
@@ -49,11 +48,6 @@ const routes = [
     path: '/profile',
     name: 'Profile',
     component: Profile
-  },
-  {
-    path: '/settings',
-    name: 'Settings',
-    component: Settings
   }
 ]
 

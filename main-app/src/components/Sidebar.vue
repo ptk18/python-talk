@@ -40,6 +40,8 @@ import { useAuth } from '../composables/useAuth'
 import { useTranslations } from '../utils/translations'
 import appIcon from '../assets/app-icon.svg'
 import logoutIcon from '../assets/side-logout-icon.svg'
+import homeIcon from '../assets/side-home-icon.svg'
+import settingsIcon from '../assets/side-setting-icon.svg'
 
 export default {
   name: 'Sidebar',
@@ -52,7 +54,10 @@ export default {
 
     const t = computed(() => useTranslations(language.value))
 
-    const navItems = computed(() => [])
+    const navItems = computed(() => [
+      { id: 1, label: t.value.sidebar.home, iconSvg: homeIcon, path: '/' },
+      { id: 2, label: t.value.sidebar.settings, iconSvg: settingsIcon, path: '/settings' }
+    ])
 
     const userInitial = computed(() => {
       const source = userInfo.value.username || userInfo.value.email || 'U'
