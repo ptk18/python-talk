@@ -1,3 +1,0 @@
-# Google Cloud Speech API POC Requirements
-google-cloud-speech==2.28.0
-google-cloud-texttospeech==2.33.0
