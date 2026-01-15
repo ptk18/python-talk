@@ -96,8 +96,8 @@ export default {
         category: t.value.home.codeAssistant,
         rating: 4.5,
         url: getAppUrl(3002, '/conversation-manager'),
-        themeColor: '#1565C0',
-        themeColorDark: '#0D47A1'
+        themeColor: '#001f3f',
+        themeColorDark: '#001a33'
       },
       {
         id: 2,

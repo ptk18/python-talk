@@ -252,7 +252,7 @@ export default {
 
 .start-chat-button {
   padding: 12px 24px;
-  background: #024A14;
+  background: #001f3f;
   color: white;
   border: none;
   border-radius: 8px;
@@ -266,7 +266,7 @@ export default {
 }
 
 .start-chat-button:hover {
-  background: #01350e;
+  background: #001a33;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(2, 74, 20, 0.3);
 }
@@ -308,7 +308,7 @@ export default {
 }
 
 .history-item:hover {
-  border-color: #024A14;
+  border-color: #001f3f;
   background: #f5f5f5;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -354,7 +354,7 @@ export default {
 }
 
 .edit-button:hover {
-  color: #024A14;
+  color: #001f3f;
   background: rgba(2, 74, 20, 0.1);
 }
 
@@ -368,7 +368,7 @@ export default {
   font-weight: 600;
   color: #1a1a1a;
   font-family: 'Jaldi', sans-serif;
-  border: 2px solid #024A14;
+  border: 2px solid #001f3f;
   border-radius: 6px;
   padding: 4px 8px;
   width: 100%;
@@ -403,7 +403,7 @@ export default {
 
 .file-name {
   font-size: 12px;
-  color: #024A14;
+  color: #001f3f;
   background: rgba(2, 74, 20, 0.1);
   padding: 4px 12px;
   border-radius: 12px;

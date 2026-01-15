@@ -1489,7 +1489,7 @@ export default {
 }
 
 .workspace__chat-row--right .workspace__bubble {
-  background: #1565C0;
+  background: #001f3f;
   color: white;
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 4px;
@@ -1583,7 +1583,7 @@ export default {
 }
 
 .workspace__input:focus {
-  border-color: #1565C0;
+  border-color: #001f3f;
   box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
 }
 
@@ -1597,13 +1597,13 @@ export default {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #1565C0;
+  background: #001f3f;
   color: white;
   flex-shrink: 0;
 }
 
 .workspace__send-btn:hover:not(:disabled) {
-  background: #0D47A1;
+  background: #001a33;
   transform: scale(1.05);
 }
 
@@ -1626,7 +1626,7 @@ export default {
 }
 
 .workspace__refresh-notification {
-  background: #1565C0;
+  background: #001f3f;
   color: white;
   padding: 12px 16px;
   border-radius: 8px;
@@ -1693,14 +1693,14 @@ export default {
   width: auto;
   padding: 6px 12px;
   gap: 6px;
-  border: 1px solid #1565C0;
-  color: #1565C0;
+  border: 1px solid #001f3f;
+  color: #001f3f;
 }
 
 .workspace__run-btn:hover:not(:disabled) {
-  background: #0D47A1;
+  background: #001a33;
   color: white;
-  border-color: #0D47A1;
+  border-color: #001a33;
 }
 
 .workspace__run-btn:hover:not(:disabled) .workspace__icon-btn-icon {
@@ -1712,17 +1712,17 @@ export default {
 }
 
 .workspace__icon-btn:hover:not(:disabled) {
-  background: #1565C0;
-  color: #1565C0;
+  background: #001f3f;
+  color: #001f3f;
 }
 
 .workspace__icon-btn--primary {
-  background: #1565C0;
+  background: #001f3f;
   color: white;
 }
 
 .workspace__icon-btn--primary:hover:not(:disabled) {
-  background: #0D47A1;
+  background: #001a33;
 }
 
 .workspace__icon-btn--success {
@@ -1759,7 +1759,7 @@ export default {
 }
 
 .workspace__icon-btn.active {
-  background: #1565C0;
+  background: #001f3f;
   color: white;
 }
 
@@ -1804,7 +1804,7 @@ export default {
 
 .workspace__toolbar-btn:hover:not(:disabled) {
   background: #e8e8e8;
-  color: #1565C0;
+  color: #001f3f;
 }
 
 .workspace__toolbar-btn:disabled {
@@ -2020,7 +2020,7 @@ export default {
 
 .workspace__status-progress-bar {
   height: 100%;
-  background: #1565C0;
+  background: #001f3f;
   animation: progress 2s ease-in-out infinite;
 }
 
@@ -2112,7 +2112,7 @@ export default {
 
 .workspace__method-card:hover {
   background: #f0f0f0;
-  border-color: #1565C0;
+  border-color: #001f3f;
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -2301,11 +2301,11 @@ export default {
 .function-panel-class-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1565C0;
+  color: #001f3f;
   font-family: 'Jaldi', sans-serif;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 2px solid #1565C0;
+  border-bottom: 2px solid #001f3f;
 }
 
 .function-item {
@@ -2320,7 +2320,7 @@ export default {
 
 .function-item:hover {
   background: #f0f0f0;
-  border-color: #1565C0;
+  border-color: #001f3f;
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -2343,7 +2343,7 @@ export default {
 
 .function-item-file {
   font-size: 12px;
-  color: #1565C0;
+  color: #001f3f;
   font-family: 'Courier New', monospace;
   font-weight: 500;
   background: #f0f7f2;
