@@ -53,8 +53,8 @@ export default {
     const t = computed(() => useTranslations(language.value))
 
     const navItems = computed(() => [
-      { id: 1, label: t.value.sidebar.history, iconSvg: historyIcon, path: '/history' },
-      { id: 2, label: t.value.sidebar.codeSpace, iconSvg: runIcon, path: '/workspace' }
+      { id: 1, label: t.value.sidebar.codeSpace, iconSvg: runIcon, path: '/workspace' },
+      { id: 2, label: t.value.sidebar.history, iconSvg: historyIcon, path: '/history' }
     ])
 
     const userInitial = computed(() => {

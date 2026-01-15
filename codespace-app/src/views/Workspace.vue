@@ -4,13 +4,21 @@
     <main class="main-content">
       <header class="top-header">
         <h2 class="page-title">Codespace</h2>
-        <button 
-          class="function-panel-toggle" 
-          @click="toggleFunctionPanel"
-          :title="isFunctionPanelOpen ? 'Hide functions panel' : 'Show functions panel'"
-        >
-          <img :src="functionPanelIcon" alt="Functions" class="function-panel-icon" />
-        </button>
+        <div class="header-controls">
+          <button class="control-button" @click="toggleLanguage" :title="`Switch to ${language === 'en' ? 'Thai' : 'English'}`">
+            <img :src="langIcon" alt="Language" class="control-icon" />
+          </button>
+          <button class="control-button" @click="toggleTTS" :title="ttsEnabled ? 'Disable Voice' : 'Enable Voice'">
+            <img :src="ttsEnabled ? soundIcon : nosoundIcon" alt="Sound" class="control-icon" />
+          </button>
+          <button 
+            class="function-panel-toggle" 
+            @click="toggleFunctionPanel"
+            :title="isFunctionPanelOpen ? 'Hide functions panel' : 'Show functions panel'"
+          >
+            <img :src="functionPanelIcon" alt="Functions" class="function-panel-icon" />
+          </button>
+        </div>
       </header>
     <div class="workspace">
 
@@ -401,6 +409,7 @@ import { useAuth } from '../composables/useAuth';
 import { useCode } from '../composables/useCode';
 import { useFile } from '../composables/useFile';
 import { useLanguage } from '../composables/useLanguage';
+import { useTTS } from '../composables/useTTS';
 import { useTranslations } from '../utils/translations';
 import { voiceService } from '../services/voiceService';
 import scorpioIcon from '../assets/scorpio.svg';
@@ -415,6 +424,9 @@ import clearIcon from '../assets/R-clear.svg';
 import spanIcon from '../assets/R-span.svg';
 import saveIcon from '../assets/R-save.svg';
 import runCodeIcon from '../assets/R-runcode.svg';
+import langIcon from '../assets/lang-icon.svg';
+import soundIcon from '../assets/sound-icon.svg';
+import nosoundIcon from '../assets/nosound-icon.svg';
 
 export default {
   name: 'Workspace',
@@ -427,7 +439,8 @@ export default {
     const router = useRouter();
     const { user } = useAuth();
     const { code, setCode, syncCodeFromBackend, setConversationId } = useCode();
-    const { language } = useLanguage();
+    const { language, setLanguage } = useLanguage();
+    const { ttsEnabled, setTTSEnabled } = useTTS();
     const t = computed(() => useTranslations(language.value));
     const {
       currentFile,
@@ -1056,6 +1069,14 @@ export default {
       isFunctionPanelOpen.value = !isFunctionPanelOpen.value;
     };
 
+    const toggleLanguage = () => {
+      setLanguage(language.value === 'en' ? 'th' : 'en');
+    };
+
+    const toggleTTS = () => {
+      setTTSEnabled(!ttsEnabled.value);
+    };
+
     const insertMethod = (method) => {
       const methodCall = `${method.name}(${method.required_parameters.join(', ')})`;
       const currentPosition = editorRef.value?.getPosition();
@@ -1251,10 +1272,14 @@ export default {
       spanIcon,
       saveIcon,
       runCodeIcon,
+      langIcon,
+      soundIcon,
+      nosoundIcon,
       isMethodsPanelOpen,
       isFunctionPanelOpen,
       isOutputExpanded,
       language,
+      ttsEnabled,
       t,
       formatTime,
       handleSend,
@@ -1271,6 +1296,8 @@ export default {
       handleEditorChange,
       toggleMethodsPanel,
       toggleFunctionPanel,
+      toggleLanguage,
+      toggleTTS,
       insertMethod,
     };
   }
@@ -1305,6 +1332,38 @@ export default {
   color: #1a1a1a;
   font-family: 'Jaldi', sans-serif;
   margin: 0;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.control-button:hover {
+  background: transparent;
+  transform: translateY(-1px);
+  opacity: 0.7;
+}
+
+.control-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .workspace {
@@ -1407,7 +1466,7 @@ export default {
 }
 
 .workspace__chat-row--right .workspace__bubble {
-  background: #024A14;
+  background: #001f3f;
   color: white;
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 4px;
@@ -1501,8 +1560,8 @@ export default {
 }
 
 .workspace__input:focus {
-  border-color: #024A14;
-  box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
+  border-color: #001f3f;
+  box-shadow: 0 0 0 3px rgba(0, 31, 63, 0.1);
 }
 
 .workspace__send-btn {
@@ -1515,13 +1574,13 @@ export default {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #024A14;
+  background: #001f3f;
   color: white;
   flex-shrink: 0;
 }
 
 .workspace__send-btn:hover:not(:disabled) {
-  background: #01350e;
+  background: #001a33;
   transform: scale(1.05);
 }
 
@@ -1541,7 +1600,7 @@ export default {
 }
 
 .workspace__refresh-notification {
-  background: #024A14;
+  background: #001f3f;
   color: white;
   padding: 12px 16px;
   border-radius: 8px;
@@ -1607,14 +1666,14 @@ export default {
   width: auto;
   padding: 6px 12px;
   gap: 6px;
-  border: 1px solid #024A14;
-  color: #024A14;
+  border: 1px solid #001f3f;
+  color: #001f3f;
 }
 
 .workspace__run-btn:hover:not(:disabled) {
-  background: #01350e;
+  background: #001a33;
   color: white;
-  border-color: #01350e;
+  border-color: #001a33;
 }
 
 .workspace__run-btn:hover:not(:disabled) .workspace__icon-btn-icon {
@@ -1626,17 +1685,17 @@ export default {
 }
 
 .workspace__icon-btn:hover:not(:disabled) {
-  background: #024A14;
-  color: #024A14;
+  background: #001f3f;
+  color: #001f3f;
 }
 
 .workspace__icon-btn--primary {
-  background: #024A14;
+  background: #001f3f;
   color: white;
 }
 
 .workspace__icon-btn--primary:hover:not(:disabled) {
-  background: #01350e;
+  background: #001a33;
 }
 
 .workspace__icon-btn--success {
@@ -1673,7 +1732,7 @@ export default {
 }
 
 .workspace__icon-btn.active {
-  background: #024A14;
+  background: #001f3f;
   color: white;
 }
 
@@ -1717,7 +1776,7 @@ export default {
 
 .workspace__toolbar-btn:hover:not(:disabled) {
   background: #e8e8e8;
-  color: #024A14;
+  color: #001f3f;
 }
 
 .workspace__toolbar-btn:disabled {
@@ -1931,7 +1990,7 @@ export default {
 
 .workspace__status-progress-bar {
   height: 100%;
-  background: #024A14;
+  background: #001f3f;
   animation: progress 2s ease-in-out infinite;
 }
 
@@ -2023,7 +2082,7 @@ export default {
 
 .workspace__method-card:hover {
   background: #f0f0f0;
-  border-color: #024A14;
+  border-color: #001f3f;
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -2212,11 +2271,11 @@ export default {
 .function-panel-class-title {
   font-size: 16px;
   font-weight: 600;
-  color: #024A14;
+  color: #001f3f;
   font-family: 'Jaldi', sans-serif;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 2px solid #024A14;
+  border-bottom: 2px solid #001f3f;
 }
 
 .function-item {
@@ -2231,7 +2290,7 @@ export default {
 
 .function-item:hover {
   background: #f0f0f0;
-  border-color: #024A14;
+  border-color: #001f3f;
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -2254,7 +2313,7 @@ export default {
 
 .function-item-file {
   font-size: 12px;
-  color: #024A14;
+  color: #001f3f;
   font-family: 'Courier New', monospace;
   font-weight: 500;
   background: #f0f7f2;

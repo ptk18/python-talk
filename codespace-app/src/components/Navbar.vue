@@ -199,7 +199,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 2rem;
-  background-color: var(--navbar-bg, #024A14);
+  background-color: var(--navbar-bg, #001f3f);
   color: white;
   position: sticky;
   top: 0;
@@ -268,7 +268,7 @@ export default {
 .navbar__button-link,
 .navbar__button-btn {
   background: white;
-  color: #024A14;
+  color: #001f3f;
   padding: 0.5rem 1.5rem;
   border-radius: 4px;
   text-decoration: none;
@@ -299,7 +299,7 @@ export default {
   left: -300px;
   width: 300px;
   height: 100%;
-  background: var(--navbar-bg, #024A14);
+  background: var(--navbar-bg, #001f3f);
   color: white;
   transition: left 0.3s;
   z-index: 99;

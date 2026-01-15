@@ -141,7 +141,7 @@ export default {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: var(--primary-color, #024A14);
+  background: var(--primary-color, #001f3f);
   color: white;
   border: none;
   border-radius: 4px;
@@ -187,7 +187,7 @@ export default {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--primary-color, #024A14);
+  color: var(--primary-color, #001f3f);
   padding: 0.25rem;
   display: flex;
   align-items: center;
@@ -218,7 +218,7 @@ export default {
 
 .file-panel__item--active {
   background: #e8f5e9;
-  color: var(--primary-color, #024A14);
+  color: var(--primary-color, #001f3f);
   font-weight: 600;
 }
 
