@@ -1,6 +1,6 @@
 <template>
   <aside class="sidebar">
-    <div class="sidebar-header">
+    <div class="sidebar-header" @click="goToMainApp">
       <img :src="appIcon" alt="PyTalk" class="app-icon-img" />
       <h1 class="store-logo">PyTalk</h1>
     </div>
@@ -35,7 +35,7 @@
 <script>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useLanguage } from '../composables/useLanguage'
+import { useLanguage } from '@py-talk/shared'
 import { useTranslations } from '../utils/translations'
 import appIcon from '../assets/app-icon.svg'
 import historyIcon from '../assets/side-history-icon.svg'
@@ -53,7 +53,7 @@ export default {
     const t = computed(() => useTranslations(language.value))
 
     const navItems = computed(() => [
-      { id: 1, label: t.value.sidebar.history, iconSvg: historyIcon, path: '/history' },
+      { id: 1, label: t.value.sidebar.history, iconSvg: historyIcon, path: '/conversation-manager' },
       { id: 2, label: t.value.sidebar.codeSpace, iconSvg: runIcon, path: '/workspace' }
     ])
 
@@ -90,6 +90,12 @@ export default {
       router.push('/profile')
     }
 
+    const goToMainApp = () => {
+      // Navigate to main app (port 3001)
+      const hostname = window.location.hostname
+      window.location.href = `${window.location.protocol}//${hostname}:3001`
+    }
+
     loadUserInfo()
     if (typeof window !== 'undefined') {
       window.addEventListener('userInfoUpdated', loadUserInfo)
@@ -105,7 +111,8 @@ export default {
       t,
       isActive,
       handleLogout,
-      goToProfile
+      goToProfile,
+      goToMainApp
     }
   }
 }

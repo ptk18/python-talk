@@ -107,6 +107,10 @@ class ExecuteCommandRequest(BaseModel):
     conversation_id: int
     executable: str
 
+class SimpleCodeRequest(BaseModel):
+    code: str
+    timeout: Optional[int] = 30  # Default 30 second timeout
+
 # Voice Settings
 class VoiceEngineEnum(str, Enum):
     standard = "standard"

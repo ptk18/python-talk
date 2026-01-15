@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { executeAPI } from '../services/api';
+import { executeAPI } from '@py-talk/shared';
 
 const code = ref('');
 const conversationId = ref(null);

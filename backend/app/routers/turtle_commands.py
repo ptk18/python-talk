@@ -9,7 +9,9 @@ from concurrent.futures import ThreadPoolExecutor
 from app.nlp_v3.turtle_introspector import (
     get_turtle_methods,
     get_introspector,
-    refresh_turtle_methods
+    refresh_turtle_methods,
+    get_excluded_turtle_methods,
+    get_exclusion_stats
 )
 from app.nlp_v3.main import NLPPipeline
 
@@ -351,5 +353,25 @@ async def clear_turtle_cache():
         get_introspector().clear_cache()
         _pipeline_initialized = False
         return {"status": "cleared"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+@router.get("/turtle_excluded")
+async def get_excluded_methods():
+    """
+    Get all excluded turtle methods with their exclusion reasons.
+
+    Returns a detailed breakdown of why each method was excluded from NLP processing.
+    Useful for debugging and understanding the filtering logic.
+    """
+    try:
+        excluded = get_excluded_turtle_methods()
+        stats = get_exclusion_stats()
+        return {
+            "success": True,
+            "excluded_methods": excluded,
+            "statistics": stats
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")

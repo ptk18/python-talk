@@ -3,15 +3,19 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy package.json & package-lock first for caching
-COPY package*.json ./
+# Copy shared package first
+COPY packages/shared /app/packages/shared
 
-# Cache npm downloads between builds
+# Copy app package files
+COPY turtle-app/package*.json ./turtle-app/
+
+# Install dependencies with workspace link
+WORKDIR /app/turtle-app
 RUN --mount=type=cache,target=/root/.npm \
-    npm install
+    npm install --install-links
 
 # Copy rest of the source
-COPY . .
+COPY turtle-app/ ./
 
 EXPOSE 3003
 

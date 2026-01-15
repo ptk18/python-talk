@@ -78,7 +78,7 @@
 
 <script>
 import { computed } from 'vue'
-import { useLanguage } from '../composables/useLanguage'
+import { useLanguage } from '@py-talk/shared'
 import { useTranslations } from '../utils/translations'
 import Sidebar from '../components/Sidebar.vue'
 
@@ -211,7 +211,7 @@ export default {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #024A14 0%, #01350e 100%);
+  background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -284,7 +284,7 @@ export default {
 
 .profile-input:focus {
   outline: none;
-  border-color: #024A14;
+  border-color: #1565C0;
   box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
 }
 
@@ -307,12 +307,12 @@ export default {
 }
 
 .save-button {
-  background: #024A14;
+  background: #1565C0;
   color: white;
 }
 
 .save-button:hover {
-  background: #01350e;
+  background: #0D47A1;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(2, 74, 20, 0.3);
 }

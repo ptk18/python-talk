@@ -110,10 +110,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import Sidebar from '../components/Sidebar.vue';
-import { useLanguage } from '../composables/useLanguage';
-import { useTTS } from '../composables/useTTS';
+import { useLanguage, useTTS, voiceService } from '@py-talk/shared';
 import { useTranslations } from '../utils/translations';
-import { voiceService } from '../services/voiceService';
 
 const { language, setLanguage } = useLanguage();
 const { ttsEnabled, ttsEngine, setTTSEnabled, setTTSEngine } = useTTS();

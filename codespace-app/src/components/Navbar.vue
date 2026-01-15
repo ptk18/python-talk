@@ -134,8 +134,7 @@
 <script>
 import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { useTTS } from '../composables/useTTS';
-import { useLanguage } from '../composables/useLanguage';
+import { useTTS, useLanguage } from '@py-talk/shared';
 import { useTranslations } from '../utils/translations';
 
 export default {
@@ -199,7 +198,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 2rem;
-  background-color: var(--navbar-bg, #024A14);
+  background-color: var(--navbar-bg, #1565C0);
   color: white;
   position: sticky;
   top: 0;
@@ -268,7 +267,7 @@ export default {
 .navbar__button-link,
 .navbar__button-btn {
   background: white;
-  color: #024A14;
+  color: #1565C0;
   padding: 0.5rem 1.5rem;
   border-radius: 4px;
   text-decoration: none;
@@ -299,7 +298,7 @@ export default {
   left: -300px;
   width: 300px;
   height: 100%;
-  background: var(--navbar-bg, #024A14);
+  background: var(--navbar-bg, #1565C0);
   color: white;
   transition: left 0.3s;
   z-index: 99;

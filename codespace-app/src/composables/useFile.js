@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { fileAPI } from '../services/api';
+import { fileAPI } from '@py-talk/shared';
 
 const currentFile = ref('');
 const currentCode = ref('');

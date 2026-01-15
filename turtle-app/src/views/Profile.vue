@@ -78,7 +78,7 @@
 
 <script>
 import { computed } from 'vue'
-import { useLanguage } from '../composables/useLanguage'
+import { useLanguage } from '@py-talk/shared'
 import { useTranslations } from '../utils/translations'
 import Sidebar from '../components/Sidebar.vue'
 

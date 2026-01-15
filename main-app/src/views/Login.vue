@@ -56,9 +56,8 @@
 <script>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuth } from '../composables/useAuth';
+import { useAuth, API_BASE_URL } from '@py-talk/shared';
 import axios from 'axios';
-import { API_BASE_URL } from '../config/api';
 
 export default {
   name: 'Login',

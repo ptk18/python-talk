@@ -35,8 +35,7 @@
 <script>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useLanguage } from '../composables/useLanguage'
-import { useAuth } from '../composables/useAuth'
+import { useLanguage, useAuth } from '@py-talk/shared'
 import { useTranslations } from '../utils/translations'
 import appIcon from '../assets/app-icon.svg'
 import logoutIcon from '../assets/side-logout-icon.svg'

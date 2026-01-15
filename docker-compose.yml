@@ -10,13 +10,16 @@ services:
       - python_talk_net
 
   main-app:
-    build: ./main-app
+    build:
+      context: .
+      dockerfile: main-app/Dockerfile
     platform: linux/amd64
     ports:
       - "3001:3001"
     volumes:
-      - ./main-app:/app
-      - /app/node_modules
+      - ./main-app:/app/main-app
+      - ./packages/shared:/app/packages/shared
+      - /app/main-app/node_modules
     depends_on:
       - backend
     networks:
@@ -25,13 +28,16 @@ services:
       - VITE_API_URL=http://backend:8000
 
   codespace-app:
-    build: ./codespace-app
+    build:
+      context: .
+      dockerfile: codespace-app/Dockerfile
     platform: linux/amd64
     ports:
       - "3002:3002"
     volumes:
-      - ./codespace-app:/app
-      - /app/node_modules
+      - ./codespace-app:/app/codespace-app
+      - ./packages/shared:/app/packages/shared
+      - /app/codespace-app/node_modules
     depends_on:
       - backend
     networks:
@@ -40,13 +46,16 @@ services:
       - VITE_API_URL=http://backend:8000
 
   turtle-app:
-    build: ./turtle-app
+    build:
+      context: .
+      dockerfile: turtle-app/Dockerfile
     platform: linux/amd64
     ports:
       - "3003:3003"
     volumes:
-      - ./turtle-app:/app
-      - /app/node_modules
+      - ./turtle-app:/app/turtle-app
+      - ./packages/shared:/app/packages/shared
+      - /app/turtle-app/node_modules
     depends_on:
       - backend
     networks:

@@ -1,9 +1,74 @@
 import inspect
+import re
 import turtle
+from enum import Enum
 from typing import List, Dict, Optional, Set, Tuple
 from dataclasses import dataclass
 
 from .models import MethodInfo
+
+
+class ExclusionReason(Enum):
+    """Reasons why a turtle method might be excluded from NLP processing."""
+    EVENT_HANDLER = "event_handler"      # Methods that take callbacks (onkey, onclick)
+    UI_DIALOG = "ui_dialog"              # Methods that show blocking dialogs
+    SCREEN_LEVEL = "screen_level"        # Screen methods, not turtle instance
+    GETTER = "getter"                    # Returns objects, not drawing actions
+    LIFECYCLE = "lifecycle"              # Program control (done, bye, mainloop)
+    ANIMATION = "animation"              # Animation control (tracer, update, delay)
+    ADVANCED = "advanced"                # Polygon, shape transform, complex features
+
+
+# Rule-based exclusion patterns for dynamic filtering
+# Each category has rules that are checked against method name, params, and docstring
+EXCLUSION_RULES = {
+    ExclusionReason.EVENT_HANDLER: {
+        "name_patterns": [r"^on"],           # onkey, onclick, ondrag, etc.
+        "param_contains": ["fun"],           # Parameters named 'fun' (callback)
+        "doc_patterns": ["bind.*to", "event"],
+    },
+    ExclusionReason.UI_DIALOG: {
+        "names": {"textinput", "numinput"},
+        "doc_patterns": ["dialog", "popup"],
+    },
+    ExclusionReason.SCREEN_LEVEL: {
+        "names": {
+            "setup", "title", "bgpic", "screensize", "setworldcoordinates",
+            "window_width", "window_height", "getcanvas", "getshapes",
+            "register_shape", "addshape", "clearscreen", "resetscreen",
+            "turtles", "mode", "colormode",
+        },
+        "doc_patterns": ["set up.*screen", "return.*screen", "screen size"],
+    },
+    ExclusionReason.GETTER: {
+        "names": {"getpen", "getscreen", "getturtle"},
+        "name_patterns": [r"^get(?!heading)"],  # get* but not getheading
+        "doc_patterns": ["return.*screen object", "return.*turtle object"],
+    },
+    ExclusionReason.LIFECYCLE: {
+        "names": {"done", "bye", "exitonclick", "mainloop", "listen"},
+        "doc_patterns": ["terminate", "shut.*event loop", "exit"],
+    },
+    ExclusionReason.ANIMATION: {
+        "names": {"tracer", "update", "delay"},
+        "doc_patterns": ["turn.*animation", "screen update"],
+    },
+    ExclusionReason.ADVANCED: {
+        "names": {
+            "begin_poly", "end_poly", "get_poly", "get_shapepoly",
+            "clone", "shape", "resizemode", "shapesize", "turtlesize",
+            "shearfactor", "settiltangle", "tiltangle", "tilt", "shapetransform",
+            "setundobuffer", "undobufferentries",
+        },
+        "doc_patterns": ["polygon", "clone.*turtle", "shear"],
+    },
+}
+
+# Methods that slip through rules but should still be excluded
+FORCE_EXCLUDE: Set[str] = set()
+
+# Methods that match rules but should be included anyway
+FORCE_INCLUDE: Set[str] = set()
 
 
 @dataclass
@@ -16,20 +81,14 @@ class TurtleMethodDetail:
     description: str
 
 
-class TurtleIntrospector:
-    EXCLUDED_METHODS: Set[str] = {
-        'setup', 'done', 'bye', 'exitonclick', 'mainloop', 'textinput', 'numinput',
-        'listen', 'onkey', 'onkeypress', 'onkeyrelease', 'onclick', 'onrelease',
-        'ondrag', 'onscreenclick', 'ontimer', 'mode', 'colormode', 'delay',
-        'tracer', 'update', 'window_width', 'window_height', 'getcanvas',
-        'getshapes', 'register_shape', 'addshape', 'screensize', 'setworldcoordinates',
-        'title', 'turtles', 'bgpic', 'clearscreen', 'resetscreen',
-        'getpen', 'getscreen', 'getturtle', 'setundobuffer', 'undobufferentries',
-        'begin_poly', 'end_poly', 'get_poly', 'clone', 'shape', 'resizemode',
-        'shapesize', 'turtlesize', 'shearfactor', 'settiltangle', 'tiltangle', 'tilt',
-        'shapetransform', 'get_shapepoly',
-    }
+@dataclass
+class ExcludedMethod:
+    name: str
+    reason: ExclusionReason
+    matched_rule: str  # Which rule triggered the exclusion
 
+
+class TurtleIntrospector:
     CATEGORY_PATTERNS = {
         'movement': ['forward', 'backward', 'move', 'fd', 'bk', 'back'],
         'turning': ['turn', 'left', 'right', 'lt', 'rt', 'heading', 'setheading', 'seth'],
@@ -47,6 +106,7 @@ class TurtleIntrospector:
         self._methods: Optional[List[MethodInfo]] = None
         self._detailed_methods: Optional[Dict[str, TurtleMethodDetail]] = None
         self._alias_map: Dict[str, str] = {}
+        self._excluded_methods: Dict[str, ExcludedMethod] = {}
 
     def _get_param_names(self, func) -> List[str]:
         try:
@@ -87,6 +147,51 @@ class TurtleIntrospector:
 
         return 'other'
 
+    def _should_exclude(
+        self, name: str, params: List[str], docstring: str
+    ) -> Tuple[bool, Optional[ExclusionReason], str]:
+        """
+        Dynamically determine if a method should be excluded based on rules.
+
+        Returns:
+            (should_exclude, reason, matched_rule_description)
+        """
+        # Check force include first
+        if name in FORCE_INCLUDE:
+            return False, None, ""
+
+        # Check force exclude
+        if name in FORCE_EXCLUDE:
+            return True, ExclusionReason.ADVANCED, "force_exclude"
+
+        doc_lower = docstring.lower() if docstring else ""
+
+        for reason, rules in EXCLUSION_RULES.items():
+            # Check exact name match
+            if "names" in rules and name in rules["names"]:
+                return True, reason, f"name in {rules['names']}"
+
+            # Check name patterns (regex)
+            if "name_patterns" in rules:
+                for pattern in rules["name_patterns"]:
+                    if re.match(pattern, name):
+                        return True, reason, f"name matches {pattern}"
+
+            # Check parameter names
+            if "param_contains" in rules:
+                for param_pattern in rules["param_contains"]:
+                    for param in params:
+                        if param_pattern in param.lower():
+                            return True, reason, f"param '{param}' contains '{param_pattern}'"
+
+            # Check docstring patterns
+            if "doc_patterns" in rules:
+                for doc_pattern in rules["doc_patterns"]:
+                    if re.search(doc_pattern, doc_lower):
+                        return True, reason, f"docstring matches '{doc_pattern}'"
+
+        return False, None, ""
+
     def introspect(self, force_refresh: bool = False) -> List[MethodInfo]:
         if self._methods is not None and not force_refresh:
             return self._methods
@@ -95,13 +200,28 @@ class TurtleIntrospector:
         self._detailed_methods = {}
         self._alias_map = {}
         self._canonical_methods: Set[str] = set()
+        self._excluded_methods = {}
 
         for name, member in inspect.getmembers(turtle_class):
-            if name.startswith('_') or name in self.EXCLUDED_METHODS or not callable(member):
+            if name.startswith('_') or not callable(member):
                 continue
 
             params = self._get_param_names(member)
             full_docstring = inspect.getdoc(member) or ""
+
+            # Dynamic exclusion check
+            should_exclude, reason, matched_rule = self._should_exclude(
+                name, params, full_docstring
+            )
+
+            if should_exclude:
+                self._excluded_methods[name] = ExcludedMethod(
+                    name=name,
+                    reason=reason,
+                    matched_rule=matched_rule
+                )
+                continue
+
             description, aliases = self._parse_docstring(full_docstring)
             category = self._determine_category(name, full_docstring)
 
@@ -194,10 +314,40 @@ class TurtleIntrospector:
         detail = self._detailed_methods.get(method_name)
         return detail.category if detail else 'other'
 
+    def get_excluded_methods(self) -> Dict[str, Dict]:
+        """Get all excluded methods with their exclusion reasons."""
+        self.introspect()
+        return {
+            name: {
+                "reason": excluded.reason.value,
+                "matched_rule": excluded.matched_rule
+            }
+            for name, excluded in self._excluded_methods.items()
+        }
+
+    def get_exclusion_stats(self) -> Dict:
+        """Get statistics about excluded methods by reason."""
+        self.introspect()
+        stats = {reason.value: [] for reason in ExclusionReason}
+
+        for name, excluded in self._excluded_methods.items():
+            stats[excluded.reason.value].append(name)
+
+        return {
+            "total_excluded": len(self._excluded_methods),
+            "total_included": len(self._methods),
+            "by_reason": {
+                reason: {"count": len(methods), "methods": sorted(methods)}
+                for reason, methods in stats.items()
+                if methods  # Only include non-empty categories
+            }
+        }
+
     def clear_cache(self):
         self._methods = None
         self._detailed_methods = None
         self._alias_map = {}
+        self._excluded_methods = {}
 
 
 _introspector: Optional[TurtleIntrospector] = None
@@ -220,3 +370,13 @@ def get_turtle_method_names() -> List[str]:
 
 def refresh_turtle_methods() -> List[MethodInfo]:
     return get_introspector().introspect(force_refresh=True)
+
+
+def get_excluded_turtle_methods() -> Dict[str, Dict]:
+    """Get all excluded methods with their exclusion reasons."""
+    return get_introspector().get_excluded_methods()
+
+
+def get_exclusion_stats() -> Dict:
+    """Get statistics about excluded methods."""
+    return get_introspector().get_exclusion_stats()

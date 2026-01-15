@@ -73,8 +73,7 @@
 <script>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuth } from '../composables/useAuth';
-import { authAPI } from '../services/api';
+import { useAuth, authAPI } from '@py-talk/shared';
 
 export default {
   name: 'SignUp',

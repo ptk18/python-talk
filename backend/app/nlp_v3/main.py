@@ -45,10 +45,19 @@ class NLPPipeline:
         self,
         command: str,
         methods: List[MethodInfo],
-        top_k: int = 1
+        top_k: int = 1,
+        language: str = None
     ) -> List[Tuple[str, MatchScore]]:
-        """Process a command and return top_k matches"""
-        actions = self.dependency_parser.extract_actions(command)
+        """
+        Process a command and return top_k matches.
+
+        Args:
+            command: Natural language command
+            methods: List of available methods
+            top_k: Number of top matches to return
+            language: Language code ('en', 'th') or None for auto-detect
+        """
+        actions = self.dependency_parser.extract_actions(command, language=language)
 
         all_results = []
 
@@ -338,27 +347,38 @@ class NLPPipeline:
             action_text = f"{action_verb} {' '.join(object_nouns_normalized)}".replace(' ', '_')
             fuzzy_score = SequenceMatcher(None, action_text, method.name).ratio()
 
-            # REBALANCED scoring weights - prioritize deterministic matches
+            # SIMPLIFIED scoring - 4 clear factors (easier to debug)
+            # Factor 1: Direct match (50%) - verb/phrasal verb matches method name
+            direct_match = max(verb_match, phrasal_match, exact_match_score)
+
+            # Factor 2: Synonym match (25%) - LLM-generated synonyms
+            synonym_match = synonym_verb_match
+
+            # Factor 3: Object/Entity match (15%) - objects in command match method
+            entity_match = object_match_score
+
+            # Factor 4: Semantic similarity (10%) - embedding-based fallback
+            semantic_fallback = max(semantic_score, code_similarity)
+
             total = (
-                verb_match * 0.30 +             # Direct verb-to-method match (e.g., "left" -> left())
-                exact_match_score * 0.25 +      # Exact verb+object match (highest priority)
-                synonym_verb_match * 0.18 +     # LLM-powered synonym matching
-                object_match_score * 0.12 +     # Entity/object matching with normalization
-                phrasal_match * 0.08 +          # Phrasal verb patterns
-                code_similarity * 0.04 +        # CodeBERT similarity (code-aware)
-                semantic_score * 0.02 +         # Semantic similarity (safety net only)
-                param_score * 0.005 +           # Parameter extraction bonus
-                fuzzy_score * 0.005             # Fuzzy matching for typos
+                direct_match * 0.50 +           # Direct verb/phrasal match
+                synonym_match * 0.25 +          # Synonym-based match
+                entity_match * 0.15 +           # Object/entity match
+                semantic_fallback * 0.10        # Semantic similarity fallback
             )
+
+            # Bonus for parameter extraction (small boost, not a primary factor)
+            if param_score > 0:
+                total = min(total + 0.05, 1.0)
 
             scores.append(MatchScore(
                 method_name=method.name,
                 total_score=total,
-                semantic_score=semantic_score,
-                intent_score=object_match_score,  # Reusing this field for object match
-                synonym_boost=synonym_verb_match, # Now actually storing synonym match score
+                semantic_score=semantic_fallback,  # Combined semantic score
+                intent_score=entity_match,         # Object/entity match
+                synonym_boost=synonym_match,       # Synonym-based match
                 param_relevance=param_score,
-                phrasal_verb_match=phrasal_match, # Storing actual phrasal match
+                phrasal_verb_match=direct_match,   # Direct match (verb/phrasal/exact)
                 extracted_params=extracted_params
             ))
 
@@ -366,17 +386,23 @@ class NLPPipeline:
         return scores
 
 
-def process_command(command: str, methods: List[MethodInfo], pipeline: NLPPipeline = None) -> dict:
+def process_command(command: str, methods: List[MethodInfo], pipeline: NLPPipeline = None, language: str = None) -> dict:
     """
     Convenience function to process a command.
     If pipeline is None, creates a new one (use for one-off commands).
     For multiple commands, reuse the same pipeline instance.
+
+    Args:
+        command: Natural language command
+        methods: List of available methods
+        pipeline: Reusable pipeline instance (optional)
+        language: Language code ('en', 'th') or None for auto-detect
     """
     if pipeline is None:
         pipeline = NLPPipeline()
         pipeline.initialize(methods)
 
-    results = pipeline.process_command(command, methods)
+    results = pipeline.process_command(command, methods, language=language)
 
     if not results:
         return {

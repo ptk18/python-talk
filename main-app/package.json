@@ -1,7 +1,7 @@
 {
-  "name": "py-talk-frontend",
+  "name": "py-talk-main-app",
   "version": "1.0.0",
-  "description": "Py-Talk IDE with voice recognition and NLP",
+  "description": "Py-Talk Main App - Portal for voice-driven Python learning",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@monaco-editor/loader": "^1.4.0",
+    "@py-talk/shared": "file:../packages/shared",
     "axios": "^1.7.2",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"

@@ -2,14 +2,16 @@
 import os
 import subprocess
 import sys
+import tempfile
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
-from app.models.schemas import ExecuteCommandRequest
+from app.models.schemas import ExecuteCommandRequest, SimpleCodeRequest
 # import your extractor to detect class name
 from app.nlp_v3.catalog import extract_from_file
 from fastapi import Query
+from app.security import validate_code
 
 router = APIRouter(tags=["Execute Command"])
 
@@ -30,6 +32,14 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="Conversation not found")
     if not convo.code or not convo.code.strip():
         raise HTTPException(status_code=400, detail="This conversation has no code uploaded. Please upload a Python file first.")
+
+    # Security validation - check uploaded code for dangerous patterns
+    is_safe, violations = validate_code(convo.code, strict_mode=False)
+    if not is_safe:
+        raise HTTPException(
+            status_code=400,
+            detail="Security validation failed:\n" + "\n".join(f"- {v}" for v in violations)
+        )
 
     # prepare session directory: app/executions/session_<id>/
     session_dir = os.path.join(BASE_EXEC_DIR, f"session_{request.conversation_id}")
@@ -295,6 +305,14 @@ def save_file(request: dict, db: Session = Depends(get_db)):
     if '/' in filename or '\\' in filename or '..' in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
+    # Security validation - check code for dangerous patterns (use strict=False for user uploads)
+    is_safe, violations = validate_code(code, strict_mode=False)
+    if not is_safe:
+        raise HTTPException(
+            status_code=400,
+            detail="Security validation failed:\n" + "\n".join(f"- {v}" for v in violations)
+        )
+
     session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
     file_path = os.path.join(session_dir, filename)
 
@@ -418,3 +436,76 @@ def delete_file(request: dict):
         return {"message": f"File {filename} deleted successfully", "conversation_id": conversation_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete {filename}: {str(e)}")
+
+
+@router.post("/execute_simple")
+def execute_simple(request: SimpleCodeRequest):
+    """
+    Execute simple Python code without a conversation/session.
+    Uses strict_mode=True for security (only whitelisted modules allowed).
+    Useful for quick code snippets and testing.
+    """
+    if not request.code or not request.code.strip():
+        raise HTTPException(status_code=400, detail="Code cannot be empty")
+
+    # Security validation with strict mode (whitelist only)
+    is_safe, violations = validate_code(request.code, strict_mode=True)
+    if not is_safe:
+        raise HTTPException(
+            status_code=400,
+            detail="Security validation failed:\n" + "\n".join(f"- {v}" for v in violations)
+        )
+
+    # Validate timeout (max 60 seconds for simple execution)
+    timeout = min(request.timeout or 30, 60)
+
+    try:
+        # Create a temporary file to store the code
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
+            temp_file.write(request.code)
+            temp_file_path = temp_file.name
+
+        try:
+            # Execute the Python code in a subprocess
+            result = subprocess.run(
+                [sys.executable, temp_file_path],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=tempfile.gettempdir()  # Run in temp directory for security
+            )
+
+            # Prepare response
+            output = result.stdout if result.stdout else ""
+            error = result.stderr if result.stderr else ""
+            success = result.returncode == 0
+
+            # If there's an error but no stderr, include returncode info
+            if not success and not error:
+                error = f"Process exited with code {result.returncode}"
+
+            return {
+                "output": output,
+                "error": error,
+                "success": success
+            }
+
+        finally:
+            # Clean up the temporary file
+            try:
+                os.unlink(temp_file_path)
+            except OSError:
+                pass
+
+    except subprocess.TimeoutExpired:
+        return {
+            "output": "",
+            "error": f"Code execution timed out ({timeout} seconds limit)",
+            "success": False
+        }
+    except Exception as e:
+        return {
+            "output": "",
+            "error": f"Execution error: {str(e)}",
+            "success": False
+        }

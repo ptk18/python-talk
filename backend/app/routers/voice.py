@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form
 import subprocess, tempfile
 import threading
+import os
 import torch
 from transformers import pipeline, T5ForConditionalGeneration, T5Tokenizer
 import io
@@ -8,77 +9,231 @@ import numpy as np
 import librosa
 from pathlib import Path
 
+from app.services import get_model_manager
+
 router = APIRouter(prefix="/voice", tags=["voice"])
 
 # Device & dtype configuration
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
 
-# Initialize pipelines as None (lazy loading) with thread lock
+# Separate locks for each model (fixes thread lock contention)
+_thai_lock = threading.Lock()
+_english_lock = threading.Lock()
+_t5_lock = threading.Lock()
+_models_prewarmed = False
+
+# Model instances (managed separately with double-checked locking)
 thai_pipe = None
 english_pipe = None
-_pipe_lock = threading.Lock()
+
+# Feature flag for model manager integration
+USE_MODEL_MANAGER = os.getenv("FEATURE_MODEL_MANAGER", "true").lower() == "true"
+
+
+def _create_thai_pipeline():
+    """Factory function to create Thai Whisper pipeline."""
+    print("Loading Thai Whisper model...")
+    pipe = pipeline(
+        task="automatic-speech-recognition",
+        model="nectec/Pathumma-whisper-th-large-v3",
+        torch_dtype=torch_dtype,
+        device=device,
+        chunk_length_s=30,
+        batch_size=8,
+    )
+    pipe.model.config.forced_decoder_ids = pipe.tokenizer.get_decoder_prompt_ids(
+        language="th",
+        task="transcribe"
+    )
+    print("Thai Whisper model loaded successfully")
+    return pipe
+
+
+def _create_english_pipeline():
+    """Factory function to create English Whisper pipeline."""
+    print("Loading English Whisper model...")
+    pipe = pipeline(
+        task="automatic-speech-recognition",
+        model="distil-whisper/distil-large-v3",
+        torch_dtype=torch_dtype,
+        device=device,
+        chunk_length_s=30,
+        batch_size=8,
+    )
+    pipe.model.config.forced_decoder_ids = pipe.tokenizer.get_decoder_prompt_ids(
+        language="en",
+        task="transcribe"
+    )
+    print("English Whisper model loaded successfully")
+    return pipe
+
+
+def _register_models():
+    """Register models with the model manager."""
+    if USE_MODEL_MANAGER:
+        manager = get_model_manager()
+        manager.register(
+            name="whisper_thai",
+            loader=_create_thai_pipeline,
+            size_mb=3000  # ~3GB
+        )
+        manager.register(
+            name="whisper_english",
+            loader=_create_english_pipeline,
+            size_mb=1500  # ~1.5GB
+        )
+        print("[voice] Models registered with ModelManager")
+
+
+# Register models on module load
+_register_models()
+
 
 def get_thai_pipe():
-    """Lazy load Thai Whisper model (thread-safe)"""
+    """
+    Lazy load Thai Whisper model with double-checked locking.
+    Uses separate lock from English model to prevent contention.
+    """
     global thai_pipe
-    with _pipe_lock:
-        if thai_pipe is None:
-            print("Loading Thai Whisper model...")
-            thai_pipe = pipeline(
-                task="automatic-speech-recognition",
-                model="nectec/Pathumma-whisper-th-large-v3",
-                torch_dtype=torch_dtype,
-                device=device,
-                chunk_length_s=30,
-                batch_size=8,
-            )
-            thai_pipe.model.config.forced_decoder_ids = thai_pipe.tokenizer.get_decoder_prompt_ids(
-                language="th",
-                task="transcribe"
-            )
-            print("Thai Whisper model loaded successfully")
+
+    if USE_MODEL_MANAGER:
+        return get_model_manager().get("whisper_thai")
+
+    # Double-checked locking pattern (fast path without lock)
+    if thai_pipe is not None:
         return thai_pipe
 
+    with _thai_lock:
+        # Check again inside lock
+        if thai_pipe is None:
+            thai_pipe = _create_thai_pipeline()
+        return thai_pipe
+
+
 def get_english_pipe():
-    """Lazy load English Whisper model (thread-safe)"""
+    """
+    Lazy load English Whisper model with double-checked locking.
+    Uses separate lock from Thai model to prevent contention.
+    """
     global english_pipe
-    with _pipe_lock:
-        if english_pipe is None:
-            print("Loading English Whisper model...")
-            english_pipe = pipeline(
-                task="automatic-speech-recognition",
-                model="distil-whisper/distil-large-v3",
-                torch_dtype=torch_dtype,
-                device=device,
-                chunk_length_s=30,
-                batch_size=8,
-            )
-            english_pipe.model.config.forced_decoder_ids = english_pipe.tokenizer.get_decoder_prompt_ids(
-                language="en",
-                task="transcribe"
-            )
-            print("English Whisper model loaded successfully")
+
+    if USE_MODEL_MANAGER:
+        return get_model_manager().get("whisper_english")
+
+    # Double-checked locking pattern (fast path without lock)
+    if english_pipe is not None:
         return english_pipe
 
-try:
-    # Load English paraphrasing model
-    t5_model_name = "Vamsi/T5_Paraphrase_Paws"
-    t5_tokenizer = T5Tokenizer.from_pretrained(t5_model_name, legacy=False)
-    t5_model = T5ForConditionalGeneration.from_pretrained(t5_model_name)
-    print("T5 paraphrasing model loaded successfully")
-    T5_AVAILABLE = True
-except Exception as e:
-    print(f"Failed to load T5 model: {e}")
-    t5_tokenizer = None
-    t5_model = None
-    T5_AVAILABLE = False
+    with _english_lock:
+        # Check again inside lock
+        if english_pipe is None:
+            english_pipe = _create_english_pipeline()
+        return english_pipe
+
+
+def prewarm_models():
+    """Pre-warm all Whisper models at startup to avoid cold start latency"""
+    global _models_prewarmed
+    if _models_prewarmed:
+        return {"status": "already_warmed"}
+
+    print("\n" + "="*50)
+    print("PRE-WARMING WHISPER MODELS...")
+    print("="*50)
+
+    import time
+    start = time.time()
+
+    # Load English model (most commonly used)
+    print("\n[1/2] Loading English model...")
+    eng_start = time.time()
+    get_english_pipe()
+    print(f"  ✓ English model ready ({time.time() - eng_start:.1f}s)")
+
+    # Load Thai model
+    print("\n[2/2] Loading Thai model...")
+    thai_start = time.time()
+    get_thai_pipe()
+    print(f"  ✓ Thai model ready ({time.time() - thai_start:.1f}s)")
+
+    _models_prewarmed = True
+    total_time = time.time() - start
+
+    print("\n" + "="*50)
+    print(f"ALL MODELS PRE-WARMED IN {total_time:.1f}s")
+    print("="*50 + "\n")
+
+    return {"status": "warmed", "time": total_time}
+
+
+@router.post("/prewarm")
+async def prewarm_voice_models():
+    """API endpoint to pre-warm voice models"""
+    return prewarm_models()
+
+
+@router.get("/status")
+async def voice_status():
+    """Check if voice models are loaded"""
+    if USE_MODEL_MANAGER:
+        manager = get_model_manager()
+        return {
+            "english_loaded": manager.is_loaded("whisper_english"),
+            "thai_loaded": manager.is_loaded("whisper_thai"),
+            "prewarmed": _models_prewarmed,
+            "model_manager_stats": manager.get_stats()
+        }
+
+    return {
+        "english_loaded": english_pipe is not None,
+        "thai_loaded": thai_pipe is not None,
+        "prewarmed": _models_prewarmed,
+        "model_manager_enabled": False
+    }
+
+
+# T5 paraphrasing model with lazy loading
+t5_tokenizer = None
+t5_model = None
+T5_AVAILABLE = False
+_t5_loaded = False
+
+
+def _load_t5_model():
+    """Lazy load T5 paraphrasing model."""
+    global t5_tokenizer, t5_model, T5_AVAILABLE, _t5_loaded
+
+    if _t5_loaded:
+        return T5_AVAILABLE
+
+    with _t5_lock:
+        if _t5_loaded:
+            return T5_AVAILABLE
+
+        try:
+            print("Loading T5 paraphrasing model...")
+            t5_model_name = "Vamsi/T5_Paraphrase_Paws"
+            t5_tokenizer = T5Tokenizer.from_pretrained(t5_model_name, legacy=False)
+            t5_model = T5ForConditionalGeneration.from_pretrained(t5_model_name)
+            print("T5 paraphrasing model loaded successfully")
+            T5_AVAILABLE = True
+        except Exception as e:
+            print(f"Failed to load T5 model: {e}")
+            t5_tokenizer = None
+            t5_model = None
+            T5_AVAILABLE = False
+
+        _t5_loaded = True
+        return T5_AVAILABLE
+
 
 def paraphrase(text, n=3):
-    if not T5_AVAILABLE or not t5_tokenizer or not t5_model:
+    # Lazy load T5 model
+    if not _load_t5_model():
         # Return the original text as alternatives if T5 is not available
         return [text] * n
-    
+
     try:
         input_text = f"paraphrase: {text} </s>"
         encoding = t5_tokenizer([input_text], return_tensors="pt", padding=True)
@@ -94,6 +249,7 @@ def paraphrase(text, n=3):
     except Exception as e:
         print(f"Paraphrasing error: {e}")
         return [text] * n
+
 
 @router.post("/transcribe")
 async def transcribe_audio(

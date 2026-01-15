@@ -722,7 +722,7 @@ print(f"10 + 20 = {result}")`,
 }
 
 .message.sent .message-content {
-  background: #024A14;
+  background: #1565C0;
   color: white;
   border-bottom-right-radius: 4px;
 }
@@ -764,7 +764,7 @@ print(f"10 + 20 = {result}")`,
 }
 
 .chat-input:focus {
-  border-color: #024A14;
+  border-color: #1565C0;
   box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
 }
 
@@ -802,11 +802,11 @@ print(f"10 + 20 = {result}")`,
 }
 
 .send-button {
-  background: #024A14;
+  background: #1565C0;
 }
 
 .send-button:hover:not(:disabled) {
-  background: #01350e;
+  background: #0D47A1;
   transform: scale(1.05);
 }
 
@@ -909,7 +909,7 @@ print(f"10 + 20 = {result}")`,
 
 .toolbar-button:hover:not(:disabled) {
   background: #e8e8e8;
-  color: #024A14;
+  color: #1565C0;
 }
 
 .toolbar-button:disabled {
@@ -938,7 +938,7 @@ print(f"10 + 20 = {result}")`,
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: #024A14;
+  background: #1565C0;
   color: white;
   border: none;
   border-radius: 8px;
@@ -950,7 +950,7 @@ print(f"10 + 20 = {result}")`,
 }
 
 .run-button:hover:not(:disabled) {
-  background: #01350e;
+  background: #0D47A1;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(2, 74, 20, 0.3);
 }
@@ -1105,7 +1105,7 @@ print(f"10 + 20 = {result}")`,
 
 .span-button:hover {
   background: #f0f0f0;
-  color: #024A14;
+  color: #1565C0;
 }
 
 .clear-button {
@@ -1373,7 +1373,7 @@ print(f"10 + 20 = {result}")`,
 
 .function-item:hover {
   background: #f0f0f0;
-  border-color: #024A14;
+  border-color: #1565C0;
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -1396,7 +1396,7 @@ print(f"10 + 20 = {result}")`,
 
 .function-item-file {
   font-size: 12px;
-  color: #024A14;
+  color: #1565C0;
   font-family: 'Courier New', monospace;
   font-weight: 500;
   background: #f0f7f2;

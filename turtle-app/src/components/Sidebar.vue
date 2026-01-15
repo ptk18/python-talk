@@ -1,6 +1,6 @@
 <template>
   <aside class="sidebar">
-    <div class="sidebar-header">
+    <div class="sidebar-header" @click="goToMainApp">
       <img :src="appIcon" alt="PyTalk" class="app-icon-img" />
       <h1 class="store-logo">PyTalk</h1>
     </div>
@@ -33,10 +33,9 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useLanguage } from '../composables/useLanguage'
-import { useAuth } from '../composables/useAuth'
+import { useLanguage, useAuth } from '@py-talk/shared'
 import { useTranslations } from '../utils/translations'
 import appIcon from '../assets/app-icon.svg'
 import turtleIcon from '../assets/side-turtle-icon.svg'
@@ -48,7 +47,7 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const { language } = useLanguage()
-    const { logout: authLogout } = useAuth()
+    const { user, logout: authLogout } = useAuth()
     const userInfo = ref({})
 
     const t = computed(() => useTranslations(language.value))
@@ -63,7 +62,12 @@ export default {
     })
 
     const loadUserInfo = () => {
-      // Try to get user info from auth store first
+      // First check the reactive user from useAuth
+      if (user.value) {
+        userInfo.value = user.value
+        return
+      }
+      // Try to get user info from localStorage as fallback
       const stored = localStorage.getItem('auth_user')
       if (stored) {
         userInfo.value = JSON.parse(stored)
@@ -75,6 +79,13 @@ export default {
         }
       }
     }
+
+    // Watch for changes in the auth user
+    watch(user, (newUser) => {
+      if (newUser) {
+        userInfo.value = newUser
+      }
+    }, { immediate: true })
 
     const isActive = (path) => {
       return route.path === path
@@ -94,7 +105,16 @@ export default {
       router.push('/profile')
     }
 
-    loadUserInfo()
+    const goToMainApp = () => {
+      // Navigate to main app (port 3001)
+      const hostname = window.location.hostname
+      window.location.href = `${window.location.protocol}//${hostname}:3001`
+    }
+
+    onMounted(() => {
+      loadUserInfo()
+    })
+
     if (typeof window !== 'undefined') {
       window.addEventListener('userInfoUpdated', loadUserInfo)
     }
@@ -109,7 +129,8 @@ export default {
       t,
       isActive,
       handleLogout,
-      goToProfile
+      goToProfile,
+      goToMainApp
     }
   }
 }

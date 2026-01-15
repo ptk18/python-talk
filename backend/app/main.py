@@ -1,3 +1,6 @@
+import os
+import threading
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import users, posts, voice, conversations, messages, analyze_command, execute_command, turtle_execute, google_speech, paraphrase, auth, translate, turtle_commands
@@ -7,11 +10,36 @@ from app.database.connection import engine, Base
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events"""
+    # Startup: Pre-warm models in background thread to not block server startup
+    prewarm_enabled = os.getenv("PREWARM_MODELS", "true").lower() == "true"
+
+    if prewarm_enabled:
+        print("\n🚀 Starting model pre-warming in background...")
+        def prewarm_background():
+            try:
+                voice.prewarm_models()
+            except Exception as e:
+                print(f"⚠️ Model pre-warming failed: {e}")
+
+        thread = threading.Thread(target=prewarm_background, daemon=True)
+        thread.start()
+    else:
+        print("\n⏭️ Model pre-warming disabled (set PREWARM_MODELS=true to enable)")
+
+    yield  # Server runs here
+
+    # Shutdown
+    print("\n👋 Shutting down Py-Talk API...")
+
 # Create FastAPI app
 app = FastAPI(
     title="Py-Talk API",
     description="A FastAPI application with PostgreSQL database",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Configure CORS

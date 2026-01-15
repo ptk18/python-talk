@@ -44,8 +44,7 @@
 <script>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useLanguage } from '../composables/useLanguage'
-import { useTTS } from '../composables/useTTS'
+import { useLanguage, useTTS, settingsSync, useAuth } from '@py-talk/shared'
 import { useTranslations } from '../utils/translations'
 import Sidebar from '../components/Sidebar.vue'
 import AppCard from '../components/AppCard.vue'
@@ -65,11 +64,20 @@ export default {
     const router = useRouter()
     const { language, setLanguage } = useLanguage()
     const { ttsEnabled, setTTSEnabled } = useTTS()
+    const { getUrlWithAuth } = useAuth()
     const t = computed(() => useTranslations(language.value))
 
     const getAppUrl = (port, path) => {
       const hostname = window.location.hostname
-      return `${window.location.protocol}//${hostname}:${port}${path}`
+      const baseUrl = `${window.location.protocol}//${hostname}:${port}${path}`
+
+      // Use settingsSync to include all settings in URL
+      let url = settingsSync.getUrlWithSettings(baseUrl)
+
+      // Also add auth params
+      url = getUrlWithAuth(url)
+
+      return url
     }
 
     const handleAppClick = (app) => {
@@ -87,7 +95,9 @@ export default {
         icon: codeGeneratorIcon,
         category: t.value.home.codeAssistant,
         rating: 4.5,
-        url: getAppUrl(3002, '/conversation-manager')
+        url: getAppUrl(3002, '/conversation-manager'),
+        themeColor: '#1565C0',
+        themeColorDark: '#0D47A1'
       },
       {
         id: 2,
@@ -95,14 +105,18 @@ export default {
         icon: '🐢',
         category: t.value.home.learningTools,
         rating: 4.8,
-        url: getAppUrl(3003, '/turtle-playground')
+        url: getAppUrl(3003, '/turtle-playground'),
+        themeColor: '#C62828',
+        themeColorDark: '#8E0000'
       },
       {
         id: 3,
         name: t.value.home.smartHome,
         icon: smartHomeIcon,
         category: t.value.home.connectToYourHome,
-        rating: 4.7
+        rating: 4.7,
+        themeColor: '#024A14',
+        themeColorDark: '#01350e'
       }
     ])
 

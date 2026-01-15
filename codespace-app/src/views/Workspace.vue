@@ -3,14 +3,17 @@
     <Sidebar />
     <main class="main-content">
       <header class="top-header">
-        <h2 class="page-title">Codespace</h2>
-        <button 
-          class="function-panel-toggle" 
-          @click="toggleFunctionPanel"
-          :title="isFunctionPanelOpen ? 'Hide functions panel' : 'Show functions panel'"
-        >
-          <img :src="functionPanelIcon" alt="Functions" class="function-panel-icon" />
-        </button>
+        <div class="section-header">
+          <h2 class="page-title">Codespace</h2>
+          <div class="control-buttons">
+            <button class="control-button" @click="toggleLanguage" :title="`Switch to ${language === 'en' ? 'Thai' : 'English'}`">
+              <img :src="langIcon" alt="Language" class="control-icon" />
+            </button>
+            <button class="control-button" @click="toggleTTS" :title="ttsEnabled ? 'Disable Voice' : 'Enable Voice'">
+              <img :src="ttsEnabled ? soundIcon : nosoundIcon" alt="Sound" class="control-icon" />
+            </button>
+          </div>
+        </div>
       </header>
     <div class="workspace">
 
@@ -396,14 +399,14 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import Sidebar from '../components/Sidebar.vue';
 import MonacoEditor from '../components/MonacoEditor.vue';
-import { messageAPI, conversationAPI, executeAPI, analyzeAPI, paraphraseAPI, fileAPI, translateAPI } from '../services/api';
-import { useAuth } from '../composables/useAuth';
+import { messageAPI, conversationAPI, executeAPI, analyzeAPI, paraphraseAPI, fileAPI, translateAPI, useAuth, useLanguage, useTTS, voiceService } from '@py-talk/shared';
 import { useCode } from '../composables/useCode';
 import { useFile } from '../composables/useFile';
-import { useLanguage } from '../composables/useLanguage';
 import { useTranslations } from '../utils/translations';
-import { voiceService } from '../services/voiceService';
 import scorpioIcon from '../assets/scorpio.svg';
+import langIcon from '../assets/lang-icon.svg';
+import soundIcon from '../assets/sound-icon.svg';
+import nosoundIcon from '../assets/nosound-icon.svg';
 import userIcon from '../assets/user.svg';
 import undoIcon from '../assets/R-undo.svg';
 import redoIcon from '../assets/R-redo.svg';
@@ -427,7 +430,8 @@ export default {
     const router = useRouter();
     const { user } = useAuth();
     const { code, setCode, syncCodeFromBackend, setConversationId } = useCode();
-    const { language } = useLanguage();
+    const { language, setLanguage } = useLanguage();
+    const { ttsEnabled, setTTSEnabled } = useTTS();
     const t = computed(() => useTranslations(language.value));
     const {
       currentFile,
@@ -1056,6 +1060,14 @@ export default {
       isFunctionPanelOpen.value = !isFunctionPanelOpen.value;
     };
 
+    const toggleLanguage = () => {
+      setLanguage(language.value === 'en' ? 'th' : 'en');
+    };
+
+    const toggleTTS = () => {
+      setTTSEnabled(!ttsEnabled.value);
+    };
+
     const insertMethod = (method) => {
       const methodCall = `${method.name}(${method.required_parameters.join(', ')})`;
       const currentPosition = editorRef.value?.getPosition();
@@ -1138,6 +1150,24 @@ export default {
     });
 
     onMounted(async () => {
+      // If no conversationId provided, try to load the most recent conversation
+      if (!conversationId.value && user.value?.id) {
+        try {
+          const conversations = await conversationAPI.getByUser(user.value.id);
+          if (conversations && conversations.length > 0) {
+            // Sort by created_at descending and get the most recent
+            const sorted = conversations.sort((a, b) =>
+              new Date(b.created_at) - new Date(a.created_at)
+            );
+            // Redirect to the most recent conversation
+            router.replace({ query: { conversationId: sorted[0].id } });
+            return; // The watch on conversationId will handle initialization
+          }
+        } catch (error) {
+          console.error('Failed to load recent conversation:', error);
+        }
+      }
+
       if (conversationId.value) {
         setConversationId(parseInt(conversationId.value));
         await loadFiles(parseInt(conversationId.value));
@@ -1251,12 +1281,18 @@ export default {
       spanIcon,
       saveIcon,
       runCodeIcon,
+      langIcon,
+      soundIcon,
+      nosoundIcon,
       isMethodsPanelOpen,
       isFunctionPanelOpen,
       isOutputExpanded,
       language,
+      ttsEnabled,
       t,
       formatTime,
+      toggleLanguage,
+      toggleTTS,
       handleSend,
       handleFileUpload,
       handleSave,
@@ -1285,7 +1321,8 @@ export default {
   display: flex;
   flex-direction: column;
   background: #fafafa;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
 }
 
@@ -1307,12 +1344,53 @@ export default {
   margin: 0;
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.control-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.control-button:hover {
+  background: transparent;
+  transform: translateY(-1px);
+  opacity: 0.7;
+}
+
+.control-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
 .workspace {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  height: calc(100vh - 80px); /* Subtract header height */
+  max-height: calc(100vh - 80px);
 }
 
 .workspace__container {
@@ -1320,6 +1398,7 @@ export default {
   gap: 16px;
   padding: 20px;
   height: 100%;
+  max-height: 100%;
   overflow: hidden;
   box-sizing: border-box;
   background: transparent;
@@ -1338,6 +1417,8 @@ export default {
   overflow: hidden;
   border: 1px solid #e8e8e8;
   min-width: 0;
+  min-height: 0;
+  max-height: 100%;
 }
 
 .workspace__chat-scroll {
@@ -1347,6 +1428,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
 }
 
 .workspace__chat-row {
@@ -1407,7 +1489,7 @@ export default {
 }
 
 .workspace__chat-row--right .workspace__bubble {
-  background: #024A14;
+  background: #1565C0;
   color: white;
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 4px;
@@ -1501,7 +1583,7 @@ export default {
 }
 
 .workspace__input:focus {
-  border-color: #024A14;
+  border-color: #1565C0;
   box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
 }
 
@@ -1515,13 +1597,13 @@ export default {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #024A14;
+  background: #1565C0;
   color: white;
   flex-shrink: 0;
 }
 
 .workspace__send-btn:hover:not(:disabled) {
-  background: #01350e;
+  background: #0D47A1;
   transform: scale(1.05);
 }
 
@@ -1538,10 +1620,13 @@ export default {
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .workspace__refresh-notification {
-  background: #024A14;
+  background: #1565C0;
   color: white;
   padding: 12px 16px;
   border-radius: 8px;
@@ -1564,6 +1649,7 @@ export default {
   overflow: hidden;
   border: 1px solid #e8e8e8;
   min-height: 0;
+  max-height: 60%;
 }
 
 .workspace__editor-header {
@@ -1607,14 +1693,14 @@ export default {
   width: auto;
   padding: 6px 12px;
   gap: 6px;
-  border: 1px solid #024A14;
-  color: #024A14;
+  border: 1px solid #1565C0;
+  color: #1565C0;
 }
 
 .workspace__run-btn:hover:not(:disabled) {
-  background: #01350e;
+  background: #0D47A1;
   color: white;
-  border-color: #01350e;
+  border-color: #0D47A1;
 }
 
 .workspace__run-btn:hover:not(:disabled) .workspace__icon-btn-icon {
@@ -1626,17 +1712,17 @@ export default {
 }
 
 .workspace__icon-btn:hover:not(:disabled) {
-  background: #024A14;
-  color: #024A14;
+  background: #1565C0;
+  color: #1565C0;
 }
 
 .workspace__icon-btn--primary {
-  background: #024A14;
+  background: #1565C0;
   color: white;
 }
 
 .workspace__icon-btn--primary:hover:not(:disabled) {
-  background: #01350e;
+  background: #0D47A1;
 }
 
 .workspace__icon-btn--success {
@@ -1673,7 +1759,7 @@ export default {
 }
 
 .workspace__icon-btn.active {
-  background: #024A14;
+  background: #1565C0;
   color: white;
 }
 
@@ -1685,6 +1771,7 @@ export default {
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  max-height: 100%;
   display: flex;
 }
 
@@ -1717,7 +1804,7 @@ export default {
 
 .workspace__toolbar-btn:hover:not(:disabled) {
   background: #e8e8e8;
-  color: #024A14;
+  color: #1565C0;
 }
 
 .workspace__toolbar-btn:disabled {
@@ -1737,6 +1824,7 @@ export default {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  max-height: 100%;
 }
 
 .workspace__editor-file-info {
@@ -1773,6 +1861,7 @@ export default {
   overflow: hidden;
   border: 1px solid #e8e8e8;
   min-height: 0;
+  max-height: 40%;
   transition: flex 0.3s ease;
 }
 
@@ -1931,7 +2020,7 @@ export default {
 
 .workspace__status-progress-bar {
   height: 100%;
-  background: #024A14;
+  background: #1565C0;
   animation: progress 2s ease-in-out infinite;
 }
 
@@ -2023,7 +2112,7 @@ export default {
 
 .workspace__method-card:hover {
   background: #f0f0f0;
-  border-color: #024A14;
+  border-color: #1565C0;
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -2212,11 +2301,11 @@ export default {
 .function-panel-class-title {
   font-size: 16px;
   font-weight: 600;
-  color: #024A14;
+  color: #1565C0;
   font-family: 'Jaldi', sans-serif;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 2px solid #024A14;
+  border-bottom: 2px solid #1565C0;
 }
 
 .function-item {
@@ -2231,7 +2320,7 @@ export default {
 
 .function-item:hover {
   background: #f0f0f0;
-  border-color: #024A14;
+  border-color: #1565C0;
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -2254,7 +2343,7 @@ export default {
 
 .function-item-file {
   font-size: 12px;
-  color: #024A14;
+  color: #1565C0;
   font-family: 'Courier New', monospace;
   font-weight: 500;
   background: #f0f7f2;

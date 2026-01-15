@@ -51,7 +51,7 @@
 <script>
 import { ref, watch } from 'vue';
 import { useFile } from '../composables/useFile';
-import { voiceService } from '../services/voiceService';
+import { voiceService } from '@py-talk/shared';
 
 export default {
   name: 'FilePanel',
@@ -141,7 +141,7 @@ export default {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: var(--primary-color, #024A14);
+  background: var(--primary-color, #1565C0);
   color: white;
   border: none;
   border-radius: 4px;
@@ -187,7 +187,7 @@ export default {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--primary-color, #024A14);
+  color: var(--primary-color, #1565C0);
   padding: 0.25rem;
   display: flex;
   align-items: center;
@@ -217,8 +217,8 @@ export default {
 }
 
 .file-panel__item--active {
-  background: #e8f5e9;
-  color: var(--primary-color, #024A14);
+  background: #e3f2fd;
+  color: var(--primary-color, #1565C0);
   font-weight: 600;
 }
 

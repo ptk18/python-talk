@@ -1,0 +1,19 @@
+{
+  "name": "py-talk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Py-Talk - Voice-driven Python learning platform",
+  "workspaces": [
+    "packages/*",
+    "main-app",
+    "codespace-app",
+    "turtle-app"
+  ],
+  "scripts": {
+    "dev:main": "npm run dev --workspace=main-app",
+    "dev:codespace": "npm run dev --workspace=codespace-app",
+    "dev:turtle": "npm run dev --workspace=turtle-app",
+    "build:all": "npm run build --workspaces --if-present",
+    "install:all": "npm install"
+  }
+}

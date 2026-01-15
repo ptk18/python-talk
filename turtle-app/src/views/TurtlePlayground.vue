@@ -209,11 +209,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import Sidebar from '../components/Sidebar.vue';
 import MonacoEditor from '../components/MonacoEditor.vue';
-import { useLanguage } from '../composables/useLanguage';
-import { useTTS } from '../composables/useTTS';
+import { useLanguage, useTTS, voiceService, turtleAPI, translateAPI } from '@py-talk/shared';
 import { useTranslations } from '../utils/translations';
-import { voiceService } from '../services/voiceService';
-import { turtleAPI, translateAPI } from '../services/api';
 import { Turtle } from '../lib/turtle';
 import { parseTurtleCommand } from '../lib/turtleCommandParser';
 import langIcon from '../assets/lang-icon.svg';

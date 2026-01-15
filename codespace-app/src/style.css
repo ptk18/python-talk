@@ -25,7 +25,7 @@ body {
 /* Sidebar Styles */
 .sidebar {
     width: 260px;
-    background: linear-gradient(180deg, #024A14 0%, #01350e 100%);
+    background: linear-gradient(180deg, #1565C0 0%, #0D47A1 100%);
     color: white;
     display: flex;
     flex-direction: column;
@@ -42,6 +42,11 @@ body {
     align-items: center;
     gap: 12px;
     transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.sidebar-header:hover {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .app-icon-img {
@@ -143,7 +148,7 @@ body {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #024A14 0%, #024A14 100%);
+    background: linear-gradient(135deg, #1565C0 0%, #1565C0 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -342,7 +347,7 @@ body {
 .install-btn {
     width: 100%;
     padding: 10px 20px;
-    background: linear-gradient(180deg, #024A14 0%, #01350e 100%);
+    background: linear-gradient(180deg, #1565C0 0%, #0D47A1 100%);
     color: white;
     border: none;
     border-radius: 6px;
@@ -353,7 +358,7 @@ body {
 }
 
 .install-btn:hover {
-    background: linear-gradient(180deg, #04711f 0%, #01350e 100%);
+    background: linear-gradient(180deg, #1976D2 0%, #0D47A1 100%);
     transform: scale(1.02);
 }
 

@@ -73,8 +73,7 @@
 <script>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuth } from '../composables/useAuth';
-import { authAPI } from '../services/api';
+import { useAuth, authAPI } from '@py-talk/shared';
 
 export default {
   name: 'SignUp',
@@ -139,7 +138,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #024A14 0%, #01350e 100%);
+  background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
   padding: 20px;
 }
 
@@ -160,7 +159,7 @@ export default {
 .auth-logo {
   font-family: 'Jaro', sans-serif;
   font-size: 36px;
-  color: #024A14;
+  color: #1565C0;
   margin-bottom: 8px;
 }
 
@@ -198,7 +197,7 @@ export default {
 
 .form-input:focus {
   outline: none;
-  border-color: #024A14;
+  border-color: #1565C0;
   box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
 }
 
@@ -222,7 +221,7 @@ export default {
 
 .auth-button {
   padding: 14px;
-  background: #024A14;
+  background: #1565C0;
   color: white;
   border: none;
   border-radius: 8px;
@@ -235,7 +234,7 @@ export default {
 }
 
 .auth-button:hover {
-  background: #01350e;
+  background: #0D47A1;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(2, 74, 20, 0.3);
 }
@@ -252,7 +251,7 @@ export default {
 }
 
 .auth-link {
-  color: #024A14;
+  color: #1565C0;
   text-decoration: none;
   font-weight: 600;
 }

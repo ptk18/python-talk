@@ -13,6 +13,30 @@ if (savedToken) {
   token.value = savedToken;
 }
 
+// Cross-origin auth sync: Read auth from URL params (passed from main-app)
+// This is needed because each port has its own localStorage
+if (typeof window !== 'undefined') {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlUser = urlParams.get('auth_user');
+  const urlToken = urlParams.get('auth_token');
+
+  if (urlUser && !savedUser) {
+    try {
+      const userData = JSON.parse(urlUser);
+      user.value = userData;
+      localStorage.setItem('auth_user', urlUser);
+      if (urlToken) {
+        token.value = urlToken;
+        localStorage.setItem('auth_token', urlToken);
+      }
+      // Clean URL to remove auth params
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch (e) {
+      console.error('Failed to parse auth from URL:', e);
+    }
+  }
+}
+
 export function useAuth() {
   const isAuthenticated = computed(() => !!user.value);
 

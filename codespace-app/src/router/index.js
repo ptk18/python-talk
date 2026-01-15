@@ -3,7 +3,7 @@ import Home from '../views/Home.vue'
 import ConversationManager from '../views/ConversationManager.vue'
 import Workspace from '../views/Workspace.vue'
 import TurtlePlayground from '../views/TurtlePlayground.vue'
-import History from '../views/History.vue'
+// History view is no longer used - /history redirects to /conversation-manager
 import Login from '../views/Login.vue'
 import SignUp from '../views/SignUp.vue'
 import Profile from '../views/Profile.vue'
@@ -31,8 +31,7 @@ const routes = [
   },
   {
     path: '/history',
-    name: 'History',
-    component: History
+    redirect: '/conversation-manager'
   },
   {
     path: '/login',

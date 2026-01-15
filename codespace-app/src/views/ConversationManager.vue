@@ -109,11 +109,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import Sidebar from '../components/Sidebar.vue';
-import { conversationAPI } from '../services/api';
-import { useAuth } from '../composables/useAuth';
-import { useLanguage } from '../composables/useLanguage';
-import { useTTS } from '../composables/useTTS';
-import { voiceService } from '../services/voiceService';
+import { conversationAPI, useAuth, useLanguage, useTTS, voiceService } from '@py-talk/shared';
 import langIcon from '../assets/lang-icon.svg';
 import soundIcon from '../assets/sound-icon.svg';
 import nosoundIcon from '../assets/nosound-icon.svg';

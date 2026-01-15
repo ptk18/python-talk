@@ -8,7 +8,11 @@
       <h3 class="app-name">{{ app.name }}</h3>
       <div class="app-category">{{ app.category }}</div>
     </div>
-    <button class="install-btn" @click.stop="handleButtonClick">Deploy</button>
+    <button
+      class="install-btn"
+      :style="buttonStyle"
+      @click.stop="handleButtonClick"
+    >Deploy</button>
   </div>
 </template>
 
@@ -32,6 +36,15 @@ export default {
               this.app.icon.startsWith('/') ||
               this.app.icon.startsWith('data:')) ||
              (typeof this.app.icon === 'object' && this.app.icon !== null)
+    },
+    buttonStyle() {
+      // Use app-specific color if provided, otherwise use default green
+      if (this.app.themeColor) {
+        return {
+          background: `linear-gradient(180deg, ${this.app.themeColor} 0%, ${this.app.themeColorDark || this.app.themeColor} 100%)`
+        }
+      }
+      return {}
     }
   },
   emits: ['click'],

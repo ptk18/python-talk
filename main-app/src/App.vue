@@ -6,7 +6,7 @@
 
 <script>
 import { computed, watch } from 'vue'
-import { useLanguage } from './composables/useLanguage'
+import { useLanguage } from '@py-talk/shared'
 
 export default {
   name: 'App',
