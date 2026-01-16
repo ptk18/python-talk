@@ -307,6 +307,21 @@
       </div>
     </div>
 
+    <!-- Success Dialog -->
+    <Transition name="dialog-fade">
+      <div v-if="showSuccessDialog" class="workspace__success-dialog-overlay" @click="showSuccessDialog = false">
+        <div class="workspace__success-dialog">
+          <div class="workspace__success-dialog-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" fill="#001f3f"/>
+              <path d="M8 12l2.5 2.5L16 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <p class="workspace__success-dialog-message">{{ successDialogMessage }}</p>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Overlay for methods panel -->
     <div
       v-if="isMethodsPanelOpen"
@@ -470,6 +485,8 @@ export default {
     const isMethodsPanelOpen = ref(false);
     const isFunctionPanelOpen = ref(false);
     const fileInputRef = ref(null);
+    const showSuccessDialog = ref(false);
+    const successDialogMessage = ref('');
 
     let pollIntervalId = null;
 
@@ -663,12 +680,20 @@ export default {
             const successMessage = commandCount > 1
               ? `${commandCount} commands appended successfully.`
               : `Command appended successfully.`;
-            await messageAPI.create(parseInt(conversationId.value), 'system', successMessage);
+
+            // Show success dialog instead of chat message
+            successDialogMessage.value = successMessage;
+            showSuccessDialog.value = true;
+
+            // Auto-dismiss after 3 seconds
+            setTimeout(() => {
+              showSuccessDialog.value = false;
+            }, 3000);
+
             const speechMessage = commandCount > 1
               ? `${commandCount} commands appended successfully`
               : 'Command appended successfully';
             voiceService.speak(speechMessage);
-            await fetchMessages();
           }
         } else {
           voiceService.speak("I couldn't process that command. Could you please try again?");
@@ -1287,6 +1312,8 @@ export default {
       isMethodsPanelOpen,
       isFunctionPanelOpen,
       isOutputExpanded,
+      showSuccessDialog,
+      successDialogMessage,
       language,
       ttsEnabled,
       t,
@@ -1483,6 +1510,7 @@ export default {
   font-family: 'Jaldi', sans-serif;
   font-size: 14px;
   word-wrap: break-word;
+  white-space: pre-line;
   background: #f0f0f0;
   color: #333;
   border-bottom-left-radius: 4px;
@@ -1984,14 +2012,14 @@ export default {
 /* Status Bars */
 .workspace__status-bar {
   position: fixed;
-  bottom: 0;
+  top: 80px;
   left: 260px;
   right: 0;
   background: white;
-  border-top: 1px solid #e8e8e8;
+  border-bottom: 1px solid #e8e8e8;
   padding: 12px 24px;
   z-index: 1000;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .workspace__status-content {
@@ -2424,5 +2452,69 @@ export default {
     width: 24px;
     height: 24px;
   }
+}
+
+/* Success Dialog */
+.workspace__success-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  cursor: pointer;
+}
+
+.workspace__success-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 24px 32px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 31, 63, 0.15);
+  border-left: 4px solid #001f3f;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: default;
+}
+
+.workspace__success-dialog-icon {
+  flex-shrink: 0;
+}
+
+.workspace__success-dialog-message {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
+  font-family: 'Jaldi', sans-serif;
+  margin: 0;
+}
+
+/* Dialog Transition */
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.dialog-fade-enter-from,
+.dialog-fade-leave-to {
+  opacity: 0;
+}
+
+.dialog-fade-enter-active .workspace__success-dialog,
+.dialog-fade-leave-active .workspace__success-dialog {
+  transition: transform 0.2s ease;
+}
+
+.dialog-fade-enter-from .workspace__success-dialog {
+  transform: translateY(-10px);
+}
+
+.dialog-fade-leave-to .workspace__success-dialog {
+  transform: translateY(-10px);
 }
 </style>

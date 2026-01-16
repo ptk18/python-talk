@@ -15,8 +15,10 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 # Path to static synonym base
 SYNONYMS_BASE_PATH = Path(__file__).parent / "synonyms_base.json"
 
-# Feature flag to enable LLM fallback for unknown words
-FEATURE_LLM_SYNONYMS = os.getenv("FEATURE_LLM_SYNONYMS", "false").lower() == "true"
+# Feature flag to enable dynamic LLM synonym generation
+# When enabled: ONE batch LLM call per conversation for unknown verbs
+# Results persist to synonyms_base.json (cost: ~$0.001 per new method set, then free)
+FEATURE_LLM_SYNONYMS = os.getenv("FEATURE_LLM_SYNONYMS", "true").lower() == "true"
 
 # Domain-specific verb mappings (smart home context)
 # These map user verbs to canonical method verbs with HIGH PRIORITY

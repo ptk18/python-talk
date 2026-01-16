@@ -41,8 +41,21 @@ class EntityNormalizer:
             raise RuntimeError("Synonym dictionary not initialized - call prewarm_cache first")
 
     def normalize(self, text: str) -> str:
-        """Normalize entities in text"""
-        words = text.lower().replace('-', '_').split()
+        """Normalize entities in text, handling multi-word entities like 'air conditioner' -> 'ac'"""
+        text_lower = text.lower().replace('-', '_')
+
+        # Try full text match first (for multi-word entities like "air conditioner")
+        text_normalized = text_lower.replace(' ', '_')
+        if text_normalized in self.entity_map:
+            return self.entity_map[text_normalized]
+
+        # Try without underscores/spaces (e.g., "airconditioner")
+        text_compact = text_lower.replace(' ', '').replace('_', '')
+        if text_compact in self.entity_map:
+            return self.entity_map[text_compact]
+
+        # Fall back to word-by-word normalization
+        words = text_lower.split()
         normalized = []
 
         for word in words:

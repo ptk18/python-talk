@@ -199,7 +199,6 @@ class TurtleIntrospector:
         turtle_class = turtle.Turtle
         self._detailed_methods = {}
         self._alias_map = {}
-        self._canonical_methods: Set[str] = set()
         self._excluded_methods = {}
 
         for name, member in inspect.getmembers(turtle_class):
@@ -232,7 +231,6 @@ class TurtleIntrospector:
 
             if aliases:
                 canonical = aliases[0]
-                self._canonical_methods.add(canonical)
                 for alias in aliases:
                     if alias != canonical:
                         self._alias_map[alias] = canonical

@@ -2,7 +2,7 @@
 
 import time as perf_time
 from typing import List, Tuple, Dict
-from datetime import datetime as time
+from datetime import datetime
 from difflib import SequenceMatcher
 
 from .models import MethodInfo, MatchScore
@@ -29,27 +29,27 @@ class NLPPipeline:
     def initialize(self, methods: List[MethodInfo]):
         """Initialize pipeline with methods - call this after creating pipeline"""
         print("\n[0/4] Initializing dependency parser with user methods...")
-        start = time.now()
+        start = datetime.now()
         self.dependency_parser.initialize_with_methods(methods)
-        elapsed = (time.now() - start).total_seconds()
+        elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
         print("\n[1/4] Building synonym dictionary via LLM (single call)...")
-        start = time.now()
+        start = datetime.now()
         self.synonym_generator.prewarm_cache(methods)
-        elapsed = (time.now() - start).total_seconds()
+        elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
         print("\n[2/4] Building entity normalization map...")
-        start = time.now()
+        start = datetime.now()
         self.entity_normalizer = EntityNormalizer(methods, self.synonym_generator)
-        elapsed = (time.now() - start).total_seconds()
+        elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
         print("\n[3/4] Pre-computing semantic embeddings...")
-        start = time.now()
+        start = datetime.now()
         self.semantic_matcher.initialize(methods)
-        elapsed = (time.now() - start).total_seconds()
+        elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
         print("\n✓ Pipeline ready for processing commands!\n")
@@ -215,6 +215,17 @@ class NLPPipeline:
         # Normalize entities in object nouns
         if self.entity_normalizer:
             normalized_objects = [self.entity_normalizer.normalize(obj) for obj in object_nouns]
+
+            # ALSO normalize full noun chunks (for multi-word entities like "air conditioner" -> "ac")
+            for chunk in noun_chunks:
+                # Remove determiners (the, a, an)
+                chunk_clean = ' '.join(w for w in chunk.lower().split()
+                                       if w not in ('the', 'a', 'an'))
+                if chunk_clean:
+                    normalized_chunk = self.entity_normalizer.normalize(chunk_clean)
+                    if normalized_chunk != chunk_clean:  # Actually normalized something
+                        normalized_objects.append(normalized_chunk)
+
             # Flatten normalized results (may contain multi-word entities)
             object_nouns_normalized = []
             for norm_obj in normalized_objects:

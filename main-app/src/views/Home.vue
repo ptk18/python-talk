@@ -96,8 +96,8 @@ export default {
         category: t.value.home.codeAssistant,
         rating: 4.5,
         url: getAppUrl(3002, '/conversation-manager'),
-        themeColor: '#001f3f',
-        themeColorDark: '#001a33'
+        themeColor: '#024A14',
+        themeColorDark: '#01350e'
       },
       {
         id: 2,
@@ -106,8 +106,8 @@ export default {
         category: t.value.home.learningTools,
         rating: 4.8,
         url: getAppUrl(3003, '/turtle-playground'),
-        themeColor: '#C62828',
-        themeColorDark: '#8E0000'
+        themeColor: '#024A14',
+        themeColorDark: '#01350e'
       },
       {
         id: 3,

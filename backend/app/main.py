@@ -3,9 +3,12 @@ import threading
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import users, posts, voice, conversations, messages, analyze_command, execute_command, turtle_execute, google_speech, paraphrase, auth, translate, turtle_commands
-from app.nlp_v3 import preload_models
 
+from app.routers.common import auth, users, posts, messages, translate, paraphrase
+from app.routers.codespace import analyze_command, execute_command, conversations
+from app.routers.turtle import turtle_commands, turtle_execute
+from app.routers.voice import voice, google_speech
+from app.nlp_v3 import preload_models
 from app.database.connection import engine, Base
 
 # Create database tables
@@ -61,7 +64,6 @@ app.include_router(voice.router, prefix="/api")
 app.include_router(google_speech.router, prefix="/api")
 app.include_router(conversations.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
-print("analyze_command router:", analyze_command.router)
 app.include_router(analyze_command.router, prefix="/api")
 app.include_router(execute_command.router, prefix="/api")
 app.include_router(turtle_execute.router, prefix="/api")

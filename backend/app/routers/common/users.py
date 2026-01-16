@@ -5,14 +5,14 @@ from typing import List
 from app.database.connection import get_db
 from app.models.models import User
 from app.models.schemas import UserCreate, UserResponse, UserUpdate
-from app.models import crud, models, schemas
+from app.models import crud
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(models.User).filter(models.User.username == user.username).first()
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.username == user.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
     return crud.create_user(
@@ -81,28 +81,3 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.delete(user)
     db.commit()
     return None
-
-@router.post("/login")
-def login_user(data: dict, db: Session = Depends(get_db)):
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-    username = data.get("username")
-    password = data.get("password")
-
-    # Try to find user by username
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    # Check if user has hashed password or plain password
-    is_valid = False
-    if user.password_hash:
-        is_valid = pwd_context.verify(password, user.password_hash)
-    elif user.password:
-        is_valid = (user.password == password)
-
-    if not is_valid:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    return {"id": user.id, "username": user.username, "gender": user.gender.value if user.gender else None}

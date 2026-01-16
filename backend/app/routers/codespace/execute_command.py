@@ -1,16 +1,13 @@
-# app/routes/execute_command.py
 import os
 import subprocess
 import sys
 import tempfile
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ExecuteCommandRequest, SimpleCodeRequest
-# import your extractor to detect class name
 from app.nlp_v3.catalog import extract_from_file
-from fastapi import Query
 from app.security import validate_code
 
 router = APIRouter(tags=["Execute Command"])
@@ -26,14 +23,12 @@ def safe_filename(name: str) -> str:
 
 @router.post("/execute_command")
 def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db)):
-    # fetch conversation and code
     convo = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
     if not convo.code or not convo.code.strip():
         raise HTTPException(status_code=400, detail="This conversation has no code uploaded. Please upload a Python file first.")
 
-    # Security validation - check uploaded code for dangerous patterns
     is_safe, violations = validate_code(convo.code, strict_mode=False)
     if not is_safe:
         raise HTTPException(
@@ -41,11 +36,9 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             detail="Security validation failed:\n" + "\n".join(f"- {v}" for v in violations)
         )
 
-    # prepare session directory: app/executions/session_<id>/
     session_dir = os.path.join(BASE_EXEC_DIR, f"session_{request.conversation_id}")
     os.makedirs(session_dir, exist_ok=True)
 
-    # use the original file_name if present (otherwise default to module.py)
     orig_fname = getattr(convo, "file_name", None) or "module.py"
     safe_module_fname = safe_filename(orig_fname)
     if not safe_module_fname.lower().endswith(".py"):
@@ -54,12 +47,9 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
     module_path = os.path.join(session_dir, safe_module_fname)
     runner_path = os.path.join(session_dir, "runner.py")
 
-    # 1) Always write/overwrite the module file to ensure it matches the database
-    # This ensures that if a conversation is recreated or updated, the file is current
     with open(module_path, "w", encoding="utf-8") as f:
         f.write(convo.code)
 
-    # 2) Detect class name using extract_from_file (works off a file path)
     try:
         catalog = extract_from_file(module_path)
     except Exception as e:
@@ -71,22 +61,17 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             detail=f"No class found in uploaded Python file '{orig_fname}'. Please ensure your file contains at least one class definition."
         )
 
-    # pick the first class by name
     class_name = list(catalog.classes.keys())[0]
 
-    # 3) Initialize runner.py if not exists
     if not os.path.exists(runner_path):
-        # runner imports the user's module and creates a persistent instance
         module_name = os.path.splitext(safe_module_fname)[0]
         with open(runner_path, "w", encoding="utf-8") as f:
             f.write(f"from {module_name} import {class_name}\n")
             f.write("import sys\n")
             f.write("\n")
             f.write(f"obj = {class_name}()\n")
-            f.write("# session runner - commands will be appended below\n")
-        
+
         try:
-            # run the runner; cwd ensures `from module import Class` will find the module file in same dir
             result = subprocess.run(
                 [sys.executable, "runner.py"],
                 capture_output=True,
@@ -94,7 +79,6 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
                 cwd=session_dir,
                 timeout=10
             )
-            # prefer stdout; if empty, return stderr
             output = result.stdout.strip() or result.stderr.strip()
             return {"output": output or "No output"}
         except subprocess.TimeoutExpired:
@@ -103,21 +87,14 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
 
     if request.executable != "first_time_created":
-        # 4) Append execution command line
-        # request.executable is expected like "pause()" or "play()" - we will call obj.pause() -> print(obj.pause())
-        # Sanitize a little: strip surrounding whitespace
         executable = request.executable.strip()
-        # basic safety: do not allow multi-line statements
         if "\n" in executable or ";" in executable:
             raise HTTPException(status_code=400, detail="Executable must be a single simple method call like 'pause()'")
 
         with open(runner_path, "a", encoding="utf-8") as f:
-            # append a print wrapper so we get the return value or printed output aggregated in stdout
             f.write(f"print(obj.{executable})\n")
 
-    # 5) Execute runner.py with working dir = session_dir so the module import resolves
     try:
-        # run the runner; cwd ensures `from module import Class` will find the module file in same dir
         result = subprocess.run(
             [sys.executable, "runner.py"],
             capture_output=True,
@@ -125,7 +102,6 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             cwd=session_dir,
             timeout=10
         )
-        # prefer stdout; if empty, return stderr
         output = result.stdout.strip() or result.stderr.strip()
         return {"output": output or "No output"}
     except subprocess.TimeoutExpired:
@@ -176,17 +152,10 @@ def append_command(request: ExecuteCommandRequest):
             detail="runner.py not found for this conversation. Run /execute_command first."
         )
 
-    # Sanitize input
     executable = request.executable.strip()
-    # if "\n" in executable or ";" in executable:
-    #     raise HTTPException(
-    #         status_code=400,
-    #         detail="Executable must be a single-line method call like 'pause()'"
-    #     )
 
     try:
         with open(runner_path, "a", encoding="utf-8") as f:
-            # f.write("\n")
             for line in executable.splitlines():
                 line = line.strip()
                 if not line:
@@ -329,10 +298,8 @@ def save_file(request: dict, db: Session = Depends(get_db)):
         if filename != "runner.py":
             convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
             if convo and convo.file_name == filename:
-                # This is the uploaded module file - update the database
                 convo.code = code
                 db.commit()
-                print(f"Updated database code for conversation {conversation_id}")
                 return {
                     "message": f"File {filename} saved successfully",
                     "conversation_id": conversation_id,

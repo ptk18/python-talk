@@ -1,8 +1,9 @@
+import os
+import shutil
+import tempfile
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
-import tempfile
-import os
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ConversationCreate, ConversationResponse
@@ -101,8 +102,6 @@ def get_available_methods(conversation_id: int, db: Session = Depends(get_db)):
 @router.delete("/{conversation_id}")
 def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
     """Delete a conversation by ID and clean up associated session files"""
-    import shutil
-
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
