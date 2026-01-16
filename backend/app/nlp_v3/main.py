@@ -28,25 +28,35 @@ class NLPPipeline:
 
     def initialize(self, methods: List[MethodInfo]):
         """Initialize pipeline with methods - call this after creating pipeline"""
-        print("\n[0/4] Initializing dependency parser with user methods...")
+        print("\n[0/5] Initializing dependency parser with user methods...")
         start = datetime.now()
         self.dependency_parser.initialize_with_methods(methods)
         elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
-        print("\n[1/4] Building synonym dictionary via LLM (single call)...")
+        print("\n[1/5] Building static synonym dictionary...")
         start = datetime.now()
         self.synonym_generator.prewarm_cache(methods)
         elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
-        print("\n[2/4] Building entity normalization map...")
+        print("\n[2/5] Generating dynamic synonyms from method docstrings...")
+        start = datetime.now()
+        if self.synonym_generator.llm_available:
+            dynamic_syns = self.synonym_generator.build_dynamic_synonyms(methods)
+            self.synonym_generator.merge_dynamic_synonyms(dynamic_syns)
+        else:
+            print("  ⚠ LLM not available, skipping dynamic synonym generation")
+        elapsed = (datetime.now() - start).total_seconds()
+        print(f"  ✓ Completed in {elapsed:.1f}s")
+
+        print("\n[3/5] Building entity normalization map...")
         start = datetime.now()
         self.entity_normalizer = EntityNormalizer(methods, self.synonym_generator)
         elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
-        print("\n[3/4] Pre-computing semantic embeddings...")
+        print("\n[4/5] Pre-computing semantic embeddings...")
         start = datetime.now()
         self.semantic_matcher.initialize(methods)
         elapsed = (datetime.now() - start).total_seconds()

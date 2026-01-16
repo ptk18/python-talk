@@ -3,8 +3,10 @@
 import os
 import json
 import re
+import hashlib
 import threading
-from typing import List, Dict
+from datetime import datetime
+from typing import List, Dict, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
 from .models import MethodInfo
@@ -14,6 +16,9 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # Path to static synonym base
 SYNONYMS_BASE_PATH = Path(__file__).parent / "synonyms_base.json"
+
+# Path to dynamic synonym cache (generated from method docstrings)
+DYNAMIC_CACHE_PATH = Path(__file__).parent / "dynamic_synonyms_cache.json"
 
 # Feature flag to enable dynamic LLM synonym generation
 # When enabled: ONE batch LLM call per conversation for unknown verbs
@@ -56,6 +61,7 @@ class ClaudeSynonymGenerator:
     def __init__(self):
         self.cache = {}  # Cache for synonym lookups
         self.synonym_dict = {}  # Structured synonym dictionary
+        self.dynamic_method_synonyms = {}  # Dynamic synonyms from method docstrings
         self.prewarmed = False
         self._lock = threading.Lock()
 
@@ -108,7 +114,7 @@ class ClaudeSynonymGenerator:
 
     def get_synonyms(self, word: str, context: str = "") -> List[str]:
         """
-        Get synonyms for a word. Uses domain mapping first, then cache, then LLM fallback.
+        Get synonyms for a word. Uses dynamic method synonyms first, then domain mapping, then cache.
 
         Args:
             word: The word to find synonyms for
@@ -117,8 +123,13 @@ class ClaudeSynonymGenerator:
         Returns:
             List of synonyms (may be empty if word is unknown and LLM disabled)
         """
-        # PRIORITY 1: Check domain-specific mapping first (smart home verbs)
         word_lower = word.lower()
+
+        # PRIORITY 0: Check dynamic method synonyms (generated from docstrings)
+        if word_lower in self.dynamic_method_synonyms:
+            return self.dynamic_method_synonyms[word_lower]
+
+        # PRIORITY 1: Check domain-specific mapping (smart home verbs)
         if word_lower in DOMAIN_VERB_MAP:
             return DOMAIN_VERB_MAP[word_lower]
 
@@ -299,3 +310,164 @@ Return JSON format:
 
         self.synonym_dict = self.build_method_synonym_dict(methods)
         self.prewarmed = True
+
+    # =========================================================================
+    # Dynamic Synonym Generation (from method docstrings)
+    # =========================================================================
+
+    def _load_dynamic_cache(self) -> Dict:
+        """Load dynamic synonym cache from file."""
+        try:
+            if DYNAMIC_CACHE_PATH.exists():
+                with open(DYNAMIC_CACHE_PATH, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"[SynonymGenerator] Error loading dynamic cache: {e}")
+        return {"cache_version": 1, "methods": {}}
+
+    def _save_dynamic_cache(self, cache: Dict) -> None:
+        """Save dynamic synonym cache to file."""
+        try:
+            with self._lock:
+                with open(DYNAMIC_CACHE_PATH, 'w') as f:
+                    json.dump(cache, f, indent=2)
+        except Exception as e:
+            print(f"[SynonymGenerator] Error saving dynamic cache: {e}")
+
+    def _compute_method_hash(self, method: MethodInfo) -> str:
+        """Hash method name + docstring for cache key."""
+        content = f"{method.name}:{method.docstring or ''}"
+        return hashlib.md5(content.encode()).hexdigest()[:12]
+
+    def _flatten_dynamic_cache(self, cache: Dict) -> Dict[str, List[str]]:
+        """Convert cache structure to flat method_name -> synonyms mapping."""
+        result = {}
+        for entry in cache.get("methods", {}).values():
+            method_name = entry.get("method_name", "")
+            synonyms = entry.get("synonyms", [])
+            if method_name and synonyms:
+                result[method_name.lower()] = synonyms
+        return result
+
+    def build_dynamic_synonyms(self, methods: List[MethodInfo]) -> Dict[str, List[str]]:
+        """
+        Generate synonyms for methods based on their docstrings using LLM.
+        Results are cached to file and reused if method signature unchanged.
+
+        Args:
+            methods: List of MethodInfo with names and docstrings
+
+        Returns:
+            Dict mapping method names to their synonyms
+        """
+        if not self.llm_available:
+            print("[SynonymGenerator] LLM not available, skipping dynamic synonym generation")
+            return {}
+
+        # 1. Load existing cache
+        cache = self._load_dynamic_cache()
+
+        # 2. Find methods that need synonym generation
+        methods_to_generate: List[Tuple[MethodInfo, str]] = []
+        for method in methods:
+            sig_hash = self._compute_method_hash(method)
+            if sig_hash not in cache.get("methods", {}):
+                methods_to_generate.append((method, sig_hash))
+
+        # 3. If all methods cached, return early
+        if not methods_to_generate:
+            print(f"[SynonymGenerator] All {len(methods)} methods found in dynamic cache")
+            return self._flatten_dynamic_cache(cache)
+
+        print(f"[SynonymGenerator] Generating dynamic synonyms for {len(methods_to_generate)} methods...")
+
+        # 4. Batch LLM call for uncached methods
+        new_synonyms = self._generate_synonyms_from_docstrings(methods_to_generate)
+
+        # 5. Update cache and persist
+        for i, (method, sig_hash) in enumerate(methods_to_generate):
+            syns = new_synonyms[i] if i < len(new_synonyms) else []
+            cache["methods"][sig_hash] = {
+                "method_name": method.name,
+                "docstring": method.docstring,
+                "synonyms": syns,
+                "generated_at": datetime.now().isoformat()
+            }
+
+        self._save_dynamic_cache(cache)
+        print(f"[SynonymGenerator] Dynamic synonyms cached to {DYNAMIC_CACHE_PATH.name}")
+
+        return self._flatten_dynamic_cache(cache)
+
+    def _generate_synonyms_from_docstrings(self, methods: List[Tuple[MethodInfo, str]]) -> List[List[str]]:
+        """
+        Call LLM to generate synonyms based on method name + docstring.
+
+        Args:
+            methods: List of (MethodInfo, hash) tuples
+
+        Returns:
+            List of synonym lists, one per method
+        """
+        if not methods or not self.llm_available:
+            return [[] for _ in methods]
+
+        # Build prompt with method info
+        prompt = """Generate natural language synonyms for these Python methods.
+For each method, provide 5-8 different ways a user might verbally request this action.
+Include casual phrases, formal commands, and alternative verbs.
+
+Methods:
+"""
+        for method, _ in methods:
+            prompt += f"\n- {method.name}"
+            if method.docstring:
+                prompt += f": {method.docstring}"
+
+        prompt += """
+
+Return ONLY valid JSON in this exact format (no markdown, no explanation):
+{"method_name1": ["synonym1", "synonym2", ...], "method_name2": ["synonym1", ...]}
+"""
+
+        try:
+            message = self.client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=1000,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            response = message.content[0].text.strip()
+
+            # Extract JSON from response (handle markdown code blocks)
+            if '```' in response:
+                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
+                if json_match:
+                    response = json_match.group(1)
+
+            synonyms_dict = json.loads(response)
+
+            # Map back to method order
+            result = []
+            for method, _ in methods:
+                method_syns = synonyms_dict.get(method.name, [])
+                # Lowercase all synonyms
+                result.append([s.lower() for s in method_syns])
+
+            print(f"[SynonymGenerator] Generated synonyms for {len(synonyms_dict)} methods")
+            return result
+
+        except Exception as e:
+            print(f"[SynonymGenerator] LLM call failed for dynamic synonyms: {e}")
+            return [[] for _ in methods]
+
+    def merge_dynamic_synonyms(self, dynamic_syns: Dict[str, List[str]]) -> None:
+        """
+        Merge dynamic synonyms into the lookup dictionary.
+
+        Args:
+            dynamic_syns: Dict mapping method names to synonyms
+        """
+        self.dynamic_method_synonyms = dynamic_syns
+        print(f"[SynonymGenerator] Merged {len(dynamic_syns)} dynamic method synonyms")
