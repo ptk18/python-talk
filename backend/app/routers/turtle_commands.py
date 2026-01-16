@@ -6,6 +6,7 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+from app.nlp_v3 import NLPService, TurtleExtractor, TurtlePreprocessor
 from app.nlp_v3.turtle_introspector import (
     get_turtle_methods,
     get_introspector,
@@ -13,13 +14,14 @@ from app.nlp_v3.turtle_introspector import (
     get_excluded_turtle_methods,
     get_exclusion_stats
 )
-from app.nlp_v3.main import NLPPipeline
 
 router = APIRouter(tags=["Turtle Commands"])
 
+# Configuration
+CONFIDENCE_THRESHOLD = 0.15  # 15% minimum confidence
+
 _executor = ThreadPoolExecutor(max_workers=2)
-_turtle_pipeline: Optional[NLPPipeline] = None
-_pipeline_initialized: bool = False
+_turtle_service: Optional[NLPService] = None
 _direct_commands: Optional[Dict[str, List[str]]] = None
 _no_arg_commands: Optional[set] = None
 _turtle_lock = threading.Lock()
@@ -83,22 +85,26 @@ class TurtleMethodsResponse(BaseModel):
     categories: Optional[Dict[str, List[str]]] = None
 
 
-def _get_turtle_pipeline() -> NLPPipeline:
-    """Get or initialize turtle pipeline (thread-safe)."""
-    global _turtle_pipeline, _pipeline_initialized
+def _get_turtle_service() -> NLPService:
+    """Get or initialize turtle NLP service (thread-safe)."""
+    global _turtle_service
 
     with _turtle_lock:
-        if _turtle_pipeline is None:
-            print("[TurtleCommands] Initializing NLP pipeline...")
-            _turtle_pipeline = NLPPipeline()
+        if _turtle_service is None:
+            print("[TurtleCommands] Initializing NLP service...")
 
-        if not _pipeline_initialized:
-            methods = get_introspector().get_canonical_methods_only()
-            _turtle_pipeline.initialize(methods)
-            _pipeline_initialized = True
-            print(f"[TurtleCommands] Pipeline ready with {len(methods)} methods")
+            # Create service with TurtleExtractor and TurtlePreprocessor
+            _turtle_service = NLPService(
+                extractor=TurtleExtractor(canonical_only=True),
+                preprocessor=TurtlePreprocessor(),
+                confidence_threshold=CONFIDENCE_THRESHOLD
+            )
 
-        return _turtle_pipeline
+            # Initialize (source is ignored for TurtleExtractor)
+            methods = _turtle_service.initialize(None)
+            print(f"[TurtleCommands] Service ready with {len(methods)} methods")
+
+        return _turtle_service
 
 
 def _try_direct_match(command: str) -> Optional[Dict]:
@@ -163,97 +169,52 @@ def _split_compound_command(command: str) -> List[str]:
     return parts if parts else [command]
 
 
-def _preprocess_turtle_command(command: str) -> str:
-    """Normalize natural language to turtle-friendly format."""
-    processed = command.lower()
+def _process_single_command(command: str, service: NLPService) -> Dict:
+    """Process a single turtle command through NLP service."""
+    # Preprocess command for direct match using the service's preprocessor
+    preprocessed = service.preprocessor.preprocess(command)
 
-    # Remove filler words
-    filler_patterns = [
-        r'\bthe\s+turtle\b', r'\bturtle\b', r'\bthe\s+pen\b',
-        r'\bit\s+to\b', r'\bit\b', r'\bagain\b', r'["\']',
-    ]
-    for pattern in filler_patterns:
-        processed = re.sub(pattern, '', processed, flags=re.IGNORECASE)
-
-    processed = re.sub(r'[.,!?;:]+', ' ', processed)
-
-    # Rewrite "move/go + direction" to "direction + number"
-    processed = re.sub(
-        r'\b(move|go)\s+(\d+)\s*(?:steps?\s*)?(forward|backward|back)\b',
-        r'\3 \2', processed
-    )
-    processed = re.sub(
-        r'\b(move|go)\s+(forward|backward|back)\s*(\d+)?\s*(?:steps?)?\b',
-        r'\2 \3', processed
-    )
-
-    # Rewrite "turn + direction" to "direction + number"
-    processed = re.sub(
-        r'\b(turn)\s+(\d+)\s*(?:degrees?\s*)?(left|right)\b',
-        r'\3 \2', processed
-    )
-    processed = re.sub(
-        r'\b(turn)\s+(left|right)\s*(\d+)?\s*(?:degrees?)?\b',
-        r'\2 \3', processed
-    )
-
-    return ' '.join(processed.split())
-
-
-def _process_single_command(command: str, methods, pipeline) -> Dict:
-    """Process a single turtle command through NLP pipeline."""
-    processed_command = _preprocess_turtle_command(command)
-
-    direct_result = _try_direct_match(processed_command)
+    # Try direct match first (for simple commands like "forward 50")
+    direct_result = _try_direct_match(preprocessed)
     if direct_result:
         return direct_result
 
-    results = pipeline.process_command(processed_command, methods, top_k=1)
+    # Process through NLP service (preprocessor will be applied again, but that's fine)
+    results = service.process(command, top_k=1)
+
     if not results:
         return {"success": False, "error": f"No matching command for: '{command}'"}
 
-    action_verb, match_score = results[0]
-
-    if match_score.total_score < 0.15:
-        return {
-            "success": False,
-            "confidence": match_score.total_score * 100,
-            "error": f"Low confidence match. Did you mean '{match_score.method_name}'?"
-        }
+    # Get top result (already filtered by confidence threshold in service)
+    r = results[0]
 
     return {
         "success": True,
-        "executable": match_score.get_method_call(),
-        "method": match_score.method_name,
-        "parameters": match_score.extracted_params,
-        "confidence": match_score.total_score * 100,
-        "breakdown": {
-            "semantic_score": match_score.semantic_score * 100,
-            "intent_score": match_score.intent_score * 100,
-            "synonym_boost": match_score.synonym_boost * 100,
-            "param_relevance": match_score.param_relevance * 100,
-            "phrasal_verb_match": match_score.phrasal_verb_match * 100
-        }
+        "executable": r.executable,
+        "method": r.method_name,
+        "parameters": r.parameters,
+        "confidence": r.confidence,
+        "breakdown": r.breakdown
     }
 
 
-def _process_command_sync(command: str, methods) -> Dict:
+def _process_command_sync(command: str) -> Dict:
     """Process command synchronously (runs in thread pool)."""
-    pipeline = _get_turtle_pipeline()
+    service = _get_turtle_service()
     command_parts = _split_compound_command(command)
 
     if len(command_parts) == 1:
-        return _process_single_command(command_parts[0], methods, pipeline)
+        return _process_single_command(command_parts[0], service)
 
     executables = []
     errors = []
     total_confidence = 0.0
 
     for part in command_parts:
-        result = _process_single_command(part, methods, pipeline)
+        result = _process_single_command(part, service)
         if result["success"]:
             executables.append(result["executable"])
-            total_confidence += result["confidence"]
+            total_confidence += result.get("confidence", 0)
         else:
             errors.append(result.get("error", f"Failed: {part}"))
 
@@ -274,10 +235,9 @@ def _process_command_sync(command: str, methods) -> Dict:
 async def analyze_turtle_command(payload: TurtleCommandRequest):
     """Analyze natural language and return executable turtle code."""
     try:
-        methods = get_introspector().get_canonical_methods_only()
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
-            _executor, _process_command_sync, payload.command, methods
+            _executor, _process_command_sync, payload.command
         )
         return TurtleCommandResponse(**result)
     except Exception as e:
@@ -318,14 +278,14 @@ async def list_turtle_methods(canonical_only: bool = True):
 
 @router.post("/prewarm_turtle_pipeline")
 async def prewarm_turtle_pipeline(background_tasks: BackgroundTasks):
-    """Pre-warm the NLP pipeline for faster first request."""
-    global _pipeline_initialized
+    """Pre-warm the NLP service for faster first request."""
+    global _turtle_service
     try:
-        if _pipeline_initialized:
-            return {"status": "already_initialized", "method_count": len(get_turtle_methods())}
+        if _turtle_service is not None and _turtle_service.initialized:
+            return {"status": "already_initialized", "method_count": len(_turtle_service.methods)}
 
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(_executor, _get_turtle_pipeline)
+        await loop.run_in_executor(_executor, _get_turtle_service)
         return {"status": "initialized", "method_count": len(get_turtle_methods())}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
@@ -334,12 +294,15 @@ async def prewarm_turtle_pipeline(background_tasks: BackgroundTasks):
 @router.post("/refresh_turtle_methods")
 async def refresh_methods():
     """Force refresh the turtle method list."""
-    global _pipeline_initialized
+    global _turtle_service
     try:
-        _pipeline_initialized = False
+        # Reset service to force reinitialization
+        with _turtle_lock:
+            _turtle_service = None
+
         loop = asyncio.get_event_loop()
         methods = await loop.run_in_executor(_executor, refresh_turtle_methods)
-        await loop.run_in_executor(_executor, _get_turtle_pipeline)
+        await loop.run_in_executor(_executor, _get_turtle_service)
         return {"status": "refreshed", "method_count": len(methods)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
@@ -347,11 +310,12 @@ async def refresh_methods():
 
 @router.delete("/turtle_cache")
 async def clear_turtle_cache():
-    """Clear the turtle docstring cache."""
-    global _pipeline_initialized
+    """Clear the turtle service and introspector cache."""
+    global _turtle_service
     try:
+        with _turtle_lock:
+            _turtle_service = None
         get_introspector().clear_cache()
-        _pipeline_initialized = False
         return {"status": "cleared"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")

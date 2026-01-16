@@ -15,7 +15,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip setuptools wheel && \
     pip install -r requirements.txt
 
-RUN python -m spacy download en_core_web_sm
+# Use en_core_web_md for word vectors (enables semantic similarity)
+# md model adds ~50MB but provides 20k word vectors for fuzzy matching
+RUN python -m spacy download en_core_web_md
 
 # Final stage - smaller runtime image
 FROM python:3.10-slim

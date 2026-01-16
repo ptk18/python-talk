@@ -8,6 +8,18 @@ services:
       - ./backend:/app
     networks:
       - python_talk_net
+    environment:
+      # Disable SentenceTransformer for fast startup
+      - DISABLE_SEMANTIC_MATCHING=true
+      # Disable Whisper voice model pre-warming (saves 4.5GB RAM)
+      # Voice models will lazy-load on first transcription request
+      - PREWARM_MODELS=false
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
 
   main-app:
     build:

@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import users, posts, voice, conversations, messages, analyze_command, execute_command, turtle_execute, google_speech, paraphrase, auth, translate, turtle_commands
+from app.nlp_v3 import preload_models
 
 from app.database.connection import engine, Base
 
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
         def prewarm_background():
             try:
                 voice.prewarm_models()
+                preload_models()  # Pre-load NLP models (SentenceTransformer + spaCy)
             except Exception as e:
                 print(f"⚠️ Model pre-warming failed: {e}")
 

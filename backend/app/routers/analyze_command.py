@@ -1,5 +1,4 @@
-import os
-import tempfile
+import ast
 import threading
 import time
 from collections import OrderedDict
@@ -7,8 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
-from app.nlp_v3.utils import extract_methods_from_file
-from app.nlp_v3.main import NLPPipeline
+from app.nlp_v3 import NLPService, ASTExtractor
 
 from app.models.schemas import AnalyzeCommandRequest
 
@@ -71,14 +69,14 @@ class LRUCache:
                 "keys": list(self.cache.keys())
             }
 
-# Global pipeline cache with LRU eviction
-_pipeline_cache = LRUCache(max_size=CACHE_MAX_SIZE, ttl_seconds=CACHE_TTL_SECONDS)
+# Global service cache with LRU eviction
+_service_cache = LRUCache(max_size=CACHE_MAX_SIZE, ttl_seconds=CACHE_TTL_SECONDS)
 
 router = APIRouter(tags=["Analyze Command"])
 
 @router.post("/prewarm_pipeline")
 def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
-    """Pre-warm the NLP pipeline for faster first command processing"""
+    """Pre-warm the NLP service for faster first command processing"""
     conversation_id = payload.conversation_id
 
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
@@ -88,59 +86,67 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
     if not convo.code:
         raise HTTPException(status_code=400, detail="This conversation has no uploaded code")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as temp_file:
-        temp_file.write(convo.code.encode("utf-8"))
-        temp_path = temp_file.name
+    # Check if already cached
+    cache_key = f"conv_{conversation_id}"
+    existing = _service_cache.get(cache_key)
+
+    if existing is not None:
+        return {"status": "already_cached", "message": "Service already initialized"}
 
     try:
-        # Extract methods from the uploaded Python file
-        methods = extract_methods_from_file(temp_path)
+        print(f"Pre-warming NLP service for conversation {conversation_id}")
+
+        # Create NLPService with ASTExtractor (no preprocessor for Codespace)
+        service = NLPService(
+            extractor=ASTExtractor(),
+            confidence_threshold=CONFIDENCE_THRESHOLD
+        )
+
+        # Initialize with the code string directly (ASTExtractor supports this)
+        methods = service.initialize(convo.code)
 
         if not methods:
             raise HTTPException(status_code=400, detail="No public methods found in uploaded file")
 
-        # Initialize pipeline in cache (LRU with TTL)
-        cache_key = f"conv_{conversation_id}"
-        existing = _pipeline_cache.get(cache_key)
-
-        if existing is None:
-            print(f"Pre-warming NLP v3 pipeline for conversation {conversation_id}")
-            pipeline = NLPPipeline()
-            pipeline.initialize(methods)
-            _pipeline_cache.set(cache_key, pipeline)
-            return {"status": "initialized", "message": "Pipeline pre-warmed successfully"}
-        else:
-            return {"status": "already_cached", "message": "Pipeline already initialized"}
+        _service_cache.set(cache_key, service)
+        return {
+            "status": "initialized",
+            "message": "Service pre-warmed successfully",
+            "method_count": len(methods)
+        }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error pre-warming pipeline: {str(e)}")
-
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        raise HTTPException(status_code=500, detail=f"Error pre-warming service: {str(e)}")
 
 
 @router.post("/invalidate_pipeline_cache")
 def invalidate_pipeline_cache(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
-    """Invalidate (clear) the NLP pipeline cache for a conversation when code is updated"""
+    """Invalidate (clear) the NLP service cache for a conversation when code is updated"""
     conversation_id = payload.conversation_id
     cache_key = f"conv_{conversation_id}"
 
-    if _pipeline_cache.delete(cache_key):
-        print(f"Invalidated pipeline cache for conversation {conversation_id}")
-        return {"status": "invalidated", "message": "Pipeline cache cleared successfully"}
+    if _service_cache.delete(cache_key):
+        print(f"Invalidated service cache for conversation {conversation_id}")
+        return {"status": "invalidated", "message": "Service cache cleared successfully"}
     else:
         return {"status": "not_cached", "message": "No cache found for this conversation"}
 
 
 @router.get("/pipeline_cache_stats")
 def get_pipeline_cache_stats():
-    """Get statistics about the pipeline cache"""
-    return _pipeline_cache.stats()
+    """Get statistics about the service cache"""
+    return _service_cache.stats()
 
 
 @router.post("/analyze_command")
 def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
+    request_start = time.perf_counter()
+    print(f"\n{'='*60}")
+    print(f"[DEBUG] Processing command: '{payload.command}'")
+    print(f"[DEBUG] Conversation ID: {payload.conversation_id}")
+    print(f"[DEBUG] Language: {payload.language or 'en'}")
+    print(f"{'='*60}")
+
     conversation_id = payload.conversation_id
     command = payload.command
     language = payload.language or "en"
@@ -152,86 +158,48 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     if not convo.code:
         raise HTTPException(status_code=400, detail="This conversation has no uploaded code")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as temp_file:
-        temp_file.write(convo.code.encode("utf-8"))
-        temp_path = temp_file.name
-
     try:
-        # Extract methods from the uploaded Python file
-        methods = extract_methods_from_file(temp_path)
-
-        if not methods:
-            raise HTTPException(status_code=400, detail="No public methods found in uploaded file")
-
-        # Extract class name (for response compatibility)
-        import ast
-        with open(temp_path, 'r') as f:
-            tree = ast.parse(f.read())
+        # Extract class name from the code (for response compatibility)
+        tree = ast.parse(convo.code)
         class_name = None
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 class_name = node.name
                 break
-
         if not class_name:
             class_name = "UnknownClass"
 
-        # Use cached pipeline or create new one (LRU with TTL)
+        # Use cached service or create new one (LRU with TTL)
         cache_key = f"conv_{conversation_id}"
-        pipeline = _pipeline_cache.get(cache_key)
+        service = _service_cache.get(cache_key)
 
-        if pipeline is None:
-            print(f"Initializing NLP v3 pipeline for conversation {conversation_id}")
-            pipeline = NLPPipeline()
-            pipeline.initialize(methods)
-            _pipeline_cache.set(cache_key, pipeline)
+        if service is None:
+            print(f"[DEBUG] Cache MISS - Initializing NLP service for conversation {conversation_id}")
+            init_start = time.perf_counter()
 
-        # Process the command - remove top_k limit to get all results
-        results = pipeline.process_command(command, methods, top_k=None)
+            # Create NLPService with ASTExtractor (no preprocessor for Codespace)
+            service = NLPService(
+                extractor=ASTExtractor(),
+                confidence_threshold=CONFIDENCE_THRESHOLD
+            )
+            methods = service.initialize(convo.code)
+
+            if not methods:
+                raise HTTPException(status_code=400, detail="No public methods found in uploaded file")
+
+            _service_cache.set(cache_key, service)
+            init_time = (time.perf_counter() - init_start) * 1000
+            print(f"[TIMING] Service initialization: {init_time:.2f}ms")
+        else:
+            print(f"[DEBUG] Cache HIT - Using cached service for conversation {conversation_id}")
+
+        # Process the command using NLPService
+        process_start = time.perf_counter()
+        results = service.process(command, language=language, top_k=None)
+        process_time = (time.perf_counter() - process_start) * 1000
+        print(f"\n[TIMING] Service processing: {process_time:.2f}ms")
 
         if not results:
-            return {
-                "class_name": class_name,
-                "file_name": convo.file_name,
-                "results": [],
-                "result": {
-                    "success": False,
-                    "message": "No matching methods found",
-                    "confidence": 0.0
-                }
-            }
-
-        # Format results and filter by confidence threshold
-        formatted_results = []
-        for action_verb, match_score in results:
-            # Skip low-confidence matches
-            if match_score.total_score < CONFIDENCE_THRESHOLD:
-                print(f"[Filter] Skipping low-confidence match: {match_score.method_name} ({match_score.total_score*100:.1f}% < {CONFIDENCE_THRESHOLD*100}%)")
-                continue
-
-            result_item = {
-                "success": True,
-                "method": match_score.method_name,
-                "parameters": match_score.extracted_params,
-                "confidence": match_score.total_score * 100,  # Convert to percentage
-                "executable": match_score.get_method_call(),  # This is what frontend expects!
-                "intent_type": "nlp_v3",
-                "source": "nlp_v3",
-                "action_verb": action_verb,  # Include the detected verb
-                # Simplified 4-factor breakdown (easier to debug)
-                "explanation": match_score.explain(),
-                "breakdown": {
-                    "direct_match": match_score.phrasal_verb_match * 100,   # 50% weight
-                    "synonym_match": match_score.synonym_boost * 100,       # 25% weight
-                    "entity_match": match_score.intent_score * 100,         # 15% weight
-                    "semantic_score": match_score.semantic_score * 100,     # 10% weight
-                    "param_bonus": match_score.param_relevance * 100        # +5% bonus
-                }
-            }
-            formatted_results.append(result_item)
-
-        # If all results were filtered out due to low confidence
-        if not formatted_results:
             return {
                 "class_name": class_name,
                 "file_name": convo.file_name,
@@ -243,21 +211,44 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 }
             }
 
+        # Format results from ProcessResult objects
+        formatted_results = []
+        for r in results:
+            result_item = {
+                "success": r.success,
+                "method": r.method_name,
+                "parameters": r.parameters,
+                "confidence": r.confidence,
+                "executable": r.executable,
+                "intent_type": "nlp_v3",
+                "source": "nlp_v3",
+                "action_verb": r.action_verb,
+                "explanation": r.explanation,
+                "breakdown": r.breakdown
+            }
+            formatted_results.append(result_item)
+
         # Maintain backward compatibility - return the top result as "result"
-        # and all results as "results"
         top_result = formatted_results[0]
+
+        # Final timing summary
+        total_time = (time.perf_counter() - request_start) * 1000
+        print(f"\n[TIMING] Total request time: {total_time:.2f}ms")
+        print(f"[DEBUG] Returning {len(formatted_results)} result(s):")
+        for i, r in enumerate(formatted_results, 1):
+            print(f"  Result {i}: {r['method']}({r['parameters']}) - {r['confidence']:.1f}%")
+        print(f"{'='*60}\n")
 
         return {
             "class_name": class_name,
             "file_name": convo.file_name,
             "result": top_result,  # For backward compatibility
             "results": formatted_results,  # All detected commands
-            "command_count": len(formatted_results)  # Number of detected commands
+            "command_count": len(formatted_results)
         }
 
     except Exception as e:
+        total_time = (time.perf_counter() - request_start) * 1000
+        print(f"\n[ERROR] Request failed after {total_time:.2f}ms: {str(e)}")
+        print(f"{'='*60}\n")
         raise HTTPException(status_code=500, detail=f"Error analyzing command: {str(e)}")
-
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)

@@ -1,5 +1,6 @@
 """Main NLP v3 pipeline - Honest architecture with transparent scoring"""
 
+import time as perf_time
 from typing import List, Tuple, Dict
 from datetime import datetime as time
 from difflib import SequenceMatcher
@@ -27,15 +28,27 @@ class NLPPipeline:
 
     def initialize(self, methods: List[MethodInfo]):
         """Initialize pipeline with methods - call this after creating pipeline"""
-        print("\n[1/2] Building synonym dictionary via LLM (single call)...")
+        print("\n[0/4] Initializing dependency parser with user methods...")
+        start = time.now()
+        self.dependency_parser.initialize_with_methods(methods)
+        elapsed = (time.now() - start).total_seconds()
+        print(f"  ✓ Completed in {elapsed:.1f}s")
+
+        print("\n[1/4] Building synonym dictionary via LLM (single call)...")
         start = time.now()
         self.synonym_generator.prewarm_cache(methods)
         elapsed = (time.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
-        print("\n[2/2] Building entity normalization map...")
+        print("\n[2/4] Building entity normalization map...")
         start = time.now()
         self.entity_normalizer = EntityNormalizer(methods, self.synonym_generator)
+        elapsed = (time.now() - start).total_seconds()
+        print(f"  ✓ Completed in {elapsed:.1f}s")
+
+        print("\n[3/4] Pre-computing semantic embeddings...")
+        start = time.now()
+        self.semantic_matcher.initialize(methods)
         elapsed = (time.now() - start).total_seconds()
         print(f"  ✓ Completed in {elapsed:.1f}s")
 
@@ -57,11 +70,23 @@ class NLPPipeline:
             top_k: Number of top matches to return
             language: Language code ('en', 'th') or None for auto-detect
         """
+        print(f"\n[STEP 1] Extracting actions from: '{command}'")
+        extract_start = perf_time.perf_counter()
+
         actions = self.dependency_parser.extract_actions(command, language=language)
+
+        extract_time = (perf_time.perf_counter() - extract_start) * 1000
+        print(f"[TIMING] Action extraction: {extract_time:.2f}ms")
+        print(f"[DEBUG] Found {len(actions)} action(s):")
+        for i, (verb, objects, chunks, span) in enumerate(actions, 1):
+            print(f"  Action {i}: verb='{verb}', objects={objects}, span='{span}'")
 
         all_results = []
 
-        for action_verb, action_objects, noun_chunks, action_span in actions:
+        for i, (action_verb, action_objects, noun_chunks, action_span) in enumerate(actions, 1):
+            print(f"\n[STEP 2.{i}] Matching action '{action_verb}' against {len(methods)} methods...")
+            match_start = perf_time.perf_counter()
+
             scores = self._match_action_to_methods(
                 action_verb,
                 action_objects,
@@ -70,8 +95,16 @@ class NLPPipeline:
                 methods
             )
 
+            match_time = (perf_time.perf_counter() - match_start) * 1000
+            print(f"[TIMING] Action {i} matching: {match_time:.2f}ms")
+
             if scores:
-                all_results.append((action_verb, scores[0]))
+                top = scores[0]
+                print(f"[DEBUG] Best match: {top.method_name} (score={top.total_score*100:.1f}%)")
+                print(f"         Params: {top.extracted_params}")
+                all_results.append((action_verb, top))
+            else:
+                print(f"[DEBUG] No match found for action '{action_verb}'")
 
         return all_results
 
@@ -202,10 +235,11 @@ class NLPPipeline:
             method_words = set(method.name.replace('_', ' ').lower().split())
             method_tokens = method.name.lower().split('_')
 
-            # Semantic similarity (general text model)
+            # Semantic similarity (general text model) - uses cached embeddings
             semantic_score = self.semantic_matcher.compute_similarity(
                 action_verb_normalized,
-                method_text.lower()
+                method_text.lower(),
+                method_name=method.name
             )
 
             # Code-aware similarity (CodeBERT if available)
@@ -243,11 +277,14 @@ class NLPPipeline:
 
             if object_nouns:
                 # Direct matching - check if object word appears in method name
-                # Require minimum length of 3 to avoid false positives from short strings
-                # e.g., "st" in "steps" should NOT match, but "forward" in "forward" should
+                # For short entities (< 3 chars like "tv", "ac"), require exact token match
+                # to avoid false positives (e.g., "st" in "steps" should NOT match)
                 matched_objects = sum(
                     1 for obj in object_nouns
-                    if obj in method_name_lower and len(obj) >= 3
+                    if obj in method_name_lower and (
+                        len(obj) >= 3 or  # Substring match for 3+ char entities
+                        obj in method_tokens  # Exact token match for short entities
+                    )
                 )
                 object_match_score = matched_objects / len(object_nouns) if object_nouns else 0
 
@@ -255,7 +292,10 @@ class NLPPipeline:
                 if object_nouns_normalized:
                     matched_normalized = sum(
                         1 for obj in object_nouns_normalized
-                        if obj in method_name_lower and len(obj) >= 3
+                        if obj in method_name_lower and (
+                            len(obj) >= 3 or
+                            obj in method_tokens
+                        )
                     )
                     normalized_entity_match = matched_normalized / len(object_nouns_normalized) if object_nouns_normalized else 0
 
