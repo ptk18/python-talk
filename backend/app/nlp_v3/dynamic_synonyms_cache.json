@@ -1,0 +1,113 @@
+{
+  "cache_version": 1,
+  "methods": {
+    "b44f4c738a74": {
+      "method_name": "turn_light_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532367"
+    },
+    "df60ae17d26d": {
+      "method_name": "turn_light_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532396"
+    },
+    "079617d086fb": {
+      "method_name": "turn_tv_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532401"
+    },
+    "d7bfec794827": {
+      "method_name": "turn_tv_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532403"
+    },
+    "f05f7756b95c": {
+      "method_name": "turn_ac_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532406"
+    },
+    "29b569c13aba": {
+      "method_name": "turn_ac_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532408"
+    },
+    "1ce623509719": {
+      "method_name": "set_temperature",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532411"
+    },
+    "467a912dcc11": {
+      "method_name": "increase_temperature",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532414"
+    },
+    "2f51e052c3ef": {
+      "method_name": "decrease_temperature",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532416"
+    },
+    "383f22702fd3": {
+      "method_name": "get_temperature",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532418"
+    },
+    "2dd56f413cc9": {
+      "method_name": "is_light_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532421"
+    },
+    "0b1a55cdc0ad": {
+      "method_name": "is_tv_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532425"
+    },
+    "e0b57831efc3": {
+      "method_name": "is_ac_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532428"
+    },
+    "2fb4aab2d580": {
+      "method_name": "count_devices_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532431"
+    },
+    "d71c4a5a1263": {
+      "method_name": "are_all_devices_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532434"
+    },
+    "d402b5fb8268": {
+      "method_name": "status",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532438"
+    },
+    "5463a3be02ff": {
+      "method_name": "turn_all_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532441"
+    },
+    "9aa19f6427c1": {
+      "method_name": "turn_all_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532443"
+    }
+  }
+}

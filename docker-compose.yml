@@ -21,53 +21,17 @@ services:
         reservations:
           memory: 512M
 
-  main-app:
+  frontend:
     build:
       context: .
-      dockerfile: main-app/Dockerfile
+      dockerfile: frontend/Dockerfile
     platform: linux/amd64
     ports:
       - "3001:3001"
     volumes:
-      - ./main-app:/app/main-app
+      - ./frontend:/app/frontend
       - ./packages/shared:/app/packages/shared
-      - /app/main-app/node_modules
-    depends_on:
-      - backend
-    networks:
-      - python_talk_net
-    environment:
-      - VITE_API_URL=http://backend:8000
-
-  codespace-app:
-    build:
-      context: .
-      dockerfile: codespace-app/Dockerfile
-    platform: linux/amd64
-    ports:
-      - "3002:3002"
-    volumes:
-      - ./codespace-app:/app/codespace-app
-      - ./packages/shared:/app/packages/shared
-      - /app/codespace-app/node_modules
-    depends_on:
-      - backend
-    networks:
-      - python_talk_net
-    environment:
-      - VITE_API_URL=http://backend:8000
-
-  turtle-app:
-    build:
-      context: .
-      dockerfile: turtle-app/Dockerfile
-    platform: linux/amd64
-    ports:
-      - "3003:3003"
-    volumes:
-      - ./turtle-app:/app/turtle-app
-      - ./packages/shared:/app/packages/shared
-      - /app/turtle-app/node_modules
+      - /app/frontend/node_modules
     depends_on:
       - backend
     networks:

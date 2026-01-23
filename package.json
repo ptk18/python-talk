@@ -5,15 +5,11 @@
   "description": "Py-Talk - Voice-driven Python learning platform",
   "workspaces": [
     "packages/*",
-    "main-app",
-    "codespace-app",
-    "turtle-app"
+    "frontend"
   ],
   "scripts": {
-    "dev:main": "npm run dev --workspace=main-app",
-    "dev:codespace": "npm run dev --workspace=codespace-app",
-    "dev:turtle": "npm run dev --workspace=turtle-app",
-    "build:all": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=frontend",
     "install:all": "npm install"
   }
 }

@@ -1,0 +1,22 @@
+{
+  "name": "py-talk-frontend",
+  "version": "1.0.0",
+  "description": "Py-Talk Frontend - Voice-driven Python learning platform",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@monaco-editor/loader": "^1.4.0",
+    "@py-talk/shared": "file:../packages/shared",
+    "axios": "^1.7.2",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "vite": "^5.4.0"
+  }
+}

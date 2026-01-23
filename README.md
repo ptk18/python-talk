@@ -19,16 +19,19 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-**Frontend (run each in separate terminal):**
+**Frontend:**
 ```bash
-cd main-app && npm install && npm run dev
-cd codespace-app && npm install && npm run dev
-cd turtle-app && npm install && npm run dev
+cd frontend && npm install && npm run dev
 ```
 
 ## Ports
 
 - Backend: http://localhost:8000
-- Main App: http://localhost:3001
-- Codespace: http://localhost:3002
-- Turtle App: http://localhost:3003
+- Frontend: http://localhost:3001
+
+## Features
+
+- **Workspace**: Voice-driven Python coding environment with Monaco editor
+- **Conversation Manager**: Manage and review coding sessions
+- **Turtle Playground**: Interactive turtle graphics with voice commands
+- **Multi-language**: English and Thai support

@@ -17,3 +17,12 @@ extra_files/
 # Node modules - ignore in all directories
 node_modules/
 .npm-cache/
+
+command-variations/
+
+# Testing (temporary)
+backend/tests/
+backend/pytest.ini
+.pytest_cache/
+htmlcov/
+.coverage
