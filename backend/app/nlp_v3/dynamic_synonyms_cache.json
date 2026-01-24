@@ -108,6 +108,216 @@
       "docstring": null,
       "synonyms": [],
       "generated_at": "2026-01-23T03:21:36.532443"
+    },
+    "a80602190308": {
+      "method_name": "back",
+      "docstring": "Move the turtle backward by distance. (aliases: backward, bk)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004294"
+    },
+    "810eff01711e": {
+      "method_name": "begin_fill",
+      "docstring": "Called just before drawing a shape to be filled.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004307"
+    },
+    "0e2f58c354e0": {
+      "method_name": "clear",
+      "docstring": "Delete the turtle's drawings from the screen. Do not move turtle.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004309"
+    },
+    "9e7f4ca37ce9": {
+      "method_name": "clearstamp",
+      "docstring": "Delete stamp with given stampid",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004310"
+    },
+    "d6f3e3f5f18d": {
+      "method_name": "clearstamps",
+      "docstring": "Delete all or first/last n of turtle's stamps.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004313"
+    },
+    "86c247b65e35": {
+      "method_name": "degrees",
+      "docstring": "Set angle measurement units to degrees.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004314"
+    },
+    "3b9f2939c605": {
+      "method_name": "distance",
+      "docstring": "Return the distance from the turtle to (x,y) in turtle step units.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004316"
+    },
+    "97ecd0c14ad1": {
+      "method_name": "dot",
+      "docstring": "Draw a dot with diameter size, using color.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004317"
+    },
+    "dce4c20e67b5": {
+      "method_name": "end_fill",
+      "docstring": "Fill the shape drawn after the call begin_fill().",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004319"
+    },
+    "c08fa6f5eaf6": {
+      "method_name": "filling",
+      "docstring": "Return fillstate (True if filling, False else).",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004320"
+    },
+    "508d549bbfec": {
+      "method_name": "forward",
+      "docstring": "Move the turtle forward by the specified distance. (aliases: fd)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004322"
+    },
+    "b72e40271560": {
+      "method_name": "heading",
+      "docstring": "Return the turtle's current heading.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004323"
+    },
+    "2f146e66d431": {
+      "method_name": "hideturtle",
+      "docstring": "Makes the turtle invisible. (aliases: ht)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004324"
+    },
+    "a4446a0d2652": {
+      "method_name": "home",
+      "docstring": "Move turtle to the origin - coordinates (0,0).",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004325"
+    },
+    "75d2330b1157": {
+      "method_name": "isdown",
+      "docstring": "Return True if pen is down, False if it's up.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004327"
+    },
+    "802b707def3c": {
+      "method_name": "isvisible",
+      "docstring": "Return True if the Turtle is shown, False if it's hidden.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004328"
+    },
+    "5a8ce22807f0": {
+      "method_name": "left",
+      "docstring": "Turn turtle left by angle units. (aliases: lt)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004329"
+    },
+    "3479ea6aa47e": {
+      "method_name": "pendown",
+      "docstring": "Pull the pen down -- drawing when moving. (aliases: pd, down)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004331"
+    },
+    "082a566688a1": {
+      "method_name": "penup",
+      "docstring": "Pull the pen up -- no drawing when moving. (aliases: pu, up)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004340"
+    },
+    "775a4f27a9a0": {
+      "method_name": "pos",
+      "docstring": "Return the turtle's current location (x,y), as a Vec2D-vector. (aliases: position)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004342"
+    },
+    "cfbf21827976": {
+      "method_name": "radians",
+      "docstring": "Set the angle measurement units to radians.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004344"
+    },
+    "0c0a7f229e6b": {
+      "method_name": "reset",
+      "docstring": "Delete the turtle's drawings and restore its default values.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004345"
+    },
+    "7fcc6eb4d74f": {
+      "method_name": "right",
+      "docstring": "Turn turtle right by angle units. (aliases: rt)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004347"
+    },
+    "ef10eb34c725": {
+      "method_name": "setheading",
+      "docstring": "Set the orientation of the turtle to to_angle. (aliases: seth)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004348"
+    },
+    "3f83cc74a2a6": {
+      "method_name": "setpos",
+      "docstring": "Move turtle to an absolute position. (aliases: setposition, goto:)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004349"
+    },
+    "0380ee304822": {
+      "method_name": "setx",
+      "docstring": "Set the turtle's first coordinate to x",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004352"
+    },
+    "05ae685c6c26": {
+      "method_name": "sety",
+      "docstring": "Set the turtle's second coordinate to y",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004353"
+    },
+    "1bbdfb942975": {
+      "method_name": "showturtle",
+      "docstring": "Makes the turtle visible. (aliases: st)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004355"
+    },
+    "ad5b8d9c7bee": {
+      "method_name": "speed",
+      "docstring": "Return or set the turtle's speed.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004356"
+    },
+    "a2587bb962ad": {
+      "method_name": "stamp",
+      "docstring": "Stamp a copy of the turtleshape onto the canvas and return its id.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004358"
+    },
+    "c1e6918ab496": {
+      "method_name": "towards",
+      "docstring": "Return the angle of the line from the turtle's position to (x, y).",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004359"
+    },
+    "54240235896e": {
+      "method_name": "undo",
+      "docstring": "undo (repeatedly) the last turtle action.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004361"
+    },
+    "02bfb7a3f0c3": {
+      "method_name": "write",
+      "docstring": "Write text at the current turtle position.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004362"
+    },
+    "3bb0dffab212": {
+      "method_name": "xcor",
+      "docstring": "Return the turtle's x coordinate.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004363"
+    },
+    "d40b848434ee": {
+      "method_name": "ycor",
+      "docstring": "Return the turtle's y coordinate",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004364"
     }
   }
 }

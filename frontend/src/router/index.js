@@ -1,18 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from '@py-talk/shared'
-import Home from '../views/Home.vue'
-import Login from '../views/Login.vue'
-import SignUp from '../views/SignUp.vue'
-import Profile from '../views/Profile.vue'
-import Settings from '../views/Settings.vue'
+import Home from '@/features/home/HomeView.vue'
+import Login from '@/features/auth/LoginView.vue'
+import SignUp from '@/features/auth/SignUpView.vue'
+import Profile from '@/features/profile/ProfileView.vue'
+import Settings from '@/features/settings/SettingsView.vue'
 
-// Lazy-loaded views from codespace-app
-const ConversationManager = () => import('../views/ConversationManager.vue')
-const Workspace = () => import('../views/Workspace.vue')
-const Run = () => import('../views/Run.vue')
-
-// Lazy-loaded views from turtle-app
-const TurtlePlayground = () => import('../views/TurtlePlayground.vue')
+// Lazy-loaded feature views
+const ConversationManager = () => import('@/features/conversation/ConversationManagerView.vue')
+const Workspace = () => import('@/features/codespace/WorkspaceView.vue')
+const Run = () => import('@/features/run/RunView.vue')
+const TurtlePlayground = () => import('@/features/turtle/TurtlePlaygroundView.vue')
 
 const routes = [
   {
