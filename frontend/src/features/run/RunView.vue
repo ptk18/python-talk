@@ -1,5 +1,6 @@
 <template>
   <div class="app-container">
+    <TopToolbar />
     <Sidebar />
     <main class="main-content">
       <header class="top-header">
@@ -225,6 +226,7 @@
 </template>
 
 <script>
+import TopToolbar from '@/shared/components/TopToolbar.vue'
 import Sidebar from '@/shared/components/Sidebar.vue'
 import uploadFileIcon from '@/assets/R-uploadfile.svg'
 import undoIcon from '@/assets/R-undo.svg'
@@ -238,6 +240,7 @@ import functionPanelIcon from '@/assets/R-functionpanel.svg'
 export default {
   name: 'Run',
   components: {
+    TopToolbar,
     Sidebar
   },
   data() {

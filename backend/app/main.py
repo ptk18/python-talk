@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers.common import auth, users, posts, messages, translate, paraphrase
+from app.routers.common import auth, users, posts, messages, translate, paraphrase, favorites
 from app.routers.codespace import analyze_command, execute_command, conversations
 from app.routers.turtle import turtle_commands, turtle_execute
 from app.routers.voice import voice, google_speech
@@ -70,6 +70,7 @@ app.include_router(turtle_execute.router, prefix="/api")
 app.include_router(paraphrase.router, prefix="/api")
 app.include_router(translate.router, prefix="/api")
 app.include_router(turtle_commands.router, prefix="/api")
+app.include_router(favorites.router, prefix="/api")
 
 
 @app.get("/")

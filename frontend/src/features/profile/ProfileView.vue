@@ -1,5 +1,6 @@
 <template>
   <div class="app-container">
+    <TopToolbar />
     <Sidebar />
     <main class="main-content">
       <header class="top-header">
@@ -80,11 +81,13 @@
 import { computed } from 'vue'
 import { useLanguage } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
+import TopToolbar from '@/shared/components/TopToolbar.vue'
 import Sidebar from '@/shared/components/Sidebar.vue'
 
 export default {
   name: 'Profile',
   components: {
+    TopToolbar,
     Sidebar
   },
   setup() {

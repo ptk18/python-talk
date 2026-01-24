@@ -1,27 +1,22 @@
 <template>
   <div class="app-container">
+    <TopToolbar />
     <Sidebar />
+    <AppSidebar
+      :app-id="appId"
+      :app-name="appName || t.turtlePlayground.pageTitle"
+      :app-icon="appIcon"
+      app-type="turtle"
+      @insert-method="handleInsertMethod"
+    />
     <main class="main-content">
-      <header class="top-header">
-        <div class="section-header">
-          <h2 class="page-title">{{ t.turtlePlayground.pageTitle }}</h2>
-          <div class="control-buttons">
-            <button class="control-button" @click="toggleLanguage" :title="`Switch to ${language === 'en' ? 'Thai' : 'English'}`">
-              <img :src="langIcon" alt="Language" class="control-icon" />
-            </button>
-            <button class="control-button" @click="toggleTTS" :title="ttsEnabled ? 'Disable Voice' : 'Enable Voice'">
-              <img :src="ttsEnabled ? soundIcon : nosoundIcon" alt="Sound" class="control-icon" />
-            </button>
-          </div>
-        </div>
-      </header>
       <div class="content-area">
     <div class="turtle-playground">
       <div class="turtle-playground__container">
-        <!-- Left Column: Code Editor + Available Methods -->
+        <!-- Left Column: Code Editor -->
         <div class="turtle-playground__left-column">
           <!-- Code Editor Section -->
-          <section class="turtle-playground__code-panel">
+          <section class="turtle-playground__code-panel turtle-playground__code-panel--full">
             <div class="turtle-playground__code-header">
               <div class="turtle-playground__code-title">
                 <h3>{{ language === 'th' ? 'โค้ดเอดิเตอร์' : 'Code Editor' }}</h3>
@@ -34,10 +29,6 @@
                 <button class="turtle-playground__icon-btn" @click="handleRedo" :title="language === 'th' ? 'ทำซ้ำ' : 'Redo'">
                   <img :src="redoIcon" alt="Redo" class="turtle-playground__icon-img" />
                 </button>
-                <button class="turtle-playground__icon-btn" @click="handleSettingsClick" :title="language === 'th' ? 'การตั้งค่า' : 'Settings'">
-                  <img :src="settingsIcon" alt="Settings" class="turtle-playground__icon-img" />
-
-                </button>
               </div>
             </div>
             <div class="turtle-playground__code-editor">
@@ -47,48 +38,6 @@
                 language="python"
                 @update:code="handleCodeUpdate"
               />
-            </div>
-          </section>
-
-          <!-- Available Methods Section -->
-          <section class="turtle-playground__methods-panel">
-            <div class="turtle-playground__methods-header">
-              <h3>{{ language === 'th' ? 'เมธอดที่ใช้ได้' : 'Available Methods' }}</h3>
-              <span v-if="activeModules.length > 0" class="turtle-playground__module-badge">{{ activeModules[0] }}</span>
-            </div>
-            <div class="turtle-playground__methods-scroll">
-              <div v-if="availableMethods.length === 0" class="turtle-playground__methods-empty">
-                {{ language === 'th' ? 'พิมพ์ import statement เพื่อดูเมธอดที่มี' : 'Type an import statement to see available methods' }}
-              </div>
-              <div v-else>
-                <div
-                  v-for="(category, catIndex) in methodCategories"
-                  :key="catIndex"
-                  class="turtle-playground__method-category"
-                >
-                  <div class="turtle-playground__category-header" @click="toggleCategory(category.name)">
-                    <span class="turtle-playground__category-name">{{ category.name }}</span>
-                    <span class="turtle-playground__category-count">{{ category.methods.length }} methods</span>
-                    <svg
-                      :class="['turtle-playground__category-chevron', { 'expanded': expandedCategories.includes(category.name) }]"
-                      width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    >
-                      <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                  </div>
-                  <div v-if="expandedCategories.includes(category.name)" class="turtle-playground__method-chips">
-                    <button
-                      v-for="method in category.methods"
-                      :key="method.name"
-                      class="turtle-playground__method-chip"
-                      @click="insertMethod(method)"
-                      :title="method.docstring || method.name"
-                    >
-                      {{ method.name }}({{ method.params.join(', ') }})
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
           </section>
         </div>
@@ -207,36 +156,33 @@
 
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import TopToolbar from '@/shared/components/TopToolbar.vue';
 import Sidebar from '@/shared/components/Sidebar.vue';
+import AppSidebar from '@/shared/components/AppSidebar.vue';
 import MonacoEditor from '@/shared/components/MonacoEditor.vue';
-import { useLanguage, useTTS, voiceService, turtleAPI, translateAPI } from '@py-talk/shared';
+import { useLanguage, useTTS, voiceService, turtleAPI, translateAPI, conversationAPI } from '@py-talk/shared';
 import { useTranslations } from '@/utils/translations';
 import { Turtle } from './lib/turtle';
 import { parseTurtleCommand } from './lib/turtleCommandParser';
-import langIcon from '@/assets/lang-icon.svg';
-import soundIcon from '@/assets/sound-icon.svg';
-import nosoundIcon from '@/assets/nosound-icon.svg';
 import undoIcon from '@/assets/R-undo.svg';
 import redoIcon from '@/assets/R-redo.svg';
-import settingsIcon from '@/assets/T-setting-icon.svg';
 import clearIcon from '@/assets/T-clear.svg';
 import resetIcon from '@/assets/T-reset.svg';
 
 export default {
   name: 'TurtlePlayground',
-  components: { Sidebar, MonacoEditor },
+  components: { TopToolbar, Sidebar, AppSidebar, MonacoEditor },
   setup() {
-    const { language, setLanguage } = useLanguage();
-    const { ttsEnabled, setTTSEnabled } = useTTS();
+    const route = useRoute();
+    const { language } = useLanguage();
+    const { ttsEnabled } = useTTS();
     const t = computed(() => useTranslations(language.value));
 
-    const toggleLanguage = () => {
-      setLanguage(language.value === 'en' ? 'th' : 'en');
-    };
-
-    const toggleTTS = () => {
-      setTTSEnabled(!ttsEnabled.value);
-    };
+    // App-specific state
+    const appId = computed(() => route.params.appId);
+    const appName = ref('');
+    const appIcon = ref(null);
 
     // Refs
     const turtleCanvas = ref(null);
@@ -268,65 +214,44 @@ t = turtle.Turtle()
       alertTimeout = setTimeout(() => { showAlert.value = false; }, duration);
     };
 
-    const availableMethods = ref([]);
-    const methodCategories = ref([]);
-    const activeModules = ref(['turtle']);
-    const expandedCategories = ref([]);
     let turtle = null;
-
-    const fetchTurtleMethods = async () => {
-      try {
-        const response = await turtleAPI.getMethods();
-        if (response.success) {
-          availableMethods.value = response.methods;
-
-          const categories = {};
-          response.methods.forEach(method => {
-            const cat = method.category || 'other';
-            if (!categories[cat]) categories[cat] = [];
-            categories[cat].push(method);
-          });
-
-          methodCategories.value = Object.entries(categories).map(([name, methods]) => ({
-            name, methods
-          }));
-
-          if (methodCategories.value.length > 0) {
-            expandedCategories.value = [methodCategories.value[0].name];
-          }
-        }
-      } catch (err) {
-        console.error('[TurtlePlayground] Failed to fetch methods:', err);
-      }
-    };
 
     const handleCodeUpdate = (newCode) => {
       codeContent.value = newCode;
     };
 
-    const toggleCategory = (categoryName) => {
-      const index = expandedCategories.value.indexOf(categoryName);
-      if (index === -1) {
-        expandedCategories.value.push(categoryName);
-      } else {
-        expandedCategories.value.splice(index, 1);
-      }
-    };
-
-    const insertMethod = (method) => {
-      commandText.value = `${method.name}(${method.params.join(', ')})`;
+    // Handle method insertion from AppSidebar
+    const handleInsertMethod = (methodCall) => {
+      commandText.value = methodCall;
     };
 
     // Editor toolbar handlers
     const handleUndo = () => { monacoEditor.value?.undo(); };
     const handleRedo = () => { monacoEditor.value?.redo(); };
-    const handleSettingsClick = () => {
-      showAlertBox(language.value === 'th' ? 'เร็วๆ นี้' : 'Coming soon', 'success', 2000);
-    };
 
     const appendToCodeEditor = (command, comment = null) => {
       const newLine = comment ? `\n# ${comment}\n${command}` : `\n${command}`;
       codeContent.value += newLine;
+    };
+
+    // Load app data if appId is provided
+    const loadAppData = async () => {
+      if (appId.value) {
+        try {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/conversations/${appId.value}/single`);
+          if (response.ok) {
+            const data = await response.json();
+            appName.value = data.title || '';
+            appIcon.value = data.app_image || null;
+            // Load saved code if available
+            if (data.code) {
+              codeContent.value = data.code;
+            }
+          }
+        } catch (err) {
+          console.warn('[TurtlePlayground] Failed to load app data:', err);
+        }
+      }
     };
 
     onMounted(async () => {
@@ -338,7 +263,7 @@ t = turtle.Turtle()
         } catch (err) {
           console.warn('[TurtlePlayground] Failed to pre-warm pipeline:', err);
         }
-        await fetchTurtleMethods();
+        await loadAppData();
       }
     });
 
@@ -493,16 +418,10 @@ t = turtle.Turtle()
       t,
       language,
       ttsEnabled,
-      langIcon,
-      soundIcon,
-      nosoundIcon,
       undoIcon,
       redoIcon,
-      settingsIcon,
       clearIcon,
       resetIcon,
-      toggleLanguage,
-      toggleTTS,
       turtleCanvas,
       turtleIndicator,
       canvasWrapper,
@@ -512,25 +431,23 @@ t = turtle.Turtle()
       isRecording,
       isTranscribing,
       isProcessing,
-      availableMethods,
-      methodCategories,
-      activeModules,
-      expandedCategories,
+      // App-specific
+      appId,
+      appName,
+      appIcon,
       // Alert box
       alertMessage,
       alertType,
       showAlert,
       // Handlers
       handleCodeUpdate,
-      toggleCategory,
-      insertMethod,
+      handleInsertMethod,
       handleRunCommand,
       handleMicClick,
       handleClear,
       handleReset,
       handleUndo,
       handleRedo,
-      handleSettingsClick,
     };
   }
 };
@@ -541,12 +458,13 @@ t = turtle.Turtle()
 
 /* Header Styles */
 .main-content {
-  margin-left: 260px;
+  margin-left: 300px;  /* 80px main sidebar + 220px app sidebar */
+  margin-top: 48px;
   flex: 1;
   display: flex;
   flex-direction: column;
   background: #fafafa;
-  height: 100vh;
+  height: calc(100vh - 48px);
   overflow: hidden;
 }
 
@@ -636,5 +554,11 @@ t = turtle.Turtle()
   width: 18px;
   height: 18px;
   object-fit: contain;
+}
+
+/* Full height code panel when methods panel is removed */
+.turtle-playground__code-panel--full {
+  flex: 1;
+  min-height: 0;
 }
 </style>

@@ -9,7 +9,9 @@ export const translations = {
       settings: 'Settings',
       logout: 'Logout',
       voiceOn: 'Voice On',
-      voiceOff: 'Voice Off'
+      voiceOff: 'Voice Off',
+      soundOn: 'Sound On',
+      soundOff: 'Sound Off'
     },
 
     // Navbar
@@ -122,20 +124,32 @@ export const translations = {
       goodAfternoon: 'Good Afternoon, Sir',
       goodEvening: 'Good Evening, Sir',
       welcome: 'Welcome, Sir'
+    },
+
+    // App Sidebar
+    appSidebar: {
+      allApps: 'All Apps',
+      availableMethods: 'Available Methods',
+      files: 'Files',
+      loading: 'Loading...',
+      noMethods: 'No methods available',
+      noFiles: 'No files'
     }
   },
 
   th: {
     // Sidebar
     sidebar: {
-      home: 'หน้าหลัก',
+      home: 'หน้าแรก',
       codeSpace: 'พื้นที่เขียนโค้ด',
       history: 'ประวัติ',
       turtle: 'สนามเล่นเต่า',
-      settings: 'การตั้งค่า',
+      settings: 'ตั้งค่า',
       logout: 'ออกจากระบบ',
       voiceOn: 'เปิดเสียง',
-      voiceOff: 'ปิดเสียง'
+      voiceOff: 'ปิดเสียง',
+      soundOn: 'เปิดเสียง',
+      soundOff: 'ปิดเสียง'
     },
 
     // Navbar
@@ -248,6 +262,16 @@ export const translations = {
       goodAfternoon: 'สวัสดีตอนบ่ายครับ',
       goodEvening: 'สวัสดีตอนเย็นครับ',
       welcome: 'ยินดีต้อนรับครับ'
+    },
+
+    // App Sidebar
+    appSidebar: {
+      allApps: 'แอปทั้งหมด',
+      availableMethods: 'เมธอดที่ใช้ได้',
+      files: 'ไฟล์',
+      loading: 'กำลังโหลด...',
+      noMethods: 'ไม่มีเมธอดที่ใช้ได้',
+      noFiles: 'ไม่มีไฟล์'
     }
   }
 };

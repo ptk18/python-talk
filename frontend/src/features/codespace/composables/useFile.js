@@ -54,6 +54,12 @@ export function useFile() {
     }
   };
 
+  const clearFileState = () => {
+    currentFile.value = '';
+    currentCode.value = '';
+    files.value = [];
+  };
+
   return {
     currentFile,
     currentCode,
@@ -64,5 +70,6 @@ export function useFile() {
     loadFile,
     saveFile,
     deleteFile,
+    clearFileState,
   };
 }

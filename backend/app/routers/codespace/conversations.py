@@ -6,19 +6,36 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
-from app.models.schemas import ConversationCreate, ConversationResponse
+from app.models.schemas import ConversationCreate, ConversationResponse, ConversationUpdate
 from app.nlp_v3.catalog import extract_from_file
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
 @router.post("/{user_id}", response_model=ConversationResponse)
 def create_conversation(user_id: int, convo: ConversationCreate, db: Session = Depends(get_db)):
-    """Create a new conversation with title + uploaded code"""
+    """Create a new conversation with title + uploaded code or imported library"""
+
+    # Handle turtle app type - generate default code
+    if convo.app_type.value == "turtle":
+        code = convo.code or """import turtle
+
+t = turtle.Turtle()
+"""
+        file_name = convo.file_name or "turtle_app.py"
+    else:
+        # Upload type requires code and file_name
+        if not convo.code or not convo.file_name:
+            raise HTTPException(status_code=400, detail="Upload apps require code and file_name")
+        code = convo.code
+        file_name = convo.file_name
+
     db_convo = Conversation(
         user_id=user_id,
-        title=convo.title or "New Conversation",
-        file_name=convo.file_name,
-        code=convo.code
+        title=convo.title or "New App",
+        file_name=file_name,
+        code=code,
+        app_type=convo.app_type.value,
+        app_image=convo.app_image
     )
     db.add(db_convo)
     db.commit()
@@ -36,6 +53,22 @@ def get_single_conversation(conversation_id: int, db: Session = Depends(get_db))
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    return convo
+
+@router.put("/{conversation_id}", response_model=ConversationResponse)
+def update_conversation(conversation_id: int, update: ConversationUpdate, db: Session = Depends(get_db)):
+    """Update conversation title and/or image"""
+    convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if update.title is not None:
+        convo.title = update.title
+    if update.app_image is not None:
+        convo.app_image = update.app_image
+
+    db.commit()
+    db.refresh(convo)
     return convo
 
 @router.get("/{conversation_id}/available_methods")

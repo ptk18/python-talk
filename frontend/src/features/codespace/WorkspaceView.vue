@@ -1,20 +1,17 @@
 <template>
   <div class="app-container">
+    <TopToolbar />
     <Sidebar />
+    <AppSidebar
+      :app-id="conversationId"
+      :app-name="appName"
+      :app-icon="appIcon"
+      :app-type="appType"
+      :current-file="currentFile"
+      @insert-method="handleInsertMethod"
+      @select-file="handleSelectFile"
+    />
     <main class="main-content">
-      <header class="top-header">
-        <div class="section-header">
-          <h2 class="page-title">Codespace</h2>
-          <div class="control-buttons">
-            <button class="control-button" @click="toggleLanguage" :title="`Switch to ${language === 'en' ? 'Thai' : 'English'}`">
-              <img :src="langIcon" alt="Language" class="control-icon" />
-            </button>
-            <button class="control-button" @click="toggleTTS" :title="ttsEnabled ? 'Disable Voice' : 'Enable Voice'">
-              <img :src="ttsEnabled ? soundIcon : nosoundIcon" alt="Sound" class="control-icon" />
-            </button>
-          </div>
-        </div>
-      </header>
     <div class="workspace">
 
     <div class="workspace__container">
@@ -110,17 +107,6 @@
             <h3 class="workspace__editor-title">Code Editor</h3>
             <div style="display: flex; gap: 8px; align-items: center;">
               <button
-                v-if="availableMethods"
-                class="workspace__icon-btn"
-                @click="toggleMethodsPanel"
-                aria-label="Methods"
-                title="Toggle methods panel"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </button>
-              <button
                 class="workspace__icon-btn"
                 @click="handleSave"
                 :disabled="isSaving"
@@ -137,7 +123,25 @@
               </button>
 
               <button
-                class="workspace__icon-btn workspace__run-btn"
+                class="workspace__icon-btn"
+                @click="handleUndo"
+                aria-label="Undo"
+                title="Undo (Ctrl+Z)"
+              >
+                <img :src="undoIcon" alt="Undo" class="workspace__icon-btn-icon" />
+              </button>
+
+              <button
+                class="workspace__icon-btn"
+                @click="handleRedo"
+                aria-label="Redo"
+                title="Redo (Ctrl+Y)"
+              >
+                <img :src="redoIcon" alt="Redo" class="workspace__icon-btn-icon" />
+              </button>
+
+              <button
+                class="workspace__icon-btn"
                 @click="handleRun"
                 :disabled="isRunning"
                 aria-label="Run runner.py"
@@ -149,47 +153,11 @@
                     <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
                   </path>
                 </svg>
-                <template v-else>
-                  <img :src="runCodeIcon" alt="Run" class="workspace__icon-btn-icon" />
-                  <span class="workspace__run-text">Run</span>
-                </template>
+                <img v-else :src="runCodeIcon" alt="Run" class="workspace__icon-btn-icon" />
               </button>
             </div>
           </div>
           <div class="workspace__editor-wrapper">
-            <div class="workspace__editor-toolbar">
-              <input
-                type="file"
-                ref="fileInputRef"
-                @change="handleFileUpload"
-                accept=".py"
-                style="display: none"
-              />
-              <button
-                class="workspace__toolbar-btn"
-                @click="() => fileInputRef?.click()"
-                aria-label="Upload File"
-                title="Upload Python file"
-              >
-                <img :src="uploadFileIcon" alt="Upload File" class="workspace__toolbar-icon" />
-              </button>
-              <button
-                class="workspace__toolbar-btn"
-                @click="handleUndo"
-                aria-label="Undo"
-                title="Undo (Ctrl+Z)"
-              >
-                <img :src="undoIcon" alt="Undo" class="workspace__toolbar-icon" />
-              </button>
-              <button
-                class="workspace__toolbar-btn"
-                @click="handleRedo"
-                aria-label="Redo"
-                title="Redo (Ctrl+Y)"
-              >
-                <img :src="redoIcon" alt="Redo" class="workspace__toolbar-icon" />
-              </button>
-            </div>
             <div class="workspace__editor-content">
               <div class="workspace__editor-file-info">
                 <span v-if="isRefreshing" class="workspace__refresh-indicator" title="Refreshing file content...">
@@ -236,29 +204,28 @@
                 </button>
               </div>
             </div>
-            <!-- Mode Tabs -->
-            <div class="workspace__mode-tabs">
+          </div>
+          <div class="workspace__output-body">
+            <!-- Vertical Mode Tabs -->
+            <div class="workspace__mode-tabs-vertical">
               <button
-                class="workspace__mode-tab"
+                class="workspace__mode-tab-v"
                 :class="{ 'active': isTextMode }"
                 @click="setOutputMode('text')"
                 title="Text Mode"
               >
-                <img :src="textModeIcon" alt="Text Mode" class="workspace__mode-tab-icon" />
-                <span>Text</span>
+                <img :src="textModeIcon" alt="Text" class="workspace__mode-tab-icon" />
               </button>
               <button
-                class="workspace__mode-tab"
+                class="workspace__mode-tab-v"
                 :class="{ 'active': !isTextMode }"
                 @click="setOutputMode('graphic')"
                 title="Graphic Mode"
               >
-                <img :src="graphicModeIcon" alt="Graphic Mode" class="workspace__mode-tab-icon" />
-                <span>Graphic</span>
+                <img :src="graphicModeIcon" alt="Graphic" class="workspace__mode-tab-icon" />
               </button>
             </div>
-          </div>
-          <div class="workspace__output">
+            <div class="workspace__output">
             <div
               v-if="!isTextMode"
               style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #1e1e1e; padding: 10px;"
@@ -273,6 +240,7 @@
               />
             </div>
             <pre v-else>{{ output || t.workspace.outputWillAppear }}</pre>
+            </div>
           </div>
         </div>
       </section>
@@ -322,88 +290,6 @@
       </div>
     </Transition>
 
-    <!-- Overlay for methods panel -->
-    <div
-      v-if="isMethodsPanelOpen"
-      class="workspace__methods-overlay"
-      @click="toggleMethodsPanel"
-    ></div>
-
-    <!-- Right Methods Panel -->
-    <div class="workspace__methods-panel" :class="{ 'open': isMethodsPanelOpen }">
-      <div class="workspace__methods-panel-header">
-        <h3 class="workspace__methods-panel-title">
-          {{ availableMethods?.file_name || t.workspace.availableMethods }}
-        </h3>
-        <button class="workspace__methods-panel-close" @click="toggleMethodsPanel" title="Close panel">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>
-      <div class="workspace__methods-panel-content">
-        <div
-          v-for="(classInfo, className) in availableMethods?.classes"
-          :key="className"
-          class="workspace__methods-class"
-        >
-          <div
-            v-for="method in classInfo.methods"
-            :key="method.name"
-            class="workspace__method-card"
-            @click="insertMethod(method)"
-          >
-            <div class="workspace__method-card-name">{{ method.name }}</div>
-            <div class="workspace__method-card-params">
-              {{ method.required_parameters.join(', ') }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    </div>
-
-    <!-- Function Panel Overlay -->
-    <div
-      v-if="isFunctionPanelOpen"
-      class="function-panel-overlay"
-      @click="toggleFunctionPanel"
-    ></div>
-
-    <!-- Right Functions Panel -->
-    <div class="function-panel" :class="{ 'open': isFunctionPanelOpen }">
-      <div class="function-panel-header">
-        <h3 class="function-panel-title">{{ availableMethods?.file_name || t.workspace.availableMethods }}</h3>
-        <button class="function-panel-close" @click="toggleFunctionPanel" title="Close panel">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>
-      <div class="function-panel-content">
-        <div
-          v-for="(classInfo, className) in availableMethods?.classes"
-          :key="className"
-          class="function-panel-class"
-        >
-          <h4 class="function-panel-class-title">{{ className }}</h4>
-          <div
-            v-for="method in classInfo.methods"
-            :key="method.name"
-            class="function-item"
-            @click="insertMethod(method)"
-          >
-            <div class="function-item-name">{{ method.name }}</div>
-            <div class="function-item-description">
-              Parameters: {{ method.required_parameters.join(', ') }}
-            </div>
-            <div v-if="method.file_name" class="function-item-file">{{ method.file_name }}</div>
-          </div>
-        </div>
-        <div v-if="!availableMethods || Object.keys(availableMethods?.classes || {}).length === 0" class="function-panel-empty">
-          <p>No methods available</p>
-        </div>
-      </div>
     </div>
     </main>
   </div>
@@ -412,20 +298,18 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import TopToolbar from '@/shared/components/TopToolbar.vue';
 import Sidebar from '@/shared/components/Sidebar.vue';
+import AppSidebar from '@/shared/components/AppSidebar.vue';
 import MonacoEditor from '@/shared/components/MonacoEditor.vue';
 import { messageAPI, conversationAPI, executeAPI, analyzeAPI, paraphraseAPI, fileAPI, translateAPI, useAuth, useLanguage, useTTS, voiceService } from '@py-talk/shared';
 import { useCode } from './composables/useCode';
 import { useFile } from './composables/useFile';
 import { useTranslations } from '@/utils/translations';
 import scorpioIcon from '@/assets/scorpio.svg';
-import langIcon from '@/assets/lang-icon.svg';
-import soundIcon from '@/assets/sound-icon.svg';
-import nosoundIcon from '@/assets/nosound-icon.svg';
 import userIcon from '@/assets/user.svg';
 import undoIcon from '@/assets/R-undo.svg';
 import redoIcon from '@/assets/R-redo.svg';
-import uploadFileIcon from '@/assets/R-uploadfile.svg';
 import functionPanelIcon from '@/assets/R-functionpanel.svg';
 import textModeIcon from '@/assets/R-textmode.svg';
 import graphicModeIcon from '@/assets/R-graphicmode.svg';
@@ -437,7 +321,9 @@ import runCodeIcon from '@/assets/R-runcode.svg';
 export default {
   name: 'Workspace',
   components: {
+    TopToolbar,
     Sidebar,
+    AppSidebar,
     MonacoEditor
   },
   setup() {
@@ -445,8 +331,8 @@ export default {
     const router = useRouter();
     const { user } = useAuth();
     const { code, setCode, syncCodeFromBackend, setConversationId } = useCode();
-    const { language, setLanguage } = useLanguage();
-    const { ttsEnabled, setTTSEnabled } = useTTS();
+    const { language } = useLanguage();
+    const { ttsEnabled } = useTTS();
     const t = computed(() => useTranslations(language.value));
     const {
       currentFile,
@@ -455,7 +341,8 @@ export default {
       setCurrentCode,
       loadFiles,
       loadFile,
-      saveFile
+      saveFile,
+      clearFileState
     } = useFile();
 
     const conversationId = computed(() => route.query.conversationId);
@@ -482,11 +369,11 @@ export default {
     const loadingParaphrases = ref(new Set());
     const audioContextRef = ref(null);
     const hasGreeted = ref(false);
-    const isMethodsPanelOpen = ref(false);
-    const isFunctionPanelOpen = ref(false);
-    const fileInputRef = ref(null);
     const showSuccessDialog = ref(false);
     const successDialogMessage = ref('');
+    const appName = ref('Codespace');
+    const appIcon = ref(null);
+    const appType = ref('codespace');
 
     let pollIntervalId = null;
 
@@ -504,6 +391,7 @@ export default {
         await executeAPI.ensureSessionInitialized(parseInt(conversationId.value));
         await fetchMessages();
         await fetchAvailableMethods();
+        await fetchAppDetails();
         await syncCodeFromBackend();
 
         analyzeAPI.prewarmPipeline(parseInt(conversationId.value))
@@ -535,6 +423,44 @@ export default {
         availableMethods.value = methods;
       } catch (err) {
         console.error('Failed to fetch available methods:', err);
+      }
+    };
+
+    const fetchAppDetails = async () => {
+      if (!conversationId.value) {
+        appName.value = 'Codespace';
+        appIcon.value = null;
+        appType.value = 'codespace';
+        return;
+      }
+      try {
+        const appDetails = await conversationAPI.getSingleConversation(parseInt(conversationId.value));
+        if (appDetails) {
+          appName.value = appDetails.title || 'Codespace';
+          appIcon.value = appDetails.app_image || null;
+          appType.value = appDetails.app_type || 'codespace';
+        }
+      } catch (err) {
+        console.error('Failed to fetch app details:', err);
+        appName.value = 'Codespace';
+        appType.value = 'codespace';
+      }
+    };
+
+    // Handle method insertion from AppSidebar
+    const handleInsertMethod = (methodCall) => {
+      const currentPosition = editorRef.value?.getPosition();
+      if (editorRef.value && currentPosition) {
+        editorRef.value.insertText(methodCall, currentPosition);
+      } else {
+        setCurrentCode(currentCode.value + '\n' + methodCall);
+      }
+    };
+
+    // Handle file selection from AppSidebar
+    const handleSelectFile = async (filename) => {
+      if (conversationId.value) {
+        await loadFile(parseInt(conversationId.value), filename);
       }
     };
 
@@ -705,35 +631,6 @@ export default {
       } finally {
         isProcessingCommand.value = false;
       }
-    };
-
-    const handleFileUpload = async (event) => {
-      const file = event.target.files?.[0];
-      if (!file || !conversationId.value) return;
-
-      if (!file.name.endsWith('.py')) {
-        alert('Please upload only Python (.py) files');
-        event.target.value = '';
-        return;
-      }
-
-      try {
-        const fileContent = await file.text();
-        await saveFile(parseInt(conversationId.value), file.name, fileContent);
-        await loadFiles(parseInt(conversationId.value));
-        await loadFile(parseInt(conversationId.value), file.name);
-        voiceService.speak('File uploaded successfully');
-        refreshNotification.value = 'File uploaded successfully';
-        setTimeout(() => {
-          refreshNotification.value = null;
-        }, 3000);
-      } catch (err) {
-        console.error('Failed to upload file:', err);
-        voiceService.speak('Failed to upload file');
-        alert('Failed to upload file: ' + err.message);
-      }
-
-      event.target.value = '';
     };
 
     const handleSave = async () => {
@@ -1077,35 +974,6 @@ export default {
       }, 3000);
     };
 
-    const toggleMethodsPanel = () => {
-      isMethodsPanelOpen.value = !isMethodsPanelOpen.value;
-    };
-
-    const toggleFunctionPanel = () => {
-      isFunctionPanelOpen.value = !isFunctionPanelOpen.value;
-    };
-
-    const toggleLanguage = () => {
-      setLanguage(language.value === 'en' ? 'th' : 'en');
-    };
-
-    const toggleTTS = () => {
-      setTTSEnabled(!ttsEnabled.value);
-    };
-
-    const insertMethod = (method) => {
-      const methodCall = `${method.name}(${method.required_parameters.join(', ')})`;
-      const currentPosition = editorRef.value?.getPosition();
-
-      if (editorRef.value && currentPosition) {
-        editorRef.value.insertText(methodCall, currentPosition);
-      } else {
-        setCurrentCode(currentCode.value + '\n' + methodCall);
-      }
-
-      toggleMethodsPanel();
-    };
-
     const handleKeyDown = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 's') {
         event.preventDefault();
@@ -1125,8 +993,8 @@ export default {
       if (newId && newId !== oldId) {
         setConversationId(parseInt(newId));
 
-        // Clear current file state
-        setCurrentCode('');
+        // Clear ALL previous file state before loading new app's files
+        clearFileState();
 
         // Reload files and select the uploaded file
         await loadFiles(parseInt(newId));
@@ -1285,7 +1153,6 @@ export default {
       isTranscribing,
       isProcessingCommand,
       editorRef,
-      fileInputRef,
       isSaving,
       isRefreshing,
       refreshNotification,
@@ -1298,7 +1165,6 @@ export default {
       userIcon,
       undoIcon,
       redoIcon,
-      uploadFileIcon,
       functionPanelIcon,
       textModeIcon,
       graphicModeIcon,
@@ -1306,22 +1172,17 @@ export default {
       spanIcon,
       saveIcon,
       runCodeIcon,
-      langIcon,
-      soundIcon,
-      nosoundIcon,
-      isMethodsPanelOpen,
-      isFunctionPanelOpen,
       isOutputExpanded,
       showSuccessDialog,
       successDialogMessage,
       language,
       ttsEnabled,
       t,
+      appName,
+      appIcon,
+      appType,
       formatTime,
-      toggleLanguage,
-      toggleTTS,
       handleSend,
-      handleFileUpload,
       handleSave,
       handleUndo,
       handleRedo,
@@ -1332,9 +1193,8 @@ export default {
       handleToggleParaphrases,
       handleMicClick,
       handleEditorChange,
-      toggleMethodsPanel,
-      toggleFunctionPanel,
-      insertMethod,
+      handleInsertMethod,
+      handleSelectFile,
     };
   }
 };
@@ -1343,39 +1203,15 @@ export default {
 <style scoped>
 /* Main Layout */
 .main-content {
-  margin-left: 260px;
+  margin-left: 300px;  /* 80px main sidebar + 220px app sidebar */
+  margin-top: 48px;
   flex: 1;
   display: flex;
   flex-direction: column;
   background: #fafafa;
-  height: 100vh;
-  max-height: 100vh;
+  height: calc(100vh - 48px);
+  max-height: calc(100vh - 48px);
   overflow: hidden;
-}
-
-.top-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e8e8e8;
-  background: white;
-  flex-shrink: 0;
-}
-
-.page-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Jaldi', sans-serif;
-  margin: 0;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
 }
 
 .control-buttons {
@@ -1552,7 +1388,7 @@ export default {
 /* Chat Footer */
 .workspace__chat-footer {
   border-top: 1px solid #e8e8e8;
-  padding: 16px 24px;
+  padding: 24px;
   background: #fafafa;
 }
 
@@ -1677,21 +1513,20 @@ export default {
   overflow: hidden;
   border: 1px solid #e8e8e8;
   min-height: 0;
-  max-height: 60%;
 }
 
 .workspace__editor-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 8px 16px;
   border-bottom: 1px solid #e8e8e8;
   background: #fafafa;
   flex-shrink: 0;
 }
 
 .workspace__editor-title {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
   font-family: 'Jaldi', sans-serif;
@@ -1703,10 +1538,10 @@ export default {
 }
 
 .workspace__icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1717,31 +1552,8 @@ export default {
   padding: 0;
 }
 
-.workspace__run-btn {
-  width: auto;
-  padding: 6px 12px;
-  gap: 6px;
-  border: 1px solid #001f3f;
-  color: #001f3f;
-}
-
-.workspace__run-btn:hover:not(:disabled) {
-  background: #001a33;
-  color: white;
-  border-color: #001a33;
-}
-
-.workspace__run-btn:hover:not(:disabled) .workspace__icon-btn-icon {
-  filter: brightness(0) invert(1);
-}
-
-.workspace__run-btn:hover:not(:disabled) .workspace__run-text {
-  color: white;
-}
-
 .workspace__icon-btn:hover:not(:disabled) {
-  background: #001f3f;
-  color: #001f3f;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .workspace__icon-btn--primary {
@@ -1768,16 +1580,9 @@ export default {
 }
 
 .workspace__icon-btn-icon {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
-}
-
-.workspace__run-text {
-  font-size: 14px;
-  font-family: 'Jaldi', sans-serif;
-  font-weight: 500;
-  color: inherit;
 }
 
 .workspace__output-actions {
@@ -1801,49 +1606,6 @@ export default {
   min-height: 0;
   max-height: 100%;
   display: flex;
-}
-
-.workspace__editor-toolbar {
-  width: 50px;
-  background: #f5f5f5;
-  border-right: 1px solid #e8e8e8;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.workspace__toolbar-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: transparent;
-  color: #666;
-  padding: 0;
-}
-
-.workspace__toolbar-btn:hover:not(:disabled) {
-  background: #e8e8e8;
-  color: #001f3f;
-}
-
-.workspace__toolbar-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.workspace__toolbar-icon {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
 }
 
 .workspace__editor-content {
@@ -1889,7 +1651,6 @@ export default {
   overflow: hidden;
   border: 1px solid #e8e8e8;
   min-height: 0;
-  max-height: 40%;
   transition: flex 0.3s ease;
 }
 
@@ -1900,95 +1661,70 @@ export default {
 
 .workspace__output-header {
   display: flex;
-  flex-direction: column;
   background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
 }
 
 .workspace__output-header-content {
+  flex: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 8px 16px;
 }
 
 .workspace__output-header h3 {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
   font-family: 'Jaldi', sans-serif;
   margin: 0;
 }
 
-/* Mode Tabs - Folder Tab Style */
-.workspace__mode-tabs {
+/* Output Body - wrapper for vertical tabs + content */
+.workspace__output-body {
+  flex: 1;
   display: flex;
-  gap: 0;
-  background: #262525;
-  padding: 4px 4px 0 4px;
-  border-top: 1px solid #e8e8e8;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.workspace__mode-tab {
+/* Vertical Mode Tabs */
+.workspace__mode-tabs-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px;
+  background: #262525;
+  border-right: 1px solid #444;
+}
+
+.workspace__mode-tab-v {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: 1px solid rgb(180, 176, 176);
-  background: transparent;
-  border-radius: 6px 6px 0 0;
-  cursor: pointer;
+  justify-content: center;
   transition: all 0.2s ease;
-  font-family: 'Jaldi', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  color: #ffffff;
-  position: relative;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
 }
 
-.workspace__mode-tab:hover {
-  background: rgba(255, 255, 255, 0.5);
-  color: #333;
+.workspace__mode-tab-v:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.workspace__mode-tab.active {
-  background: white;
-  border-bottom: 2px solid white;
-  font-weight: 600;
-  z-index: 1;
-  margin-bottom: -2px;
-}
-
-/* Text Mode Tab - Dark blue color */
-.workspace__mode-tab:first-child.active {
-  background: #1565c0;
-  color: #ffffff;
-  border-bottom-color: #1565c0;
-}
-
-.workspace__mode-tab:first-child:hover {
-  background: rgba(21, 101, 192, 0.8);
-  color: #ffffff;
-}
-
-/* Graphic Mode Tab - Dark green color */
-.workspace__mode-tab:last-child.active {
-  background: #2e7d32;
-  color: #ffffff;
-  border-bottom-color: #2e7d32;
-}
-
-.workspace__mode-tab:last-child:hover {
-  background: rgba(46, 125, 50, 0.8);
-  color: #ffffff;
+.workspace__mode-tab-v.active {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .workspace__mode-tab-icon {
   width: 16px;
   height: 16px;
   object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
 .workspace__output {
@@ -2013,7 +1749,7 @@ export default {
 .workspace__status-bar {
   position: fixed;
   top: 80px;
-  left: 260px;
+  left: 300px;  /* 80px main sidebar + 220px app sidebar */
   right: 0;
   background: white;
   border-bottom: 1px solid #e8e8e8;

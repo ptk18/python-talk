@@ -1,5 +1,6 @@
 <template>
   <div class="app-container">
+    <TopToolbar />
     <Sidebar />
     <main class="main-content">
       <header class="top-header">
@@ -109,6 +110,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import TopToolbar from '@/shared/components/TopToolbar.vue';
 import Sidebar from '@/shared/components/Sidebar.vue';
 import { useLanguage, useTTS, voiceService } from '@py-talk/shared';
 import { useTranslations } from '@/utils/translations';

@@ -1,4 +1,5 @@
-from smarthomepy import SmartHome
+from calculatorpy import Calculator
 import sys
 
-obj = SmartHome()
+obj = Calculator()
+print(obj.add(a=2, b=3))

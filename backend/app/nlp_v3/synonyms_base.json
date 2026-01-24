@@ -844,6 +844,24 @@
       "condition",
       "state",
       "standing"
+    ],
+    "deposit": [
+      "add",
+      "place",
+      "put",
+      "lodge"
+    ],
+    "has": [
+      "owns",
+      "possesses",
+      "holds",
+      "contains"
+    ],
+    "withdraw": [
+      "remove",
+      "take out",
+      "extract",
+      "retrieve"
     ]
   },
   "phrasal_verbs": {

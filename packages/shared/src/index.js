@@ -15,6 +15,7 @@ export {
   paraphraseAPI,
   translateAPI,
   turtleAPI,
+  favoritesAPI,
   // Token management
   getAuthToken,
   setAuthToken,

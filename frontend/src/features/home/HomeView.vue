@@ -1,26 +1,43 @@
 <template>
   <div class="app-container">
-    <Sidebar />
+    <TopToolbar />
+    <Sidebar @new-app="showNewAppDialog = true" />
     <main class="main-content">
       <div class="content-area">
-        <section class="featured-section">
+        <!-- Favourites Section (only show if user has favorites) -->
+        <section v-if="favoriteApps.length > 0" class="favorites-section">
           <div class="section-header">
-            <h2 class="section-title">{{ t.home.featuredApps }}</h2>
-            <div class="control-buttons">
-              <button class="control-button" @click="toggleLanguage" :title="`Switch to ${language === 'en' ? 'Thai' : 'English'}`">
-                <img :src="langIcon" alt="Language" class="control-icon" />
-              </button>
-              <button class="control-button" @click="toggleTTS" :title="ttsEnabled ? 'Disable Voice' : 'Enable Voice'">
-                <img :src="ttsEnabled ? soundIcon : nosoundIcon" alt="Sound" class="control-icon" />
-              </button>
-            </div>
+            <h2 class="section-title favorites-title">{{ t.home.favourites || 'Favourites' }}</h2>
           </div>
           <div class="app-grid">
             <AppCard
-              v-for="app in featuredApps"
+              v-for="app in favoriteApps"
+              :key="'fav-' + app.id"
+              :app="app"
+              :is-favorited="true"
+              @click="handleAppClick(app)"
+              @edit="handleEditApp"
+              @delete="handleDeleteApp"
+              @toggle-favorite="handleToggleFavorite"
+            />
+          </div>
+        </section>
+
+        <!-- Featured Apps Section -->
+        <section class="featured-section">
+          <div class="section-header">
+            <h2 class="section-title">{{ t.home.featuredApps }}</h2>
+          </div>
+          <div class="app-grid">
+            <AppCard
+              v-for="app in allFeaturedApps"
               :key="app.id"
               :app="app"
+              :is-favorited="isAppFavorited(app)"
               @click="handleAppClick(app)"
+              @edit="handleEditApp"
+              @delete="handleDeleteApp"
+              @toggle-favorite="handleToggleFavorite"
             />
           </div>
         </section>
@@ -38,37 +55,203 @@
         </section>
       </div>
     </main>
+
+    <!-- New App Dialog -->
+    <NewAppDialog
+      :visible="showNewAppDialog"
+      @close="showNewAppDialog = false"
+      @create="handleCreateApp"
+    />
+
+    <!-- Edit App Dialog -->
+    <EditAppDialog
+      :visible="showEditDialog"
+      :app="selectedApp"
+      @close="showEditDialog = false"
+      @save="handleSaveEdit"
+    />
+
+    <!-- Delete Confirm Dialog -->
+    <DeleteConfirmDialog
+      :visible="showDeleteDialog"
+      :app-name="selectedApp?.name"
+      :app-id="selectedApp?.appId"
+      @close="showDeleteDialog = false"
+      @confirm="handleConfirmDelete"
+    />
   </div>
 </template>
 
 <script>
-import { computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useLanguage, useTTS, useAuth } from '@py-talk/shared'
+import { useLanguage, useAuth, conversationAPI, favoritesAPI } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
+import TopToolbar from '@/shared/components/TopToolbar.vue'
 import Sidebar from '@/shared/components/Sidebar.vue'
 import AppCard from './components/AppCard.vue'
+import NewAppDialog from './components/NewAppDialog.vue'
+import EditAppDialog from './components/EditAppDialog.vue'
+import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue'
 import codeGeneratorIcon from '@/assets/F-code-generator.png'
 import smartHomeIcon from '@/assets/F-smart-home.png'
-import langIcon from '@/assets/lang-icon.svg'
-import soundIcon from '@/assets/sound-icon.svg'
-import nosoundIcon from '@/assets/nosound-icon.svg'
 
 export default {
   name: 'Home',
   components: {
+    TopToolbar,
     Sidebar,
-    AppCard
+    AppCard,
+    NewAppDialog,
+    EditAppDialog,
+    DeleteConfirmDialog
   },
   setup() {
     const router = useRouter()
-    const { language, setLanguage } = useLanguage()
-    const { ttsEnabled, setTTSEnabled } = useTTS()
+    const { language } = useLanguage()
+    const { user } = useAuth()
     const t = computed(() => useTranslations(language.value))
+
+    const showNewAppDialog = ref(false)
+    const showEditDialog = ref(false)
+    const showDeleteDialog = ref(false)
+    const selectedApp = ref(null)
+    const userApps = ref([])
+    const userFavorites = ref([])
+
+    // Default icon based on app type - uses initial letter for non-turtle apps
+    const getDefaultIcon = (appType, appTitle) => {
+      return appType === 'turtle' ? '🐢' : appTitle.charAt(0).toUpperCase()
+    }
+
+    // Fetch user's apps from backend
+    const fetchUserApps = async () => {
+      if (!user.value?.id) return
+      try {
+        const apps = await conversationAPI.getByUser(user.value.id)
+        userApps.value = apps.map(app => ({
+          id: `user-${app.id}`,
+          appId: app.id,
+          name: app.title,
+          icon: app.app_image || getDefaultIcon(app.app_type, app.title),
+          category: app.app_type === 'turtle' ? t.value.home.turtleApp || 'Turtle App' : t.value.home.uploadedApp || 'Uploaded App',
+          route: app.app_type === 'turtle'
+            ? `/turtle-playground/${app.id}`
+            : { name: 'Workspace', query: { conversationId: app.id } },
+          themeColor: '#024A14',
+          themeColorDark: '#01350e',
+          isUserApp: true
+        }))
+      } catch (error) {
+        console.error('Failed to fetch user apps:', error)
+      }
+    }
 
     const handleAppClick = (app) => {
       if (app.route) {
         router.push(app.route)
+      }
+    }
+
+    const handleCreateApp = async (appData) => {
+      try {
+        if (!user.value?.id) {
+          console.error('User not logged in')
+          return
+        }
+
+        await conversationAPI.create(user.value.id, appData)
+
+        showNewAppDialog.value = false
+
+        // Refresh user apps list to show new app
+        await fetchUserApps()
+
+        // Stay on home page - user can see newly created app in the grid
+      } catch (error) {
+        console.error('Failed to create app:', error)
+      }
+    }
+
+    // Edit app handlers
+    const handleEditApp = (app) => {
+      selectedApp.value = app
+      showEditDialog.value = true
+    }
+
+    const handleSaveEdit = async (editData) => {
+      try {
+        await conversationAPI.update(editData.id, {
+          title: editData.title,
+          app_image: editData.app_image
+        })
+        showEditDialog.value = false
+        await fetchUserApps()
+      } catch (error) {
+        console.error('Failed to update app:', error)
+      }
+    }
+
+    // Delete app handlers
+    const handleDeleteApp = (app) => {
+      selectedApp.value = app
+      showDeleteDialog.value = true
+    }
+
+    const handleConfirmDelete = async (appId) => {
+      try {
+        await conversationAPI.delete(appId)
+        showDeleteDialog.value = false
+        await fetchUserApps()
+      } catch (error) {
+        console.error('Failed to delete app:', error)
+      }
+    }
+
+    // Fetch user's favorites
+    const fetchUserFavorites = async () => {
+      if (!user.value?.id) return
+      try {
+        const favorites = await favoritesAPI.getByUser(user.value.id)
+        userFavorites.value = favorites
+      } catch (error) {
+        console.error('Failed to fetch favorites:', error)
+      }
+    }
+
+    // Get builtin app ID for built-in apps
+    const getBuiltinAppId = (app) => {
+      if (app.id === 1) return 'builtin:codespace'
+      if (app.id === 2) return 'builtin:turtle'
+      if (app.id === 3) return 'builtin:smarthome'
+      return null
+    }
+
+    // Check if an app is favorited
+    const isAppFavorited = (app) => {
+      return userFavorites.value.some(fav => {
+        if (app.isUserApp) {
+          return fav.conversation_id === app.appId
+        } else {
+          const builtinId = getBuiltinAppId(app)
+          return fav.builtin_app_id === builtinId
+        }
+      })
+    }
+
+    // Handle favorite toggle
+    const handleToggleFavorite = async (app) => {
+      if (!user.value?.id) return
+
+      try {
+        const data = app.isUserApp
+          ? { conversation_id: app.appId }
+          : { builtin_app_id: getBuiltinAppId(app) }
+
+        await favoritesAPI.toggle(user.value.id, data)
+        await fetchUserFavorites()
+      } catch (error) {
+        console.error('Failed to toggle favorite:', error)
       }
     }
 
@@ -79,7 +262,7 @@ export default {
         icon: codeGeneratorIcon,
         category: t.value.home.codeAssistant,
         rating: 4.5,
-        route: '/conversation-manager',
+        route: '/workspace',
         themeColor: '#024A14',
         themeColorDark: '#01350e'
       },
@@ -104,25 +287,67 @@ export default {
       }
     ])
 
-    const toggleLanguage = () => {
-      setLanguage(language.value === 'en' ? 'th' : 'en')
-    }
+    // Combined featured + user apps
+    const allFeaturedApps = computed(() => [
+      ...featuredApps.value,
+      ...userApps.value
+    ])
 
-    const toggleTTS = () => {
-      setTTSEnabled(!ttsEnabled.value)
-    }
+    // Computed property for favorite apps
+    const favoriteApps = computed(() => {
+      return userFavorites.value.map(fav => {
+        if (fav.conversation_id) {
+          // Find the user app
+          return userApps.value.find(app => app.appId === fav.conversation_id)
+        } else if (fav.builtin_app_id) {
+          // Find the built-in app
+          const builtinMap = {
+            'builtin:codespace': 1,
+            'builtin:turtle': 2,
+            'builtin:smarthome': 3
+          }
+          const appId = builtinMap[fav.builtin_app_id]
+          return featuredApps.value.find(app => app.id === appId)
+        }
+        return null
+      }).filter(Boolean)
+    })
+
+    // Fetch user apps on mount
+    onMounted(() => {
+      fetchUserApps()
+      fetchUserFavorites()
+    })
+
+    // Re-fetch when user changes
+    watch(() => user.value?.id, (newId) => {
+      if (newId) {
+        fetchUserApps()
+        fetchUserFavorites()
+      } else {
+        userApps.value = []
+        userFavorites.value = []
+      }
+    })
 
     return {
       handleAppClick,
+      handleCreateApp,
+      handleEditApp,
+      handleSaveEdit,
+      handleDeleteApp,
+      handleConfirmDelete,
+      handleToggleFavorite,
+      isAppFavorited,
       featuredApps,
+      allFeaturedApps,
+      userApps,
+      favoriteApps,
       t,
-      language,
-      ttsEnabled,
-      langIcon,
-      soundIcon,
-      nosoundIcon,
-      toggleLanguage,
-      toggleTTS
+      showNewAppDialog,
+      showEditDialog,
+      showDeleteDialog,
+      selectedApp
     }
   },
   data() {
@@ -135,6 +360,40 @@ export default {
 </script>
 
 <style scoped>
+/* Main content area - scrollable */
+.main-content {
+  margin-left: 80px;
+  margin-top: 48px;
+  height: calc(100vh - 48px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+}
+
+.content-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-area::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.content-area::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 4px;
+}
+
+.content-area::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -150,56 +409,27 @@ export default {
   margin: 0;
 }
 
-.control-buttons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+/* Favourites section styles */
+.favorites-section {
+  margin-bottom: 48px;
 }
 
-.control-button {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  padding: 0;
+.favorites-title {
+  color: #1a1a1a;
 }
 
-.control-button:hover {
-  background: transparent;
-  transform: translateY(-1px);
-  opacity: 0.7;
-}
-
-.control-button:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.control-icon {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
+/* Featured section */
+.featured-section {
+  margin-bottom: 48px;
 }
 
 @media (max-width: 768px) {
+  .content-area {
+    padding: 16px;
+  }
+
   .section-title {
     font-size: 22px;
-  }
-  
-  .control-button {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .control-icon {
-    width: 18px;
-    height: 18px;
   }
 }
 </style>

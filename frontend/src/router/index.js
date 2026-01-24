@@ -7,7 +7,6 @@ import Profile from '@/features/profile/ProfileView.vue'
 import Settings from '@/features/settings/SettingsView.vue'
 
 // Lazy-loaded feature views
-const ConversationManager = () => import('@/features/conversation/ConversationManagerView.vue')
 const Workspace = () => import('@/features/codespace/WorkspaceView.vue')
 const Run = () => import('@/features/run/RunView.vue')
 const TurtlePlayground = () => import('@/features/turtle/TurtlePlaygroundView.vue')
@@ -45,12 +44,6 @@ const routes = [
   },
   // Routes from codespace-app
   {
-    path: '/conversation-manager',
-    name: 'ConversationManager',
-    component: ConversationManager,
-    meta: { requiresAuth: true }
-  },
-  {
     path: '/workspace',
     name: 'Workspace',
     component: Workspace,
@@ -62,13 +55,9 @@ const routes = [
     component: Run,
     meta: { requiresAuth: true }
   },
-  {
-    path: '/history',
-    redirect: '/conversation-manager'
-  },
   // Routes from turtle-app
   {
-    path: '/turtle-playground',
+    path: '/turtle-playground/:appId?',
     name: 'TurtlePlayground',
     component: TurtlePlayground,
     meta: { requiresAuth: true }

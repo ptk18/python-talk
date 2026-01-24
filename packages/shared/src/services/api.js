@@ -117,6 +117,17 @@ export const conversationAPI = {
       method: 'DELETE',
     });
   },
+
+  async update(conversationId, data) {
+    return apiCall(`/api/conversations/${conversationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getSingleConversation(conversationId) {
+    return apiCall(`/api/conversations/${conversationId}/single`);
+  },
 };
 
 export const messageAPI = {
@@ -443,6 +454,19 @@ export const turtleAPI = {
   prewarmPipeline: async () => {
     return apiCall(`/api/prewarm_turtle_pipeline`, {
       method: 'POST',
+    });
+  },
+};
+
+export const favoritesAPI = {
+  async getByUser(userId) {
+    return apiCall(`/api/favorites/${userId}`);
+  },
+
+  async toggle(userId, data) {
+    return apiCall(`/api/favorites/${userId}/toggle`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 };

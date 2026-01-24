@@ -318,6 +318,186 @@
       "docstring": "Return the turtle's y coordinate",
       "synonyms": [],
       "generated_at": "2026-01-24T04:24:50.004364"
+    },
+    "c0cae009d5f6": {
+      "method_name": "add",
+      "docstring": null,
+      "synonyms": [
+        "combine",
+        "join",
+        "accumulate",
+        "append",
+        "tack on",
+        "put together",
+        "merge",
+        "incorporate"
+      ],
+      "generated_at": "2026-01-24T12:25:49.440941"
+    },
+    "75c9655f5eea": {
+      "method_name": "subtract",
+      "docstring": null,
+      "synonyms": [
+        "remove",
+        "take away",
+        "deduct",
+        "diminish",
+        "reduce",
+        "decrease",
+        "drop",
+        "subtract from"
+      ],
+      "generated_at": "2026-01-24T12:25:49.440960"
+    },
+    "bf1e77ab20ec": {
+      "method_name": "multiply",
+      "docstring": null,
+      "synonyms": [
+        "increase",
+        "amplify",
+        "scale up",
+        "repeat",
+        "duplicate",
+        "grow",
+        "expand",
+        "multiply by"
+      ],
+      "generated_at": "2026-01-24T12:25:49.440961"
+    },
+    "c44b4febbeba": {
+      "method_name": "divide",
+      "docstring": null,
+      "synonyms": [
+        "split",
+        "separate",
+        "partition",
+        "break up",
+        "cut",
+        "slice",
+        "segment",
+        "divide by"
+      ],
+      "generated_at": "2026-01-24T12:25:49.440962"
+    },
+    "a66d0ed24195": {
+      "method_name": "deposit",
+      "docstring": "Deposit money into the account",
+      "synonyms": [
+        "put money in",
+        "add funds",
+        "make a deposit",
+        "lodge money",
+        "credit the account",
+        "transfer in",
+        "input cash"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385661"
+    },
+    "313c30fe7d4e": {
+      "method_name": "withdraw",
+      "docstring": "Withdraw money from the account",
+      "synonyms": [
+        "take out",
+        "remove money",
+        "make a withdrawal",
+        "debit the account",
+        "extract funds",
+        "pull out cash",
+        "draw from the account"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385671"
+    },
+    "3bc12b680472": {
+      "method_name": "get_balance",
+      "docstring": "Get the current account balance",
+      "synonyms": [
+        "check the balance",
+        "view the current amount",
+        "see how much is in the account",
+        "get the account total",
+        "find the available funds",
+        "look up the balance",
+        "display the current value"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385672"
+    },
+    "eaacf5544740": {
+      "method_name": "get_owner",
+      "docstring": "Get the account owner name",
+      "synonyms": [
+        "find the account holder",
+        "get the owner's name",
+        "identify the account owner",
+        "reveal the customer name",
+        "look up the account holder",
+        "determine the owner"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385673"
+    },
+    "d8afb23b7d71": {
+      "method_name": "has_sufficient_funds",
+      "docstring": "Check if account has sufficient funds for a withdrawal",
+      "synonyms": [
+        "verify enough money",
+        "check if there's enough",
+        "ensure adequate funds",
+        "confirm sufficient balance",
+        "validate available funds",
+        "assess if there's enough money"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385674"
+    },
+    "c7c2760ac76e": {
+      "method_name": "is_overdrawn",
+      "docstring": "Check if account balance is negative",
+      "synonyms": [
+        "see if the account is negative",
+        "check if it's overdrawn",
+        "determine if balance is below zero",
+        "find out if it's in the red",
+        "inspect for a deficit",
+        "look for a negative balance"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385675"
+    },
+    "ebe0629a10c8": {
+      "method_name": "is_low_balance",
+      "docstring": "Check if balance is below a threshold (default: 100)",
+      "synonyms": [
+        "see if the balance is low",
+        "check if it's below the threshold",
+        "determine if it's a small amount",
+        "find out if it's a minimal balance",
+        "inspect for a low value",
+        "look for a balance under the limit"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385676"
+    },
+    "04d5a04a5ca4": {
+      "method_name": "is_high_balance",
+      "docstring": "Check if balance is above a threshold (default: 1000)",
+      "synonyms": [
+        "see if the balance is high",
+        "check if it's above the threshold",
+        "determine if it's a large amount",
+        "find out if it's a substantial balance",
+        "inspect for a high value",
+        "look for a balance over the limit"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385676"
+    },
+    "4459e747e3a9": {
+      "method_name": "get_account_info",
+      "docstring": "Get comprehensive account information",
+      "synonyms": [
+        "retrieve full account details",
+        "get comprehensive account data",
+        "pull up all account information",
+        "access complete account specifics",
+        "gather total account particulars",
+        "look into full account particulars"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385677"
     }
   }
 }

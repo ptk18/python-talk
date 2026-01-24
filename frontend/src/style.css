@@ -53,7 +53,8 @@ body.lang-th .store-logo {
     flex-direction: column;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
     position: fixed;
-    height: 100vh;
+    top: 48px;
+    height: calc(100vh - 48px);
     z-index: 100;
 }
 
@@ -233,12 +234,13 @@ body.lang-th .store-logo {
 
 /* Main Content Styles */
 .main-content {
-    margin-left: 260px;
+    margin-left: 80px;
+    margin-top: 48px;
     flex: 1;
     display: flex;
     flex-direction: column;
     background: #fafafa;
-    min-height: 100vh;
+    min-height: calc(100vh - 48px);
 }
 
 .top-header {
@@ -317,16 +319,19 @@ body.lang-th .store-logo {
 }
 
 .app-icon {
-    font-size: 64px;
     margin-bottom: 16px;
-    width: 80px;
-    height: 80px;
+    width: 64px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: center;
-    /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    background: #f0f7f2;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-size: 28px;
+    font-weight: 600;
+    color: #024A14;
+    font-family: 'Jaldi', sans-serif;
 }
 
 .app-info {
@@ -420,59 +425,11 @@ body.lang-th .store-logo {
 /* Responsive Design */
 @media (max-width: 768px) {
     .sidebar {
-        width: 70px;
-    }
-
-    .nav-label {
-        display: none;
-    }
-
-    .store-logo {
-        font-size: 16px;
-        display: none;
-    }
-
-    .app-icon-img {
-        width: 32px;
-        height: 32px;
-    }
-
-    .sidebar-header {
-        padding: 16px 12px;
-        justify-content: center;
-    }
-
-    .sidebar-footer {
-        padding: 16px 12px;
-    }
-
-    .user-info {
-        display: none;
-    }
-
-    .user-section {
-        justify-content: center;
-    }
-
-    .logout-button {
-        width: 36px;
-        height: 36px;
-        padding: 0;
-        border-radius: 50%;
-        margin: 16px auto 0;
-    }
-
-    .logout-label {
-        display: none;
-    }
-
-    .logout-icon {
-        width: 20px;
-        height: 20px;
+        width: 80px;
     }
 
     .main-content {
-        margin-left: 70px;
+        margin-left: 80px;
     }
 
     .app-grid {

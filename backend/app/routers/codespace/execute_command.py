@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,11 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
         )
 
     session_dir = os.path.join(BASE_EXEC_DIR, f"session_{request.conversation_id}")
+
+    # For first-time initialization, clear existing session directory to ensure clean state
+    # This prevents old files from a deleted/reused conversation ID from persisting
+    if request.executable == "first_time_created" and os.path.exists(session_dir):
+        shutil.rmtree(session_dir)
     os.makedirs(session_dir, exist_ok=True)
 
     orig_fname = getattr(convo, "file_name", None) or "module.py"
