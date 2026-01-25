@@ -7,7 +7,7 @@ router = APIRouter(tags=["Turtle Execute"])
 
 # Streaming device configuration (override via env to support remote devices)
 STREAM_DEVICE_BASE_URL = os.getenv("STREAM_DEVICE_BASE_URL")
-STREAM_DEVICE_IP = os.getenv("STREAM_DEVICE_IP", "192.168.4.228")
+STREAM_DEVICE_IP = os.getenv("STREAM_DEVICE_IP", "161.246.5.67")
 STREAM_DEVICE_PORT = os.getenv("STREAM_DEVICE_PORT", "8001")
 
 
@@ -15,7 +15,7 @@ def _get_stream_device_base_url() -> str:
     """Return the base URL used to reach the streaming device."""
     if STREAM_DEVICE_BASE_URL:
         return STREAM_DEVICE_BASE_URL.rstrip("/")
-    return f"http://{STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}"
+    return f"http://161.246.5.67:8001"
 
 BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
 
@@ -23,7 +23,7 @@ BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
 async def run_turtle(conversation_id: int):
     """
     Send the conversation's runner.py and all Python files from session directory to streaming device.
-    The device at 192.168.4.228 will execute the code and stream via WebSocket.
+    The device at 161.246.5.67 will execute the code and stream via WebSocket.
     """
     try:
         # Get the session directory
@@ -89,7 +89,7 @@ async def run_turtle(conversation_id: int):
             )
 
         # Send all files to streaming device
-        stream_device_url = f"{_get_stream_device_base_url()}/run_turtle/{conversation_id}"
+        stream_device_url = f"{_get_stream_device_base_url()}/runturtle/{conversation_id}"
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
@@ -108,7 +108,7 @@ async def run_turtle(conversation_id: int):
                 "result": "Turtle execution triggered on streaming device",
                 "conversation_id": conversation_id,
                 "device_response": result,
-                "ws_url": f"wss://stream.se.kmitl.ac.th/subscribe/{conversation_id}"
+                "ws_url": f"wss://161.246.5.67:5050/ws/subscribe/{conversation_id}"
             }
 
     except httpx.RequestError as e:

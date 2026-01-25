@@ -23,6 +23,8 @@ export default function Run() {
     const [wsStatus, setWsStatus] = useState('disconnected');
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
     const TURTLE_BASE = import.meta.env.VITE_WS_BASE_URL;
+    const GUI_BASE = "wss://161.246.5.67:5050";
+    const PI_API_BASE = "https://161.246.5.67:8001";
     const location = useLocation();
     const { conversationId: rawConversationId, executable, file_name } = location.state || {};
     
@@ -40,11 +42,14 @@ export default function Run() {
         console.log('Setting up WebSocket for turtle graphics...', { isTurtleCode, conversationId });
         
         // const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL;
-        const WS_BASE_URL = "ws://161.246.5.67:5050";
+        const WS_BASE_URL = "wss://161.246.5.67:5050";
+        console.log('WS_BASE_URL:', WS_BASE_URL);
+
         if (!WS_BASE_URL) {
             console.error('VITE_WS_BASE_URL not configured');
             return;
-        }        const wsUrl = `${WS_BASE_URL}/subscribe/${conversationId}`;
+        }        
+        const wsUrl = `wss://161.246.5.67:5050/subscribe/${conversationId}`;
         console.log('WebSocket URL:', wsUrl);
         
         const ws = new WebSocket(wsUrl);
@@ -89,6 +94,7 @@ export default function Run() {
 
 useEffect(() => {
     console.log("API_BASE", import.meta.env.VITE_API_BASE_URL)
+    console.log("GUI_BASE", GUI_BASE)
   const fetchCode = async () => {
     if (!conversationId) return;
 
@@ -120,31 +126,150 @@ setOutput("Output will appear here...");
 
 
     const handleRunTurtle = async () => {
-        setIsRunning(true);
-        setOutput("Running turtle graphics...\n\n");
+    setIsRunning(true);
+    setOutput("Running turtle graphics...\n");
 
-        try {
-            const res = await fetch(`${API_BASE}/run_turtle/${conversationId}`, {
-                method: "GET",
-                headers: { "Accept": "application/json" },
-            });
+    try {
+        console.log("========== TURTLE RUN START ==========");
 
-            if (!res.ok) {
-                throw new Error(`Backend returned ${res.status}`);
-            }
+        /* ---------------- STEP 1: GET runner.py ---------------- */
+        console.log("[STEP 1] Fetching runner.py");
 
-            const data = await res.json();
-            console.log("Turtle execute response:", data);
-            setOutput("Turtle graphics execution completed.\n");
-            speak("Your output is ready, Sir");
-        } catch (err) {
-            console.error("Failed to execute turtle graphics:", err);
-            setOutput("Error executing turtle graphics.\n");
-            speak("Please try again");
-        } finally {
-            setIsRunning(false);
+        const runnerRes = await fetch(
+            `${API_BASE}/get_runner_code?conversation_id=${conversationId}`
+        );
+
+        if (!runnerRes.ok) {
+            throw new Error("Failed to fetch runner.py");
         }
-    };
+
+        const runnerData = await runnerRes.json();
+        const runnerCode = runnerData.code;
+
+        console.log("[STEP 1 OK] runner.py received");
+        console.log("runner.py preview:\n", runnerCode);
+
+        /* ---------------- STEP 1.5: PATCH runner.py SCREEN SETUP ---------------- */
+        console.log("[STEP 1.5] Patching runner.py screen setup");
+
+        let patchedRunnerCode = runnerCode;
+
+        // Only patch if turtle is used and screen setup not already present
+        if (
+            patchedRunnerCode.includes("turtle") &&
+            !patchedRunnerCode.includes("screen.setup(")
+        ) {
+            // inject AFTER object creation (safe spot)
+            patchedRunnerCode = patchedRunnerCode.replace(
+                /(obj\s*=\s*.*\n)/,
+                `$1\n# --- injected screen setup ---\n` +
+                `import turtle as t\n` +
+                `screen = t.Screen()\n` +
+                `screen.setup(800, 800, 50, 50)\n` +
+                `screen.screensize(700, 700)\n` +
+                `# --- end injected screen setup ---\n`
+            );
+
+            console.log("[STEP 1.5 OK] Screen setup injected into runner.py");
+        } else {
+            console.log("[STEP 1.5 SKIPPED] Screen setup already exists or turtle not detected");
+        }
+
+        // IMPORTANT: use patchedRunnerCode from now on
+        /* ---------------- STEP 2: GET turtle module ---------------- */
+        console.log("[STEP 2] Fetching turtle class file");
+
+        const turtleRes = await fetch(
+            `${API_BASE}/conversations/${conversationId}/single`
+        );
+
+        if (!turtleRes.ok) {
+            throw new Error("Failed to fetch turtle code");
+        }
+
+        const turtleData = await turtleRes.json();
+        const turtleCode = turtleData.code;
+        const turtleFileName = turtleData.file_name; 
+        // expected: turtle_simplehome.py
+
+        console.log("[STEP 2 OK] Turtle file received");
+        console.log("Filename:", turtleFileName);
+        console.log("Turtle code preview:\n", turtleCode.substring(0, 300));
+
+        /* ---------------- STEP 2.5: FIX MODULE NAME MISMATCH ---------------- */
+        console.log("[STEP 2.5] Fixing filename mismatch if needed");
+
+        // extract module name from runner.py import
+        const importMatch = patchedRunnerCode.match(
+            /from\s+([a-zA-Z0-9_]+)\s+import|import\s+([a-zA-Z0-9_]+)/
+        );
+
+        let finalTurtleFileName = turtleFileName;
+
+        if (importMatch) {
+            const importedModule = importMatch[1] || importMatch[2];
+            const expectedFileName = `${importedModule}.py`;
+
+            if (expectedFileName !== turtleFileName) {
+                console.warn(
+                    `[FIX] Renaming ${turtleFileName} → ${expectedFileName}`
+                );
+                finalTurtleFileName = expectedFileName;
+            }
+        }
+
+        console.log("[STEP 2.5 OK] Final turtle filename:", finalTurtleFileName);
+
+
+        /* ---------------- STEP 3: BUILD FILES ---------------- */
+        console.log("[STEP 3] Building files payload");
+
+        const files: Record<string, string> = {
+            "runner.py": patchedRunnerCode,
+            [finalTurtleFileName]: turtleCode,
+        };
+
+        console.log("[FILES TO SEND]", Object.keys(files));
+
+        /* ---------------- STEP 4: SEND TO PI ---------------- */
+        console.log("[STEP 4] Sending files to Pi");
+
+        const piRes = await fetch(
+            `${PI_API_BASE}/runturtle/${conversationId}`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ files }),
+            }
+        );
+
+        if (!piRes.ok) {
+            const text = await piRes.text();
+            throw new Error(`Pi error ${piRes.status}: ${text}`);
+        }
+
+        const piData = await piRes.json();
+        console.log("[STEP 4 OK] Pi response:", piData);
+
+        setIsTurtleCode(true);
+        setOutput("Turtle graphics started.\n");
+        speak("Turtle graphics started");
+
+        console.log("========== TURTLE RUN SUCCESS ==========");
+
+    } catch (err) {
+        console.error("========== TURTLE RUN FAILED ==========");
+        console.error(err);
+        setOutput("Error executing turtle graphics.\n");
+        speak("Please try again");
+    } finally {
+        setIsRunning(false);
+    }
+};
+
+
 
     const handleRunNormalCode = async () => {
         setIsRunning(true);
@@ -443,4 +568,3 @@ setOutput("Output will appear here...");
         </div>
     );
 }
-

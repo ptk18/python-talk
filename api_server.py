@@ -1,103 +1,170 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
-import requests
-from requests.auth import HTTPBasicAuth
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import subprocess
-import json
 import os
-from pprint import pprint
-from tempfile import NamedTemporaryFile
-import logging
-
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-app = FastAPI()
-
-@app.get("/basic_client", response_class=HTMLResponse)
-async def basic_client():
-    with open("basic_client.html", "r") as f:
-        html_content = f.read()
-    return html_content
-   
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-    
 import asyncio
+import ssl
 import websockets
 import cv2
 import mss
 import numpy as np
 import base64
+import shutil
+import signal
+import logging
 
-async def stream_screen(region, turtle_process, server_url):
-    async with websockets.connect(server_url) as websocket:
-        with mss.mss() as sct:
-            while True:
-                # Check if the Turtle subprocess is still running
-                if turtle_process.poll() is not None:  # If not None, it's finished
-                    print("Turtle graphics has finished.")
-                    break  # Exit the streaming loop
-                
-                screenshot = np.array(sct.grab(region))
-                frame = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2BGR)
-                _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
-                jpg_as_text = base64.b64encode(buffer).decode('utf-8')
-                
-                await websocket.send(jpg_as_text)
-                await asyncio.sleep(0.03)  # ~30 fps
+# -------------------- APP SETUP --------------------
 
-from pydantic import BaseModel
+app = FastAPI(title="Pi Turtle Streaming Server")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # change to frontend domain later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+logging.basicConfig(level=logging.INFO)
+
+BASE_SESSION_DIR = "/home/pi/turtle_sessions"
+os.makedirs(BASE_SESSION_DIR, exist_ok=True)
+
+WS_PUBLISH_BASE = "wss://161.246.5.67:5050/publish"
+
+# -------------------- MODELS --------------------
 
 class TurtleCodeRequest(BaseModel):
-    files: dict[str, str]  # filename -> file content
+    files: dict[str, str]
 
-@app.post("/run_turtle/{question_id}")
-async def run_turtle(question_id: int, request: TurtleCodeRequest):
-    # Get stream server URL from environment or use default
-    STREAM_HOST = os.getenv('STREAM_HOST', '161.246.5.67')
-    STREAM_PORT = os.getenv('STREAM_PORT', '5050')
-    SERVER_URL = f"ws://{STREAM_HOST}:{STREAM_PORT}/publish/{question_id}"
+# -------------------- STREAMING --------------------
 
-    # Streaming capture region - positioned to capture turtle window
-    x1 = 50
-    y1 = 50
-    width = 800
-    height = 800
-    region = (x1, y1, width, height)
+async def stream_screen(region, process, ws_url):
+    ssl_ctx = ssl._create_unverified_context()
+    logging.info(f"Streaming to {ws_url}")
 
-    # Create a temporary directory for this session
-    temp_dir = f"turtle_session_{question_id}"
-    os.makedirs(temp_dir, exist_ok=True)
+    async with websockets.connect(ws_url, ssl=ssl_ctx, max_size=None) as ws:
+        with mss.mss() as sct:
+            while process.poll() is None:
+                img = np.array(sct.grab(region))
+                frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-    # Write all received files to the temporary directory
-    temp_files = []
-    for filename, content in request.files.items():
-        file_path = os.path.join(temp_dir, filename)
-        with open(file_path, 'w') as f:
+                ok, buf = cv2.imencode(
+                    ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50]
+                )
+                if not ok:
+                    continue
+
+                await ws.send(base64.b64encode(buf).decode())
+                await asyncio.sleep(0.03)
+
+    logging.info("Streaming finished")
+
+# -------------------- ROUTES --------------------
+
+@app.get("/")
+def health():
+    return {"status": "ok"}
+
+@app.post("/runturtle/{cid}")
+async def run_turtle(cid: int, req: TurtleCodeRequest):
+    session_dir = os.path.join(BASE_SESSION_DIR, f"session_{cid}")
+
+    if os.path.exists(session_dir):
+        shutil.rmtree(session_dir)
+
+    os.makedirs(session_dir, exist_ok=True)
+
+    if "runner.py" not in req.files:
+        raise HTTPException(400, "runner.py missing")
+
+    # Write files
+    for name, content in req.files.items():
+        with open(os.path.join(session_dir, name), "w") as f:
             f.write(content)
-        temp_files.append(file_path)
+
+    logging.info(f"Starting turtle session {cid}")
+
+    # Start turtle process
+    proc = subprocess.Popen(
+        ["python3", "runner.py"],
+        cwd=session_dir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        preexec_fn=os.setsid,  # allows killing child processes
+    )
+
+    region = {
+        "left": 50,
+        "top": 50,
+        "width": 800,
+        "height": 800,
+    }
+
+    ws_url = f"{WS_PUBLISH_BASE}/{cid}"
+
+    # Run streaming in background
+    asyncio.create_task(stream_screen(region, proc, ws_url))
+
+    return {
+        "status": "started",
+        "conversation_id": cid,
+        "ws_subscribe_url": f"wss://161.246.5.67:5050/ws/subscribe/{cid}",
+    }
+    
+@app.post("/start_turtle/{cid}")
+def start_turtle(cid: int):
+    if cid in TURTLE_PROCESSES:
+        return {"status": "already_running"}
+
+    proc = subprocess.Popen(
+        ["python3", "turtle_runtime.py"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        preexec_fn=os.setsid,
+        text=True,
+        bufsize=1
+    )
+
+    TURTLE_PROCESSES[cid] = proc
+
+    return {
+        "status": "started",
+        "conversation_id": cid
+    }
+    
+@app.post("/turtle_command/{cid}")
+def turtle_command(cid: int, command: str):
+    proc = TURTLE_PROCESSES.get(cid)
+    if not proc:
+        raise HTTPException(404, "Turtle not running")
 
     try:
-        # Start the Turtle graphics with runner.py from the temp directory
-        runner_path = os.path.join(temp_dir, "runner.py")
-        if not os.path.exists(runner_path):
-            raise HTTPException(status_code=400, detail="runner.py not found in files")
+        proc.stdin.write(command + "\n")
+        proc.stdin.flush()
+    except Exception:
+        raise HTTPException(500, "Failed to send command")
 
-        turtle_process = subprocess.Popen(['python3', 'runner.py'], cwd=temp_dir)
+    return {"status": "sent", "command": command}
 
-        # Start streaming
-        await stream_screen(region, turtle_process, SERVER_URL)
 
-        # Wait for the process to finish
-        turtle_process.wait()
 
-        return {"result": "Done", "question_id": question_id}
-    finally:
-        # Clean up temp files and directory
-        import shutil
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
+@app.post("/kill/{cid}")
+def kill_turtle(cid: int):
+    session_dir = os.path.join(BASE_SESSION_DIR, f"session_{cid}")
+
+    if not os.path.exists(session_dir):
+        raise HTTPException(404, "Session not found")
+
+    try:
+        for p in os.popen("ps -eo pid,cmd").read().splitlines():
+            if f"session_{cid}" in p:
+                pid = int(p.strip().split()[0])
+                os.killpg(os.getpgid(pid), signal.SIGTERM)
+    except Exception:
+        pass
+
+    shutil.rmtree(session_dir, ignore_errors=True)
+    return {"status": "killed"}

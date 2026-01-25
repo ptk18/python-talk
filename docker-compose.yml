@@ -8,7 +8,7 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - STREAM_DEVICE_BASE_URL=http://192.168.4.228:8001
+      - STREAM_DEVICE_BASE_URL=https://161.246.5.67:8001
     networks:
       - python_talk_net
 
@@ -17,7 +17,7 @@ services:
       context: ./frontend
       args:
         - VITE_API_BASE_URL=https://turing.se.kmitl.ac.th/pytalk/api
-        - VITE_WS_BASE_URL=ws://192.168.4.228:5050
+        - VITE_WS_BASE_URL=ws://161.246.5.67:5050
     platform: linux/amd64
     ports:
       - "1643:1643"
