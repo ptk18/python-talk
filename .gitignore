@@ -10,7 +10,6 @@ backend/hf_cache/
 *.incomplete
 plans/
 google-credentials.json
-*.md
 
 extra_files/
 
@@ -20,9 +19,4 @@ node_modules/
 
 command-variations/
 
-# Testing (temporary)
-backend/tests/
-backend/pytest.ini
-.pytest_cache/
-htmlcov/
-.coverage
+
