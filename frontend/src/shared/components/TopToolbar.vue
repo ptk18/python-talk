@@ -36,14 +36,12 @@
       <button class="toolbar-icon-btn" @click="toggleTTS" :title="ttsEnabled ? 'Sound On' : 'Sound Off'">
         <img :src="ttsEnabled ? soundIcon : nosoundIcon" alt="Sound" class="toolbar-icon" />
       </button>
-
-      <div class="user-avatar" @click="goToProfile">{{ userInitial }}</div>
     </div>
   </header>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLanguage, useTTS } from '@py-talk/shared'
 import appIcon from '@/assets/app-icon.svg'
@@ -55,36 +53,14 @@ export default {
   name: 'TopToolbar',
   setup() {
     const router = useRouter()
-    const userInfo = ref({})
     const { language, setLanguage } = useLanguage()
     const { ttsEnabled, setTTSEnabled } = useTTS()
 
     const showLangDropdown = ref(false)
     const langDropdownRef = ref(null)
 
-    const userInitial = computed(() => {
-      const source = userInfo.value.username || userInfo.value.email || 'U'
-      return source.charAt(0).toUpperCase()
-    })
-
-    const loadUserInfo = () => {
-      const stored = localStorage.getItem('auth_user')
-      if (stored) {
-        userInfo.value = JSON.parse(stored)
-      } else {
-        const oldStored = localStorage.getItem('userInfo')
-        if (oldStored) {
-          userInfo.value = JSON.parse(oldStored)
-        }
-      }
-    }
-
     const goToHome = () => {
       router.push('/')
-    }
-
-    const goToProfile = () => {
-      router.push('/profile')
     }
 
     const toggleLangDropdown = () => {
@@ -106,18 +82,14 @@ export default {
       }
     }
 
-    loadUserInfo()
-
     onMounted(() => {
       if (typeof window !== 'undefined') {
-        window.addEventListener('userInfoUpdated', loadUserInfo)
         document.addEventListener('click', handleClickOutside)
       }
     })
 
     onUnmounted(() => {
       if (typeof window !== 'undefined') {
-        window.removeEventListener('userInfoUpdated', loadUserInfo)
         document.removeEventListener('click', handleClickOutside)
       }
     })
@@ -127,13 +99,11 @@ export default {
       langIcon,
       soundIcon,
       nosoundIcon,
-      userInitial,
       language,
       ttsEnabled,
       showLangDropdown,
       langDropdownRef,
       goToHome,
-      goToProfile,
       toggleLangDropdown,
       selectLanguage,
       toggleTTS
@@ -148,13 +118,13 @@ export default {
   top: 0;
   left: 0;
   right: 0;
-  height: 48px;
-  background: linear-gradient(180deg, #024A14 0%, #01350e 100%);
+  height: var(--toolbar-height);
+  background: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  z-index: 150;
+  z-index: var(--z-toolbar);
 }
 
 .toolbar-left {
@@ -227,7 +197,7 @@ export default {
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  z-index: 200;
+  z-index: var(--z-dropdown);
   animation: dropdownFadeIn 0.15s ease;
 }
 
@@ -265,7 +235,7 @@ export default {
 .tick-icon {
   width: 16px;
   height: 16px;
-  color: #024A14;
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 
@@ -275,24 +245,5 @@ export default {
 
 .toolbar-dropdown-item span:not(.has-tick) {
   margin-left: 24px;
-}
-
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.user-avatar:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 </style>

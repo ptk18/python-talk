@@ -93,8 +93,6 @@ import AppCard from './components/AppCard.vue'
 import NewAppDialog from './components/NewAppDialog.vue'
 import EditAppDialog from './components/EditAppDialog.vue'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue'
-import codeGeneratorIcon from '@/assets/F-code-generator.png'
-import smartHomeIcon from '@/assets/F-smart-home.png'
 
 export default {
   name: 'Home',
@@ -205,6 +203,7 @@ export default {
         await fetchUserApps()
       } catch (error) {
         console.error('Failed to delete app:', error)
+        showDeleteDialog.value = false
       }
     }
 
@@ -219,24 +218,9 @@ export default {
       }
     }
 
-    // Get builtin app ID for built-in apps
-    const getBuiltinAppId = (app) => {
-      if (app.id === 1) return 'builtin:codespace'
-      if (app.id === 2) return 'builtin:turtle'
-      if (app.id === 3) return 'builtin:smarthome'
-      return null
-    }
-
     // Check if an app is favorited
     const isAppFavorited = (app) => {
-      return userFavorites.value.some(fav => {
-        if (app.isUserApp) {
-          return fav.conversation_id === app.appId
-        } else {
-          const builtinId = getBuiltinAppId(app)
-          return fav.builtin_app_id === builtinId
-        }
-      })
+      return userFavorites.value.some(fav => fav.conversation_id === app.appId)
     }
 
     // Handle favorite toggle
@@ -244,73 +228,22 @@ export default {
       if (!user.value?.id) return
 
       try {
-        const data = app.isUserApp
-          ? { conversation_id: app.appId }
-          : { builtin_app_id: getBuiltinAppId(app) }
-
-        await favoritesAPI.toggle(user.value.id, data)
+        await favoritesAPI.toggle(user.value.id, { conversation_id: app.appId })
         await fetchUserFavorites()
       } catch (error) {
         console.error('Failed to toggle favorite:', error)
       }
     }
 
-    const featuredApps = computed(() => [
-      {
-        id: 1,
-        name: 'Codespace',
-        icon: codeGeneratorIcon,
-        category: t.value.home.codeAssistant,
-        rating: 4.5,
-        route: '/workspace',
-        themeColor: '#024A14',
-        themeColorDark: '#01350e'
-      },
-      {
-        id: 2,
-        name: t.value.home.turtlePlayground,
-        icon: '🐢',
-        category: t.value.home.learningTools,
-        rating: 4.8,
-        route: '/turtle-playground',
-        themeColor: '#024A14',
-        themeColorDark: '#01350e'
-      },
-      {
-        id: 3,
-        name: t.value.home.smartHome,
-        icon: smartHomeIcon,
-        category: t.value.home.connectToYourHome,
-        rating: 4.7,
-        themeColor: '#024A14',
-        themeColorDark: '#01350e'
-      }
-    ])
-
-    // Combined featured + user apps
-    const allFeaturedApps = computed(() => [
-      ...featuredApps.value,
-      ...userApps.value
-    ])
+    // All apps (only user apps now)
+    const allFeaturedApps = computed(() => userApps.value)
 
     // Computed property for favorite apps
     const favoriteApps = computed(() => {
-      return userFavorites.value.map(fav => {
-        if (fav.conversation_id) {
-          // Find the user app
-          return userApps.value.find(app => app.appId === fav.conversation_id)
-        } else if (fav.builtin_app_id) {
-          // Find the built-in app
-          const builtinMap = {
-            'builtin:codespace': 1,
-            'builtin:turtle': 2,
-            'builtin:smarthome': 3
-          }
-          const appId = builtinMap[fav.builtin_app_id]
-          return featuredApps.value.find(app => app.id === appId)
-        }
-        return null
-      }).filter(Boolean)
+      return userFavorites.value
+        .filter(fav => fav.conversation_id)
+        .map(fav => userApps.value.find(app => app.appId === fav.conversation_id))
+        .filter(Boolean)
     })
 
     // Fetch user apps on mount
@@ -339,7 +272,6 @@ export default {
       handleConfirmDelete,
       handleToggleFavorite,
       isAppFavorited,
-      featuredApps,
       allFeaturedApps,
       userApps,
       favoriteApps,
@@ -362,9 +294,9 @@ export default {
 <style scoped>
 /* Main content area - scrollable */
 .main-content {
-  margin-left: 80px;
-  margin-top: 48px;
-  height: calc(100vh - 48px);
+  margin-left: var(--sidebar-width);
+  margin-top: var(--toolbar-height);
+  height: calc(100vh - var(--toolbar-height));
   overflow: hidden;
   display: flex;
   flex-direction: column;

@@ -342,13 +342,13 @@ export default {
 <style scoped>
 .app-sidebar {
   position: fixed;
-  top: 48px;
-  left: 80px;
-  width: 220px;
-  height: calc(100vh - 48px);
-  background: white;
-  border-right: 1px solid #e8e8e8;
-  z-index: 100;
+  top: var(--toolbar-height);
+  left: var(--sidebar-width);
+  width: var(--app-sidebar-width);
+  height: calc(100vh - var(--toolbar-height));
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  z-index: var(--z-sidebar);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -361,7 +361,7 @@ export default {
   gap: 8px;
   padding: 16px;
   cursor: pointer;
-  color: #024A14;
+  color: var(--color-primary);
   font-size: 14px;
   font-weight: 500;
   font-family: 'Jaldi', sans-serif;
@@ -412,7 +412,7 @@ export default {
 .app-icon-default {
   font-size: 28px;
   font-weight: 600;
-  color: #024A14;
+  color: var(--color-primary);
   font-family: 'Jaldi', sans-serif;
 }
 
@@ -471,7 +471,7 @@ export default {
   width: 14px;
   height: 14px;
   border: 2px solid #e8e8e8;
-  border-top-color: #024A14;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-left: auto;
@@ -548,8 +548,8 @@ export default {
 
 .method-item:hover {
   background: #f0f7f2;
-  border-color: #024A14;
-  color: #024A14;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* Files List */
@@ -582,7 +582,7 @@ export default {
 
 .file-item.active {
   background: #f0f7f2;
-  color: #024A14;
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -594,7 +594,7 @@ export default {
 }
 
 .file-item.active .file-icon {
-  color: #024A14;
+  color: var(--color-primary);
 }
 
 .file-name {

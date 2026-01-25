@@ -1,25 +1,10 @@
-:root {
-  --turtle-primary: #5C0000;
-  --turtle-primary-dark: #5C0000;
-  --turtle-primary-light: #5C0000;
-  --turtle-bg: #fafafa;
-  --turtle-surface: #ffffff;
-  --turtle-border: #e8e8e8;
-  --turtle-text: #1a1a1a;
-  --turtle-text-secondary: #666;
-  --turtle-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --turtle-radius: 12px;
-  --turtle-radius-sm: 8px;
-  --turtle-canvas-bg: #252526;
-}
-
 .turtle-playground {
-  margin-left: 260px;
+  margin-left: var(--sidebar-total);
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: var(--turtle-bg);
-  font-family: 'Jaldi', sans-serif;
+  background: var(--color-bg);
+  font-family: var(--font-family);
   position: relative;
 }
 
@@ -49,12 +34,12 @@
 
 .turtle-playground__canvas-panel {
   flex: 1.3;
-  background: var(--turtle-surface);
-  border-radius: var(--turtle-radius);
+  background: var(--color-surface);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--turtle-shadow);
-  border: 1px solid var(--turtle-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
@@ -63,14 +48,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid var(--turtle-border);
-  background: var(--turtle-bg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
 }
 
 .turtle-playground__canvas-header h3 {
   font-size: 18px;
   font-weight: 600;
-  color: var(--turtle-text);
+  color: var(--color-text);
   margin: 0;
 }
 
@@ -85,7 +70,7 @@
   border-radius: 8px;
   background: transparent;
   border: none;
-  color: var(--turtle-text-secondary);
+  color: var(--color-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -95,7 +80,7 @@
 
 .turtle-playground__canvas-btn:hover {
   background: transparent;
-  color: var(--turtle-primary);
+  color: var(--color-primary);
   border: none;
   opacity: 0.7;
 }
@@ -105,14 +90,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--turtle-canvas-bg);
+  background: #252526;
   position: relative;
   padding: 24px;
 }
 
 .turtle-playground__canvas {
   background: white;
-  border-radius: var(--turtle-radius-sm);
+  border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
@@ -122,7 +107,7 @@
   height: 0;
   border-left: 10px solid transparent;
   border-right: 10px solid transparent;
-  border-bottom: 20px solid var(--turtle-primary);
+  border-bottom: 20px solid var(--color-primary);
   transform-origin: center bottom;
   pointer-events: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
@@ -131,12 +116,12 @@
 
 .turtle-playground__code-panel {
   flex: 1;
-  background: var(--turtle-surface);
-  border-radius: var(--turtle-radius);
+  background: var(--color-surface);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--turtle-shadow);
-  border: 1px solid var(--turtle-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
@@ -145,8 +130,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  border-bottom: 1px solid var(--turtle-border);
-  background: var(--turtle-bg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
 }
 
 .turtle-playground__code-title {
@@ -158,13 +143,13 @@
 .turtle-playground__code-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--turtle-text);
+  color: var(--color-text);
   margin: 0;
 }
 
 .turtle-playground__code-hint {
   font-size: 12px;
-  color: var(--turtle-text-secondary);
+  color: var(--color-text-muted);
   font-style: italic;
 }
 
@@ -182,7 +167,7 @@
   height: 32px;
   border: none;
   background: transparent;
-  color: var(--turtle-text-secondary);
+  color: var(--color-text-muted);
   border-radius: 6px;
   cursor: pointer;
   padding: 0;
@@ -191,7 +176,7 @@
 
 .turtle-playground__icon-btn:hover {
   background: #e8e8e8;
-  color: var(--turtle-primary);
+  color: var(--color-primary);
 }
 
 .turtle-playground__icon-btn:active {
@@ -214,12 +199,12 @@
 
 .turtle-playground__methods-panel {
   flex: 1.2;
-  background: var(--turtle-surface);
-  border-radius: var(--turtle-radius);
+  background: var(--color-surface);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--turtle-shadow);
-  border: 1px solid var(--turtle-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
@@ -228,19 +213,19 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  border-bottom: 1px solid var(--turtle-border);
-  background: var(--turtle-bg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
 }
 
 .turtle-playground__methods-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--turtle-text);
+  color: var(--color-text);
   margin: 0;
 }
 
 .turtle-playground__module-badge {
-  background: var(--turtle-primary);
+  background: var(--color-primary);
   color: white;
   padding: 4px 12px;
   border-radius: 12px;
@@ -255,7 +240,7 @@
 }
 
 .turtle-playground__methods-empty {
-  color: var(--turtle-text-secondary);
+  color: var(--color-text-muted);
   font-style: italic;
   text-align: center;
   padding: 20px;
@@ -271,7 +256,7 @@
   gap: 8px;
   padding: 8px 12px;
   background: #f5f5f5;
-  border-radius: var(--turtle-radius-sm);
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -282,18 +267,18 @@
 
 .turtle-playground__category-name {
   font-weight: 600;
-  color: var(--turtle-text);
+  color: var(--color-text);
   font-size: 14px;
 }
 
 .turtle-playground__category-count {
   font-size: 12px;
-  color: var(--turtle-text-secondary);
+  color: var(--color-text-muted);
   margin-left: auto;
 }
 
 .turtle-playground__category-chevron {
-  color: var(--turtle-text-secondary);
+  color: var(--color-text-muted);
   transition: transform 0.2s;
 }
 
@@ -313,29 +298,29 @@
   align-items: center;
   padding: 6px 12px;
   background: #f0f0f0;
-  border: 1px solid var(--turtle-border);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   font-family: 'Courier New', monospace;
   font-size: 12px;
-  color: var(--turtle-text);
+  color: var(--color-text);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .turtle-playground__method-chip:hover {
-  background: var(--turtle-primary);
+  background: var(--color-primary);
   color: white;
-  border-color: var(--turtle-primary);
+  border-color: var(--color-primary);
   transform: translateY(-1px);
 }
 
 .turtle-playground__command-panel {
-  background: var(--turtle-surface);
-  border-radius: var(--turtle-radius);
+  background: var(--color-surface);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--turtle-shadow);
-  border: 1px solid var(--turtle-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
@@ -352,8 +337,8 @@
 .turtle-playground__command-input {
   flex: 1;
   padding: 12px 16px;
-  border: 2px solid var(--turtle-border);
-  border-radius: var(--turtle-radius-sm);
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
   font-family: 'Courier New', monospace;
   font-size: 14px;
   transition: all 0.2s;
@@ -362,20 +347,20 @@
 
 .turtle-playground__command-input:focus {
   outline: none;
-  border-color: var(--turtle-primary);
-  box-shadow: 0 0 0 3px rgba(92, 0, 0, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
 }
 
 .turtle-playground__command-input::placeholder {
   color: #999;
-  font-family: 'Jaldi', sans-serif;
+  font-family: var(--font-family);
 }
 
 .turtle-playground__run-btn {
   width: 48px;
   height: 48px;
   padding: 0;
-  background: var(--turtle-primary);
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 50%;
@@ -388,7 +373,7 @@
 }
 
 .turtle-playground__run-btn:hover:not(:disabled) {
-  background: var(--turtle-primary-light);
+  background: var(--color-primary-hover);
   transform: scale(1.05);
 }
 
@@ -407,9 +392,9 @@
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border-radius: var(--turtle-radius-sm);
-  font-family: 'Jaldi', sans-serif;
-  font-size: 14px;
+  border-radius: 8px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
   font-weight: 500;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   max-width: 400px;
@@ -483,7 +468,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--turtle-primary);
+  background: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -499,7 +484,7 @@
 }
 
 .turtle-playground__mic:hover {
-  background: var(--turtle-primary-light);
+  background: var(--color-primary-hover);
   transform: scale(1.05);
 }
 
@@ -517,9 +502,9 @@
 .turtle-playground__status-bar {
   position: fixed;
   top: 80px;
-  left: 260px;
+  left: var(--sidebar-total);
   right: 0;
-  z-index: 1500;
+  z-index: var(--z-alert);
   animation: slideDown 0.3s ease-out;
 }
 
@@ -538,24 +523,24 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  border-left: 4px solid var(--turtle-primary);
+  border-left: 4px solid var(--color-primary);
 }
 
 .turtle-playground__status-bar--transcribing .turtle-playground__status-content {
-  border-left-color: #5C0000;
+  border-left-color: var(--color-primary-dark);
 }
 
 .turtle-playground__status-spinner {
-  color: var(--turtle-primary);
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 
 .turtle-playground__status-text {
   flex: 1;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  font-family: var(--font-family);
 }
 
 .turtle-playground__status-progress {
@@ -568,7 +553,7 @@
 
 .turtle-playground__status-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--turtle-primary), #5C0000);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
   border-radius: 2px;
   animation: progressBar 2s ease-in-out infinite;
 }
@@ -597,8 +582,8 @@
 }
 
 @media (max-width: 1024px) {
-  .turtle-playground { margin-left: 70px; }
-  .turtle-playground__status-bar { left: 70px; padding: 0 16px; }
+  .turtle-playground { margin-left: var(--sidebar-width); }
+  .turtle-playground__status-bar { left: var(--sidebar-width); padding: 0 16px; }
   .turtle-playground__status-content { flex-direction: column; align-items: flex-start; gap: 8px; }
   .turtle-playground__status-text { font-size: 13px; }
   .turtle-playground__container { flex-direction: column; height: auto; overflow-y: auto; }

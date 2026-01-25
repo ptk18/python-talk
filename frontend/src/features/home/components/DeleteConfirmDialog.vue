@@ -35,7 +35,7 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useLanguage } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
 
@@ -61,6 +61,13 @@ export default {
     const t = computed(() => useTranslations(language.value))
 
     const isDeleting = ref(false)
+
+    // Reset isDeleting when dialog closes
+    watch(() => props.visible, (newVal) => {
+      if (!newVal) {
+        isDeleting.value = false
+      }
+    })
 
     const handleClose = () => {
       isDeleting.value = false

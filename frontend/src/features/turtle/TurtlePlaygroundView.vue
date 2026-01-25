@@ -458,13 +458,13 @@ t = turtle.Turtle()
 
 /* Header Styles */
 .main-content {
-  margin-left: 300px;  /* 80px main sidebar + 220px app sidebar */
-  margin-top: 48px;
+  margin-left: var(--sidebar-total);
+  margin-top: var(--toolbar-height);
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #fafafa;
-  height: calc(100vh - 48px);
+  background: var(--color-bg);
+  height: calc(100vh - var(--toolbar-height));
   overflow: hidden;
 }
 

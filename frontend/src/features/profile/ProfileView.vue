@@ -179,7 +179,7 @@ export default {
 }
 
 .content-area.profile-content {
-  padding: 32px;
+  padding: 20px;
   overflow: hidden;
   flex: 1;
   display: flex;
@@ -188,13 +188,13 @@ export default {
 }
 
 .profile-content {
-  padding: 32px;
+  padding: 20px;
 }
 
 .profile-card {
-  background: white;
+  background: var(--color-surface);
   border-radius: 16px;
-  padding: 40px;
+  padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-height: 100%;
@@ -205,44 +205,41 @@ export default {
 
 .profile-header {
   text-align: center;
-  margin-bottom: 40px;
-  padding-bottom: 32px;
-  border-bottom: 2px solid #e8e8e8;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--color-border);
 }
 
 .profile-avatar-large {
-  width: 120px;
-  height: 120px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #024A14 0%, #01350e 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 20px;
-  font-size: 48px;
+  margin: 0 auto 12px;
+  font-size: var(--font-size-page-title);
   color: white;
-  font-weight: 600;
-  font-family: 'Jaldi', sans-serif;
+  font-weight: var(--font-weight-medium);
 }
 
 .profile-name {
-  font-size: 32px;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-size: var(--font-size-page-title);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
   margin-bottom: 8px;
-  font-family: 'Jaldi', sans-serif;
 }
 
 .profile-email {
-  font-size: 16px;
-  color: #666;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-card-title);
+  color: var(--color-text-muted);
 }
 
 .profile-details {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 20px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -251,15 +248,14 @@ export default {
 .detail-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .detail-section .section-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-size: var(--font-size-section-title);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
   margin-bottom: 8px;
-  font-family: 'Jaldi', sans-serif;
 }
 
 .detail-item {
@@ -269,25 +265,23 @@ export default {
 }
 
 .detail-item label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
 }
 
 .profile-input {
   padding: 12px 16px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--color-border);
   border-radius: 8px;
-  font-size: 14px;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-body);
   transition: all 0.2s ease;
   width: 100%;
 }
 
 .profile-input:focus {
   outline: none;
-  border-color: #024A14;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
 }
 
@@ -302,38 +296,36 @@ export default {
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .save-button {
-  background: #024A14;
+  background: var(--color-primary);
   color: white;
 }
 
 .save-button:hover {
-  background: #01350e;
+  background: var(--color-primary-dark);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(2, 74, 20, 0.3);
 }
 
 .cancel-button {
   background: #f5f5f5;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .cancel-button:hover {
-  background: #e0e0e0;
+  background: var(--color-border);
 }
 
 .message {
   padding: 12px 16px;
   border-radius: 8px;
-  font-size: 14px;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-body);
   margin-top: 16px;
 }
 
@@ -350,10 +342,9 @@ export default {
 }
 
 .page-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-page-title);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
 }
 
 /* Responsive Design */
@@ -366,34 +357,6 @@ export default {
     padding: 24px 20px;
   }
 
-  .profile-header {
-    margin-bottom: 24px;
-    padding-bottom: 24px;
-  }
-
-  .profile-avatar-large {
-    width: 80px;
-    height: 80px;
-    font-size: 32px;
-    margin-bottom: 16px;
-  }
-
-  .profile-name {
-    font-size: 24px;
-  }
-
-  .profile-email {
-    font-size: 14px;
-  }
-
-  .profile-details {
-    gap: 24px;
-  }
-
-  .detail-section .section-title {
-    font-size: 18px;
-  }
-
   .profile-actions {
     flex-direction: column;
   }
@@ -401,10 +364,6 @@ export default {
   .save-button,
   .cancel-button {
     width: 100%;
-  }
-
-  .page-title {
-    font-size: 22px;
   }
 }
 
@@ -416,15 +375,6 @@ export default {
   .profile-avatar-large {
     width: 60px;
     height: 60px;
-    font-size: 24px;
-  }
-
-  .profile-name {
-    font-size: 20px;
-  }
-
-  .detail-section .section-title {
-    font-size: 16px;
   }
 }
 </style>

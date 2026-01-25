@@ -29,6 +29,7 @@ export {
 // Composables
 export { useLanguage } from './composables/useLanguage.js';
 export { useTTS } from './composables/useTTS.js';
+export { useSTT } from './composables/useSTT.js';
 export { useAuth } from './composables/useAuth.js';
 
 // Config

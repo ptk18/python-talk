@@ -23,15 +23,13 @@ export const translations = {
 
     // Home Page
     home: {
-      featuredApps: 'Featured Apps',
+      featuredApps: 'Apps',
       pytalkWorkspace: 'PyTalk Workspace',
-      codeAssistant: 'Code Assistant',
-      smartHome: 'Smart Home',
-      connectToYourHome: 'Connect to your home',
       reflexTest: 'ReflexTest',
       entertainment: 'Entertainment',
       turtlePlayground: 'Turtle Playground',
-      learningTools: 'Learning Tools'
+      turtleApp: 'Turtle App',
+      uploadedApp: 'Uploaded App'
     },
 
     // Turtle Playground
@@ -69,7 +67,13 @@ export const translations = {
       browserTTS: 'Browser TTS',
       browserTTSDescription: 'Built-in browser speech synthesis (offline)',
       googleTTS: 'Google Cloud TTS',
-      googleTTSDescription: 'High-quality cloud-based text-to-speech'
+      googleTTSDescription: 'High-quality cloud-based text-to-speech',
+      speechToText: 'Speech-to-Text Model',
+      sttDescription: 'Select the speech recognition engine for voice input',
+      whisperSTT: 'Whisper (Local)',
+      whisperSTTDescription: 'Local Whisper models for speech recognition',
+      googleSTT: 'Google Cloud STT',
+      googleSTTDescription: 'Cloud-based speech recognition (higher accuracy)'
     },
 
     // Profile Page
@@ -161,15 +165,13 @@ export const translations = {
 
     // Home Page
     home: {
-      featuredApps: 'แอปพลิเคชันแนะนำ',
+      featuredApps: 'แอป',
       pytalkWorkspace: 'PyTalk Workspace',
-      codeAssistant: 'ผู้ช่วยเขียนโค้ด',
-      smartHome: 'Smart Home',
-      connectToYourHome: 'เชื่อมต่อกับบ้านของคุณ',
       reflexTest: 'ReflexTest',
       entertainment: 'บันเทิง',
       turtlePlayground: 'สนามเล่นเต่า',
-      learningTools: 'เครื่องมือการเรียนรู้'
+      turtleApp: 'แอปเต่า',
+      uploadedApp: 'แอปที่อัปโหลด'
     },
 
     // Turtle Playground
@@ -207,7 +209,13 @@ export const translations = {
       browserTTS: 'Browser TTS',
       browserTTSDescription: 'ระบบแปลงเสียงในตัวเบราว์เซอร์ (ใช้งานออฟไลน์)',
       googleTTS: 'Google Cloud TTS',
-      googleTTSDescription: 'ระบบแปลงเสียงคุณภาพสูงจาก Cloud'
+      googleTTSDescription: 'ระบบแปลงเสียงคุณภาพสูงจาก Cloud',
+      speechToText: 'โมเดลแปลงเสียงเป็นข้อความ',
+      sttDescription: 'เลือกเครื่องมือสำหรับการรู้จำเสียง',
+      whisperSTT: 'Whisper (ในเครื่อง)',
+      whisperSTTDescription: 'โมเดล Whisper ในเครื่องสำหรับการรู้จำเสียง',
+      googleSTT: 'Google Cloud STT',
+      googleSTTDescription: 'การรู้จำเสียงจาก Cloud (แม่นยำกว่า)'
     },
 
     // Profile Page

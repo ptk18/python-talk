@@ -102,6 +102,41 @@
               </div>
             </div>
           </div>
+
+          <!-- STT Model Selection Section -->
+          <div class="settings-section">
+            <div class="settings-header">
+              <h3 class="section-title">{{ t.settings.speechToText }}</h3>
+              <p class="section-description">{{ t.settings.sttDescription }}</p>
+            </div>
+            <div class="settings-options">
+              <div
+                v-for="stt in sttModels"
+                :key="stt.id"
+                class="option-card"
+                :class="{ 'active': selectedSTTModel === stt.id, 'disabled': stt.disabled }"
+                @click="!stt.disabled && selectSTTModel(stt.id)"
+              >
+                <div class="option-content">
+                  <div class="option-icon-voice">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="currentColor"/>
+                      <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <div class="option-info">
+                    <div class="option-label">{{ stt.name }}</div>
+                    <div class="option-subtitle">{{ stt.description }}</div>
+                  </div>
+                </div>
+                <div class="option-check" v-if="selectedSTTModel === stt.id">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z" fill="currentColor"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
@@ -112,11 +147,12 @@
 import { ref, computed, onMounted } from 'vue';
 import TopToolbar from '@/shared/components/TopToolbar.vue';
 import Sidebar from '@/shared/components/Sidebar.vue';
-import { useLanguage, useTTS, voiceService } from '@py-talk/shared';
+import { useLanguage, useTTS, useSTT, voiceService } from '@py-talk/shared';
 import { useTranslations } from '@/utils/translations';
 
 const { language, setLanguage } = useLanguage();
 const { ttsEnabled, ttsEngine, setTTSEnabled, setTTSEngine } = useTTS();
+const { sttEngine, setSTTEngine } = useSTT();
 
 const t = computed(() => useTranslations(language.value));
 
@@ -150,6 +186,27 @@ const ttsModels = computed(() => {
 
 const selectedLanguage = computed(() => language.value);
 const selectedTTSModel = computed(() => ttsEngine.value);
+const selectedSTTModel = computed(() => sttEngine.value);
+
+const sttModels = computed(() => {
+  const models = [
+    {
+      id: 'whisper',
+      name: t.value.settings.whisperSTT,
+      description: t.value.settings.whisperSTTDescription,
+      disabled: false
+    }
+  ];
+
+  models.push({
+    id: 'google',
+    name: t.value.settings.googleSTT,
+    description: t.value.settings.googleSTTDescription,
+    disabled: !googleAvailable.value
+  });
+
+  return models;
+});
 
 const selectLanguage = (code) => {
   setLanguage(code);
@@ -159,6 +216,12 @@ const selectVoiceModel = (id) => {
   setTTSEngine(id);
   voiceService.setTTSEngine(id);
   console.log(`[Settings] TTS engine changed to: ${id}`);
+};
+
+const selectSTTModel = (id) => {
+  setSTTEngine(id);
+  voiceService.setEngine(id);
+  console.log(`[Settings] STT engine changed to: ${id}`);
 };
 
 const toggleTTS = () => {
@@ -184,7 +247,8 @@ onMounted(async () => {
   ttsEnabledState.value = ttsEnabled.value;
   console.log('[Settings] TTS enabled:', ttsEnabledState.value);
   console.log('[Settings] TTS engine:', selectedTTSModel.value);
-  console.log('[Settings] Google TTS available:', googleAvailable.value);
+  console.log('[Settings] STT engine:', selectedSTTModel.value);
+  console.log('[Settings] Google available:', googleAvailable.value);
 
   // If Google is available, suggest using it
   if (googleAvailable.value && selectedTTSModel.value === 'browser') {
@@ -195,7 +259,7 @@ onMounted(async () => {
 
 <style scoped>
 .settings-content {
-  padding: 32px;
+  padding: 20px;
 }
 
 .settings-container {
@@ -204,30 +268,28 @@ onMounted(async () => {
 }
 
 .settings-section {
-  background: white;
+  background: var(--color-surface);
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  padding: 32px;
-  margin-bottom: 24px;
-  border: 1px solid #e8e8e8;
+  padding: 24px;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-border);
 }
 
 .settings-header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .section-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-section-title);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
   margin: 0 0 8px 0;
 }
 
 .section-description {
-  font-size: 14px;
-  color: #666;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-body);
+  color: var(--color-text-muted);
   margin: 0;
 }
 
@@ -238,26 +300,26 @@ onMounted(async () => {
 }
 
 .option-card {
-  border: 2px solid #e8e8e8;
+  border: 2px solid var(--color-border);
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fafafa;
+  background: var(--color-bg);
 }
 
 .option-card:hover {
-  border-color: #024A14;
+  border-color: var(--color-primary);
   background: #f5f5f5;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(2, 74, 20, 0.1);
 }
 
 .option-card.active {
-  border-color: #024A14;
+  border-color: var(--color-primary);
   background: #f0f7f2;
   box-shadow: 0 4px 12px rgba(2, 74, 20, 0.15);
 }
@@ -287,10 +349,10 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: var(--color-surface);
   border-radius: 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  color: #024A14;
+  color: var(--color-primary);
 }
 
 .option-info {
@@ -298,17 +360,15 @@ onMounted(async () => {
 }
 
 .option-label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-card-title);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
   margin-bottom: 4px;
 }
 
 .option-subtitle {
-  font-size: 13px;
-  color: #666;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
 }
 
 .option-check {
@@ -317,7 +377,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #024A14;
+  background: var(--color-primary);
   border-radius: 50%;
   color: white;
   flex-shrink: 0;
@@ -329,8 +389,8 @@ onMounted(async () => {
 }
 
 .option-card.disabled:hover {
-  border-color: #e8e8e8;
-  background: #fafafa;
+  border-color: var(--color-border);
+  background: var(--color-bg);
   transform: none;
   box-shadow: none;
 }
@@ -353,17 +413,15 @@ onMounted(async () => {
 }
 
 .toggle-label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-card-title);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
   margin-bottom: 4px;
 }
 
 .toggle-description {
-  font-size: 13px;
-  color: #666;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
 }
 
 .toggle-switch {
@@ -404,7 +462,7 @@ onMounted(async () => {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: #024A14;
+  background-color: var(--color-primary);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -413,13 +471,12 @@ onMounted(async () => {
 
 .test-tts-btn {
   padding: 12px 24px;
-  background: #024A14;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -428,7 +485,7 @@ onMounted(async () => {
 }
 
 .test-tts-btn:hover:not(:disabled) {
-  background: #035A1A;
+  background: var(--color-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(2, 74, 20, 0.2);
 }
@@ -440,10 +497,9 @@ onMounted(async () => {
 }
 
 .page-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Jaldi', sans-serif;
+  font-size: var(--font-size-page-title);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
 }
 
 @media (max-width: 768px) {
@@ -457,10 +513,6 @@ onMounted(async () => {
 
   .settings-options {
     grid-template-columns: 1fr;
-  }
-
-  .page-title {
-    font-size: 22px;
   }
 }
 </style>

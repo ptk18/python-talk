@@ -124,9 +124,9 @@ export default {
 <style scoped>
 /* Slim sidebar with icons and labels */
 .sidebar-slim {
-  width: 80px !important;
-  top: 48px;
-  height: calc(100vh - 48px);
+  width: var(--sidebar-width) !important;
+  top: var(--toolbar-height);
+  height: calc(100vh - var(--toolbar-height));
 }
 
 .sidebar-slim .sidebar-nav {
@@ -134,7 +134,7 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .sidebar-slim .nav-item {
@@ -210,7 +210,7 @@ export default {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .sidebar-slim .user-section {
