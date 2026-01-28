@@ -85,8 +85,9 @@
 <script>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useLanguage, useAuth, conversationAPI, favoritesAPI } from '@py-talk/shared'
+import { useLanguage, useAuth, conversationAPI, favoritesAPI, voiceService } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
+import { getGreeting } from '@/shared/utils/formatters'
 import TopToolbar from '@/shared/components/TopToolbar.vue'
 import Sidebar from '@/shared/components/Sidebar.vue'
 import AppCard from './components/AppCard.vue'
@@ -116,6 +117,14 @@ export default {
     const selectedApp = ref(null)
     const userApps = ref([])
     const userFavorites = ref([])
+    const hasGreeted = ref(false)
+
+    const greetUser = () => {
+      if (!hasGreeted.value) {
+        hasGreeted.value = true
+        voiceService.speak(getGreeting() + ' Here are your apps.')
+      }
+    }
 
     // Default icon based on app type - uses initial letter for non-turtle apps
     const getDefaultIcon = (appType, appTitle) => {
@@ -162,12 +171,12 @@ export default {
 
         showNewAppDialog.value = false
 
-        // Refresh user apps list to show new app
-        await fetchUserApps()
+        voiceService.speak('App created!')
 
-        // Stay on home page - user can see newly created app in the grid
+        await fetchUserApps()
       } catch (error) {
         console.error('Failed to create app:', error)
+        voiceService.speak("Couldn't create the app.")
       }
     }
 
@@ -184,9 +193,11 @@ export default {
           app_image: editData.app_image
         })
         showEditDialog.value = false
+        voiceService.speak('App updated!')
         await fetchUserApps()
       } catch (error) {
         console.error('Failed to update app:', error)
+        voiceService.speak('Update failed.')
       }
     }
 
@@ -200,9 +211,11 @@ export default {
       try {
         await conversationAPI.delete(appId)
         showDeleteDialog.value = false
+        voiceService.speak('App deleted.')
         await fetchUserApps()
       } catch (error) {
         console.error('Failed to delete app:', error)
+        voiceService.speak('Deletion failed.')
         showDeleteDialog.value = false
       }
     }
@@ -223,13 +236,15 @@ export default {
       return userFavorites.value.some(fav => fav.conversation_id === app.appId)
     }
 
-    // Handle favorite toggle
     const handleToggleFavorite = async (app) => {
       if (!user.value?.id) return
+
+      const wasFavorited = isAppFavorited(app)
 
       try {
         await favoritesAPI.toggle(user.value.id, { conversation_id: app.appId })
         await fetchUserFavorites()
+        voiceService.speak(wasFavorited ? 'Removed from favorites.' : 'Added to favorites!')
       } catch (error) {
         console.error('Failed to toggle favorite:', error)
       }
@@ -250,6 +265,16 @@ export default {
     onMounted(() => {
       fetchUserApps()
       fetchUserFavorites()
+
+      const handleFirstInteraction = () => {
+        voiceService.enableAudioContext()
+        greetUser()
+        document.removeEventListener('click', handleFirstInteraction)
+        document.removeEventListener('keydown', handleFirstInteraction)
+      }
+
+      document.addEventListener('click', handleFirstInteraction)
+      document.addEventListener('keydown', handleFirstInteraction)
     })
 
     // Re-fetch when user changes

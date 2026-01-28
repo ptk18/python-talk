@@ -4,7 +4,7 @@
  * Falls back to URL params for cross-origin navigation
  */
 
-const SYNC_KEYS = ['language', 'tts_enabled', 'tts_engine', 'voice_engine', 'theme'];
+const SYNC_KEYS = ['language', 'tts_enabled', 'tts_engine', 'tts_rate', 'voice_engine', 'theme'];
 const CHANNEL_NAME = 'py-talk-settings';
 
 class SettingsSyncService {

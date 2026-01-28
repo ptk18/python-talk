@@ -36,7 +36,7 @@ export function useCodeExecution() {
     try {
       const res = await executeAPI.rerunCommand(parseInt(conversationId))
       output.value = res.output || 'No output returned from execute_command.\n'
-      voiceService.speak('Your output is ready, Sir')
+      voiceService.speak('Output ready!')
     } catch (err) {
       console.error('Failed to execute command:', err)
       output.value = 'Error executing command.\n'
@@ -109,7 +109,7 @@ export function useCodeExecution() {
       }
 
       output.value = 'Turtle graphics execution triggered on streaming device.\n'
-      voiceService.speak('Your turtle graphics are running, Sir')
+      voiceService.speak('Turtle graphics running!')
     } catch (err) {
       console.error('Failed to execute turtle graphics:', err)
       output.value = 'Error executing turtle graphics.\n'

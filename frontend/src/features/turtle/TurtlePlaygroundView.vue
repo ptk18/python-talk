@@ -163,6 +163,7 @@ import AppSidebar from '@/shared/components/AppSidebar.vue';
 import MonacoEditor from '@/shared/components/MonacoEditor.vue';
 import { useLanguage, useTTS, voiceService, turtleAPI, translateAPI, conversationAPI } from '@py-talk/shared';
 import { useTranslations } from '@/utils/translations';
+import { getGreeting } from '@/shared/utils/formatters';
 import { Turtle } from './lib/turtle';
 import { parseTurtleCommand } from './lib/turtleCommandParser';
 import undoIcon from '@/assets/R-undo.svg';
@@ -197,6 +198,7 @@ t = turtle.Turtle()
     const isRecording = ref(false);
     const isTranscribing = ref(false);
     const isProcessing = ref(false);
+    const hasGreeted = ref(false);
     const mediaRecorder = ref(null);
     const audioChunks = ref([]);
 
@@ -256,6 +258,20 @@ t = turtle.Turtle()
 
     onMounted(async () => {
       await nextTick();
+
+      const handleFirstInteraction = () => {
+        if (!hasGreeted.value) {
+          hasGreeted.value = true;
+          voiceService.enableAudioContext();
+          voiceService.speak("Turtle ready! Let's draw something!");
+        }
+        document.removeEventListener('click', handleFirstInteraction);
+        document.removeEventListener('keydown', handleFirstInteraction);
+      };
+
+      document.addEventListener('click', handleFirstInteraction);
+      document.addEventListener('keydown', handleFirstInteraction);
+
       if (turtleCanvas.value) {
         turtle = new Turtle(turtleCanvas.value, turtleIndicator.value);
         try {

@@ -37,15 +37,22 @@ async def google_speech_status():
 
 
 @router.post("/text-to-speech")
-async def google_text_to_speech(text: str):
+async def google_text_to_speech(text: str, rate: float = 1.0):
     """
     Convert text to speech using Google Cloud Text-to-Speech API
     Returns audio file (MP3)
+
+    Args:
+        text: The text to convert to speech
+        rate: Speaking rate (0.5 to 2.0, default 1.0)
     """
     if not GOOGLE_AVAILABLE or not GOOGLE_LIBS_AVAILABLE:
         raise HTTPException(status_code=503, detail="Google Speech API not available")
 
-    print(f"[Google TTS] Request received - Text length: {len(text)} chars")
+    # Validate and clamp rate
+    rate = max(0.5, min(2.0, rate))
+
+    print(f"[Google TTS] Request received - Text length: {len(text)} chars, Rate: {rate}x")
 
     try:
         client = texttospeech.TextToSpeechClient()
@@ -62,13 +69,13 @@ async def google_text_to_speech(text: str):
 
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.MP3,
-            speaking_rate=1.3,  
+            speaking_rate=rate,
             pitch=0.0,          # Normal pitch
             volume_gain_db=0.0, # Normal volume
             sample_rate_hertz=24000  # High quality audio
         )
 
-        print(f"[Google TTS] Using voice: en-US-Standard-D")
+        print(f"[Google TTS] Using voice: en-US-Standard-D, Rate: {rate}x")
 
         response = client.synthesize_speech(
             input=synthesis_input,

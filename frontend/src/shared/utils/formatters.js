@@ -6,10 +6,39 @@ export function formatTime(timestamp) {
   })
 }
 
+function randomChoice(array) {
+  return array[Math.floor(Math.random() * array.length)]
+}
+
 export function getGreeting() {
   const hour = new Date().getHours()
-  if (hour >= 5 && hour < 12) return 'Good Morning, Sir'
-  if (hour >= 12 && hour < 17) return 'Good Afternoon, Sir'
-  if (hour >= 17 && hour < 21) return 'Good Evening, Sir'
-  return 'Welcome, Sir'
+
+  const morningGreetings = [
+    'Good morning! Ready to code?',
+    'Hey there! Let\'s start the day right.',
+    'Morning! What are we building today?'
+  ]
+
+  const afternoonGreetings = [
+    'Hey there! Let\'s build something great.',
+    'Good afternoon! Ready to code?',
+    'Hi! What shall we create today?'
+  ]
+
+  const eveningGreetings = [
+    'Good evening! Let\'s code something awesome.',
+    'Evening! What are we working on?',
+    'Hey! Ready for some coding?'
+  ]
+
+  const defaultGreetings = [
+    'Welcome back! Let\'s get started.',
+    'Hey! Ready to code?',
+    'Let\'s build something great!'
+  ]
+
+  if (hour >= 5 && hour < 12) return randomChoice(morningGreetings)
+  if (hour >= 12 && hour < 17) return randomChoice(afternoonGreetings)
+  if (hour >= 17 && hour < 21) return randomChoice(eveningGreetings)
+  return randomChoice(defaultGreetings)
 }

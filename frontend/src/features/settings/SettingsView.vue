@@ -103,6 +103,65 @@
             </div>
           </div>
 
+          <!-- Speech Rate Control Section -->
+          <div class="settings-section">
+            <div class="settings-header">
+              <h3 class="section-title">{{ t.settings.speechRate }}</h3>
+              <p class="section-description">{{ t.settings.speechRateDescription }}</p>
+            </div>
+
+            <div class="rate-control-container">
+              <!-- Rate Slider -->
+              <div class="rate-slider-wrapper">
+                <label class="rate-label">
+                  {{ t.settings.currentRate }}: <strong>{{ speechRateLabel }}</strong>
+                </label>
+                <input
+                  type="range"
+                  class="rate-slider"
+                  min="0.5"
+                  max="2.0"
+                  step="0.1"
+                  :value="speechRateValue"
+                  @input="onSpeechRateChange(parseFloat($event.target.value))"
+                  :disabled="!ttsEnabledState"
+                />
+                <div class="rate-markers">
+                  <span>0.5x</span>
+                  <span>1.0x</span>
+                  <span>1.5x</span>
+                  <span>2.0x</span>
+                </div>
+              </div>
+
+              <!-- Rate Presets -->
+              <div class="rate-presets">
+                <button
+                  v-for="preset in ratePresets"
+                  :key="preset.value"
+                  class="preset-btn"
+                  :class="{ 'active': speechRateValue === preset.value }"
+                  @click="onSpeechRateChange(preset.value)"
+                  :disabled="!ttsEnabledState"
+                >
+                  {{ preset.label }}
+                </button>
+              </div>
+
+              <!-- Test Button -->
+              <button
+                class="test-rate-btn"
+                @click="testSpeechRate"
+                :disabled="!ttsEnabledState"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                </svg>
+                {{ t.settings.testRate }}
+              </button>
+            </div>
+          </div>
+
           <!-- STT Model Selection Section -->
           <div class="settings-section">
             <div class="settings-header">
@@ -151,7 +210,7 @@ import { useLanguage, useTTS, useSTT, voiceService } from '@py-talk/shared';
 import { useTranslations } from '@/utils/translations';
 
 const { language, setLanguage } = useLanguage();
-const { ttsEnabled, ttsEngine, setTTSEnabled, setTTSEngine } = useTTS();
+const { ttsEnabled, ttsEngine, ttsRate, setTTSEnabled, setTTSEngine, setTTSRate } = useTTS();
 const { sttEngine, setSTTEngine } = useSTT();
 
 const t = computed(() => useTranslations(language.value));
@@ -161,8 +220,9 @@ const languages = computed(() => [
   { code: 'th', name: t.value.settings.thai, nativeName: 'ไทย', flag: '🇹🇭' }
 ]);
 
-const googleAvailable = ref(false);
+const googleAvailable = ref(voiceService.isGoogleAvailable());
 const ttsEnabledState = ref(true);
+const speechRateValue = ref(1.0);
 
 const ttsModels = computed(() => {
   const models = [
@@ -239,14 +299,42 @@ const testTTS = () => {
   console.log('[Settings] Testing TTS with message:', testMessage);
 };
 
-onMounted(async () => {
-  // Force check Google availability with delay
-  await new Promise(resolve => setTimeout(resolve, 500));
+const speechRateLabel = computed(() => {
+  return `${speechRateValue.value.toFixed(1)}x`;
+});
+
+const ratePresets = computed(() => [
+  { value: 0.5, label: '0.5x', description: t.value.settings.verySlow },
+  { value: 0.75, label: '0.75x', description: t.value.settings.slow },
+  { value: 1.0, label: '1.0x', description: t.value.settings.normal },
+  { value: 1.25, label: '1.25x', description: t.value.settings.fast },
+  { value: 1.5, label: '1.5x', description: t.value.settings.veryFast },
+  { value: 2.0, label: '2.0x', description: t.value.settings.fastest }
+]);
+
+const onSpeechRateChange = (rate) => {
+  speechRateValue.value = rate;
+  setTTSRate(rate);
+  voiceService.setSpeechRate(rate);
+  console.log(`[Settings] Speech rate changed to: ${rate}x`);
+};
+
+const testSpeechRate = () => {
+  voiceService.enableAudioContext();
+  const testMessage = `Testing speech at ${speechRateValue.value.toFixed(1)} times speed.`;
+  voiceService.speak(testMessage);
+  console.log('[Settings] Testing speech rate:', speechRateValue.value);
+};
+
+onMounted(() => {
+  // Google availability is already determined by voiceService singleton
   googleAvailable.value = voiceService.isGoogleAvailable();
 
   ttsEnabledState.value = ttsEnabled.value;
+  speechRateValue.value = ttsRate.value;
   console.log('[Settings] TTS enabled:', ttsEnabledState.value);
   console.log('[Settings] TTS engine:', selectedTTSModel.value);
+  console.log('[Settings] Speech rate:', speechRateValue.value);
   console.log('[Settings] STT engine:', selectedSTTModel.value);
   console.log('[Settings] Google available:', googleAvailable.value);
 
@@ -502,6 +590,143 @@ onMounted(async () => {
   color: var(--color-text);
 }
 
+.rate-control-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 0;
+}
+
+.rate-slider-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rate-label {
+  font-size: var(--font-size-body);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.rate-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #e0e0e0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.rate-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rate-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 8px rgba(2, 74, 20, 0.1);
+}
+
+.rate-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.rate-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 8px rgba(2, 74, 20, 0.1);
+}
+
+.rate-slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rate-markers {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-small);
+  color: var(--color-text-muted);
+  padding: 0 4px;
+}
+
+.rate-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 12px;
+}
+
+.preset-btn {
+  padding: 10px 16px;
+  background: var(--color-bg);
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: #f5f5f5;
+  transform: translateY(-2px);
+}
+
+.preset-btn.active {
+  border-color: var(--color-primary);
+  background: #f0f7f2;
+  color: var(--color-primary);
+}
+
+.preset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.test-rate-btn {
+  padding: 12px 24px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+}
+
+.test-rate-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 74, 20, 0.2);
+}
+
+.test-rate-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 @media (max-width: 768px) {
   .settings-content {
     padding: 16px;
@@ -513,6 +738,10 @@ onMounted(async () => {
 
   .settings-options {
     grid-template-columns: 1fr;
+  }
+
+  .rate-presets {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 </style>

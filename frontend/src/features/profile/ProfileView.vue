@@ -79,8 +79,9 @@
 
 <script>
 import { computed } from 'vue'
-import { useLanguage } from '@py-talk/shared'
+import { useLanguage, voiceService } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
+import { getGreeting } from '@/shared/utils/formatters'
 import TopToolbar from '@/shared/components/TopToolbar.vue'
 import Sidebar from '@/shared/components/Sidebar.vue'
 
@@ -105,11 +106,25 @@ export default {
         confirmPassword: ''
       },
       message: '',
-      messageType: 'success'
+      messageType: 'success',
+      hasGreeted: false
     }
   },
   mounted() {
     this.loadUserInfo()
+
+    const handleFirstInteraction = () => {
+      if (!this.hasGreeted) {
+        this.hasGreeted = true
+        voiceService.enableAudioContext()
+        voiceService.speak('Profile settings ready!')
+      }
+      document.removeEventListener('click', handleFirstInteraction)
+      document.removeEventListener('keydown', handleFirstInteraction)
+    }
+
+    document.addEventListener('click', handleFirstInteraction)
+    document.addEventListener('keydown', handleFirstInteraction)
   },
   methods: {
     loadUserInfo() {
@@ -121,18 +136,18 @@ export default {
       }
     },
     saveProfile() {
-      // Validation
       if (!this.profileData.name || !this.profileData.email) {
         this.showMessage(this.t.profile.fillAllFields, 'error')
+        voiceService.speak('Please fill in all required fields.')
         return
       }
 
       if (this.profileData.password && this.profileData.password !== this.profileData.confirmPassword) {
         this.showMessage(this.t.profile.passwordsDoNotMatch, 'error')
+        voiceService.speak('Passwords do not match.')
         return
       }
 
-      // Update user info
       const updatedUserInfo = {
         name: this.profileData.name,
         email: this.profileData.email
@@ -143,8 +158,8 @@ export default {
       window.dispatchEvent(new Event('userInfoUpdated'))
 
       this.showMessage(this.t.profile.profileUpdated, 'success')
+      voiceService.speak('Profile updated!')
 
-      // Clear password fields
       this.profileData.password = ''
       this.profileData.confirmPassword = ''
     },
@@ -153,6 +168,7 @@ export default {
       this.profileData.password = ''
       this.profileData.confirmPassword = ''
       this.message = ''
+      voiceService.speak('Changes cancelled.')
     },
     showMessage(text, type) {
       this.message = text

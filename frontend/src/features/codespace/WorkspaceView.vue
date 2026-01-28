@@ -186,9 +186,9 @@ export default {
           analyzeAPI.prewarmPipeline(parseInt(conversationId.value))
             .catch(err => console.warn('Pipeline re-prewarm failed:', err))
 
-          voiceService.speak('Code saved and methods updated')
+          voiceService.speak('All set!')
         } else {
-          voiceService.speak('Code saved successfully')
+          voiceService.speak('Saved!')
         }
 
         lastUserEdit.value = 0
@@ -198,7 +198,7 @@ export default {
         }
       } catch (err) {
         console.error('Failed to save code:', err)
-        voiceService.speak('Failed to save code')
+        voiceService.speak('Save failed.')
       } finally {
         isSaving.value = false
       }

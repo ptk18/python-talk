@@ -73,7 +73,17 @@ export const translations = {
       whisperSTT: 'Whisper (Local)',
       whisperSTTDescription: 'Local Whisper models for speech recognition',
       googleSTT: 'Google Cloud STT',
-      googleSTTDescription: 'Cloud-based speech recognition (higher accuracy)'
+      googleSTTDescription: 'Cloud-based speech recognition (higher accuracy)',
+      speechRate: 'Speech Rate',
+      speechRateDescription: 'Adjust how fast the voice speaks',
+      currentRate: 'Current Speed',
+      verySlow: 'Very Slow',
+      slow: 'Slow',
+      normal: 'Normal',
+      fast: 'Fast',
+      veryFast: 'Very Fast',
+      fastest: 'Fastest',
+      testRate: 'Test Speed'
     },
 
     // Profile Page
@@ -113,9 +123,9 @@ export const translations = {
       encounteredError: 'I encountered an error. Please try again',
       runnerFileEmpty: 'Runner file is empty. Please add some commands',
       runnerNotFound: 'Runner file not found. Please initialize the session first',
-      yourOutputReady: 'Your output is ready, Sir',
+      yourOutputReady: 'Output ready!',
       pleaseTryAgain: 'Please try again',
-      turtleGraphicsRunning: 'Your turtle graphics are running, Sir',
+      turtleGraphicsRunning: 'Turtle graphics running!',
       codeSaved: 'Code saved successfully',
       codeSavedMethodsUpdated: 'Code saved and methods updated',
       failedToSaveCode: 'Failed to save code',
@@ -124,10 +134,10 @@ export const translations = {
       micAccessDenied: 'Microphone access denied',
       failedToGenerateSuggestions: 'Failed to generate suggestions',
       fileUpdatedWithNewCommands: 'File updated with new commands',
-      goodMorning: 'Good Morning, Sir',
-      goodAfternoon: 'Good Afternoon, Sir',
-      goodEvening: 'Good Evening, Sir',
-      welcome: 'Welcome, Sir'
+      goodMorning: 'Good morning! Ready to code?',
+      goodAfternoon: 'Hey there! Let\'s build something.',
+      goodEvening: 'Good evening! Ready to code?',
+      welcome: 'Welcome back! Let\'s get started.'
     },
 
     // App Sidebar
@@ -215,7 +225,17 @@ export const translations = {
       whisperSTT: 'Whisper (ในเครื่อง)',
       whisperSTTDescription: 'โมเดล Whisper ในเครื่องสำหรับการรู้จำเสียง',
       googleSTT: 'Google Cloud STT',
-      googleSTTDescription: 'การรู้จำเสียงจาก Cloud (แม่นยำกว่า)'
+      googleSTTDescription: 'การรู้จำเสียงจาก Cloud (แม่นยำกว่า)',
+      speechRate: 'ความเร็วการพูด',
+      speechRateDescription: 'ปรับความเร็วในการพูดของเสียง',
+      currentRate: 'ความเร็วปัจจุบัน',
+      verySlow: 'ช้ามาก',
+      slow: 'ช้า',
+      normal: 'ปกติ',
+      fast: 'เร็ว',
+      veryFast: 'เร็วมาก',
+      fastest: 'เร็วที่สุด',
+      testRate: 'ทดสอบความเร็ว'
     },
 
     // Profile Page
@@ -255,9 +275,9 @@ export const translations = {
       encounteredError: 'เกิดข้อผิดพลาด กรุณาลองอีกครั้ง',
       runnerFileEmpty: 'ไฟล์ runner ว่างเปล่า กรุณาเพิ่มคำสั่ง',
       runnerNotFound: 'ไม่พบไฟล์ runner กรุณาเริ่มต้นเซสชันก่อน',
-      yourOutputReady: 'ผลลัพธ์ของคุณพร้อมแล้วครับ',
+      yourOutputReady: 'ผลลัพธ์พร้อมแล้ว!',
       pleaseTryAgain: 'กรุณาลองอีกครั้ง',
-      turtleGraphicsRunning: 'Turtle graphics ของคุณกำลังทำงานครับ',
+      turtleGraphicsRunning: 'Turtle graphics กำลังทำงาน!',
       codeSaved: 'บันทึกโค้ดสำเร็จแล้ว',
       codeSavedMethodsUpdated: 'บันทึกโค้ดและอัปเดตเมธอดสำเร็จแล้ว',
       failedToSaveCode: 'บันทึกโค้ดไม่สำเร็จ',
@@ -266,10 +286,10 @@ export const translations = {
       micAccessDenied: 'ไม่สามารถเข้าถึงไมโครโฟนได้',
       failedToGenerateSuggestions: 'สร้างคำแนะนำไม่สำเร็จ',
       fileUpdatedWithNewCommands: 'อัปเดตไฟล์ด้วยคำสั่งใหม่แล้ว',
-      goodMorning: 'สวัสดีตอนเช้าครับ',
-      goodAfternoon: 'สวัสดีตอนบ่ายครับ',
-      goodEvening: 'สวัสดีตอนเย็นครับ',
-      welcome: 'ยินดีต้อนรับครับ'
+      goodMorning: 'สวัสดีตอนเช้า! พร้อมโค้ดกันไหม?',
+      goodAfternoon: 'สวัสดี! มาสร้างอะไรสนุกๆ กัน',
+      goodEvening: 'สวัสดีตอนเย็น! พร้อมโค้ดกันไหม?',
+      welcome: 'ยินดีต้อนรับกลับมา! เริ่มกันเลย'
     },
 
     // App Sidebar

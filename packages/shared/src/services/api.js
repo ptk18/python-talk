@@ -174,8 +174,11 @@ export const googleSpeechAPI = {
     return apiCall('/api/google-speech/status');
   },
 
-  textToSpeech: async (text) => {
-    const params = new URLSearchParams({ text });
+  textToSpeech: async (text, rate = 1.0) => {
+    const params = new URLSearchParams({
+      text,
+      rate: rate.toString()
+    });
     const token = getAuthToken();
 
     const response = await fetch(`${API_BASE_URL}/api/google-speech/text-to-speech?${params}`, {

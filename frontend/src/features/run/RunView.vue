@@ -228,6 +228,8 @@
 <script>
 import TopToolbar from '@/shared/components/TopToolbar.vue'
 import Sidebar from '@/shared/components/Sidebar.vue'
+import { voiceService } from '@py-talk/shared'
+import { getGreeting } from '@/shared/utils/formatters'
 import uploadFileIcon from '@/assets/R-uploadfile.svg'
 import undoIcon from '@/assets/R-undo.svg'
 import redoIcon from '@/assets/R-redo.svg'
@@ -309,7 +311,8 @@ print(f"10 + 20 = {result}")`,
       // Undo/Redo history
       codeHistory: [],
       historyIndex: -1,
-      isUndoRedo: false
+      isUndoRedo: false,
+      hasGreeted: false
     }
   },
   watch: {
@@ -340,7 +343,7 @@ print(f"10 + 20 = {result}")`,
     } else {
       this.chatId = this.generateChatId()
     }
-    
+
     // Initialize Web Speech API if available
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -348,21 +351,34 @@ print(f"10 + 20 = {result}")`,
       this.recognition.continuous = false
       this.recognition.interimResults = false
       this.recognition.lang = 'en-US'
-      
+
       this.recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript
         this.inputMessage = transcript
         this.isRecording = false
       }
-      
+
       this.recognition.onerror = () => {
         this.isRecording = false
       }
-      
+
       this.recognition.onend = () => {
         this.isRecording = false
       }
     }
+
+    const handleFirstInteraction = () => {
+      if (!this.hasGreeted) {
+        this.hasGreeted = true
+        voiceService.enableAudioContext()
+        voiceService.speak("Code Space ready! Let's run some code.")
+      }
+      document.removeEventListener('click', handleFirstInteraction)
+      document.removeEventListener('keydown', handleFirstInteraction)
+    }
+
+    document.addEventListener('click', handleFirstInteraction)
+    document.addEventListener('keydown', handleFirstInteraction)
   },
   beforeUnmount() {
     if (this.messages.length > 0) {
@@ -488,17 +504,21 @@ print(f"10 + 20 = {result}")`,
     async runCode() {
       if (!this.code.trim()) {
         this.addOutput('error', 'Please enter some code to run')
+        voiceService.speak('Please enter some code first.')
         return
       }
 
       this.isRunning = true
+      voiceService.speak('Running your code...')
       this.addOutput('input', this.code)
 
       try {
         const result = await this.executeCode(this.code)
         this.addOutput('output', result)
+        voiceService.speak('Code ran successfully!')
       } catch (error) {
         this.addOutput('error', error.message || 'An error occurred while running the code')
+        voiceService.speak('Execution failed. Check the error.')
       } finally {
         this.isRunning = false
         this.scrollOutputToBottom()
@@ -562,9 +582,11 @@ print(f"10 + 20 = {result}")`,
     },
     clearOutput() {
       this.output = []
+      voiceService.speak('Output cleared.')
     },
     toggleOutputMode() {
       this.isTextMode = !this.isTextMode
+      voiceService.speak(this.isTextMode ? 'Switched to text mode.' : 'Switched to graphic mode.')
     },
     toggleFunctionPanel() {
       this.isFunctionPanelOpen = !this.isFunctionPanelOpen
@@ -602,8 +624,10 @@ print(f"10 + 20 = {result}")`,
         const fileContent = await this.readFileContent(file)
         this.code = fileContent
         this.addOutput('output', `File "${file.name}" loaded successfully`)
+        voiceService.speak('File loaded!')
       } catch (error) {
         this.addOutput('error', `Error reading file: ${error.message}`)
+        voiceService.speak('File loading failed.')
       }
 
       event.target.value = ''

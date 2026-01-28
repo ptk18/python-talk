@@ -10,6 +10,11 @@ class VoiceService {
     this.cachedVoices = [];
     this.preferredVoice = null;
     this.voiceLoadPromise = null;
+    this.lastSpeakTime = 0;
+    this.debounceDelay = 500;
+    this.isSpeaking = false;
+    this.currentSpeechId = null;
+    this.speechRate = 1.0;
     this.init();
     this.initVoices();
   }
@@ -21,13 +26,22 @@ class VoiceService {
     const savedTTSEngine = localStorage.getItem('tts_engine') || 'browser';
     this.ttsEngine = savedTTSEngine;
 
-    try {
-      const status = await googleSpeechAPI.checkStatus();
-      this.googleAvailable = status.available;
-    } catch (err) {
-      console.warn('Google Speech API not available:', err);
-      this.googleAvailable = false;
+    // Load saved speech rate
+    const savedRate = localStorage.getItem('tts_rate');
+    if (savedRate) {
+      this.speechRate = parseFloat(savedRate);
     }
+
+    // Check Google API availability in background (non-blocking)
+    googleSpeechAPI.checkStatus()
+      .then(status => {
+        this.googleAvailable = status.available;
+        console.log('[VoiceService] Google Speech API available:', status.available);
+      })
+      .catch(err => {
+        console.warn('[VoiceService] Google Speech API not available:', err);
+        this.googleAvailable = false;
+      });
   }
 
   initVoices() {
@@ -57,10 +71,11 @@ class VoiceService {
       // Fallback timeout - resolve even if no voices loaded
       setTimeout(() => {
         if (!this.voicesLoaded) {
-          console.warn('[VoiceService] Voice loading timeout, using defaults');
+          console.log('[VoiceService] Voice loading optimistic timeout (500ms), using defaults');
+          this.voicesLoaded = true;
           resolve([]);
         }
-      }, 3000);
+      }, 500);
     });
   }
 
@@ -90,16 +105,23 @@ class VoiceService {
       console.warn('[VoiceService] Could not initialize audio context:', err);
     }
 
-    // Also trigger voice loading for browser TTS
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.getVoices();
+    // Eager voice loading
+    this.eagerLoadVoices();
+  }
 
-      // Chrome workaround: speak a silent utterance to unlock TTS
-      const unlock = new SpeechSynthesisUtterance('');
-      unlock.volume = 0;
-      window.speechSynthesis.speak(unlock);
-      console.log('[VoiceService] Chrome TTS unlocked with silent utterance');
-    }
+  eagerLoadVoices() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    // Force voice loading
+    window.speechSynthesis.getVoices();
+
+    // Chrome workaround: speak a silent utterance to unlock TTS and trigger voices
+    const unlock = new SpeechSynthesisUtterance('');
+    unlock.volume = 0;
+    window.speechSynthesis.speak(unlock);
+    window.speechSynthesis.cancel();
+
+    console.log('[VoiceService] Eager voice loading triggered');
   }
 
   setEngine(engine) {
@@ -118,6 +140,21 @@ class VoiceService {
 
   getTTSEngine() {
     return this.ttsEngine || localStorage.getItem('tts_engine') || 'browser';
+  }
+
+  setSpeechRate(rate) {
+    // Clamp rate between 0.5 and 2.0
+    this.speechRate = Math.max(0.5, Math.min(2.0, rate));
+    localStorage.setItem('tts_rate', this.speechRate.toString());
+    console.log(`[VoiceService] Speech rate set to: ${this.speechRate}x`);
+  }
+
+  getSpeechRate() {
+    const saved = localStorage.getItem('tts_rate');
+    if (saved) {
+      this.speechRate = parseFloat(saved);
+    }
+    return this.speechRate;
   }
 
   // Detect browser for audio format handling
@@ -216,7 +253,20 @@ class VoiceService {
   async speak(text) {
     if (!text) return;
 
-    // Check if TTS is enabled
+    const now = Date.now();
+    if (now - this.lastSpeakTime < this.debounceDelay) {
+      console.log('[VoiceService] Debounced - too soon after last speak');
+      return;
+    }
+
+    // Check if already speaking
+    if (this.isSpeaking) {
+      console.log('[VoiceService] Already speaking, ignoring new request');
+      return;
+    }
+
+    this.lastSpeakTime = now;
+
     const ttsEnabled = localStorage.getItem('tts_enabled');
     if (ttsEnabled === 'false') {
       console.log('[VoiceService] TTS is disabled');
@@ -228,17 +278,21 @@ class VoiceService {
     if (currentTTSEngine === 'google' && this.googleAvailable) {
       try {
         console.log('[VoiceService] Using Google Cloud TTS');
-        const audioBlob = await googleSpeechAPI.textToSpeech(text);
+        this.isSpeaking = true;
+
+        const audioBlob = await googleSpeechAPI.textToSpeech(text, this.speechRate);
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
 
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
+          this.isSpeaking = false;
         };
 
         audio.onerror = (err) => {
           console.error('[VoiceService] Audio playback error:', err);
           URL.revokeObjectURL(audioUrl);
+          this.isSpeaking = false;
         };
 
         // Handle autoplay policy rejection
@@ -247,12 +301,21 @@ class VoiceService {
           console.log('[VoiceService] Google TTS audio played successfully');
         } catch (playError) {
           console.error('[VoiceService] Audio play failed (likely autoplay policy):', playError);
-          // Try browser TTS as fallback
-          this.speakWithBrowser(text);
+          this.isSpeaking = false;
+
+          // Only fallback if NOT already speaking with browser
+          if (!window.speechSynthesis.speaking) {
+            this.speakWithBrowser(text);
+          }
         }
       } catch (err) {
         console.error('[VoiceService] Google TTS failed, falling back to browser:', err);
-        this.speakWithBrowser(text);
+        this.isSpeaking = false;
+
+        // Only fallback if NOT already speaking
+        if (!window.speechSynthesis.speaking) {
+          this.speakWithBrowser(text);
+        }
       }
     } else {
       this.speakWithBrowser(text);
@@ -278,14 +341,16 @@ class VoiceService {
 
     // Cancel any previous speech
     window.speechSynthesis.cancel();
+    this.isSpeaking = false;
 
-    // Wait for voices to be loaded (fixes race condition)
-    if (this.voiceLoadPromise) {
-      await this.voiceLoadPromise;
+    // Don't wait for voices - speak immediately with default if needed
+    // Voices will upgrade later when onvoiceschanged fires
+    if (this.voiceLoadPromise && !this.voicesLoaded) {
+      console.log('[VoiceService] Speaking optimistically (voices still loading)');
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
+    utterance.rate = this.getSpeechRate();
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     utterance.lang = 'en-US';
@@ -309,14 +374,18 @@ class VoiceService {
     }
 
     utterance.onstart = () => {
+      this.isSpeaking = true;
       console.log('[VoiceService] Browser TTS started:', text.substring(0, 50));
     };
 
     utterance.onend = () => {
+      this.isSpeaking = false;
       console.log('[VoiceService] Browser TTS ended');
     };
 
     utterance.onerror = (event) => {
+      this.isSpeaking = false;
+
       // Ignore canceled errors when we intentionally cancel
       if (event.error === 'canceled') {
         console.log('[VoiceService] Speech was canceled (expected)');
@@ -349,6 +418,7 @@ class VoiceService {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    this.isSpeaking = false;
   }
 
   isGoogleAvailable() {
