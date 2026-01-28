@@ -3,24 +3,36 @@ services:
     build: ./backend
     platform: linux/amd64
     ports:
-      - "3005:3005"
-      - "5050:5050"
+      - "3005:3005" # KEEPING SERVER PORT
+      - "5050:5050" # KEEPING SERVER PORT
     volumes:
       - ./backend:/app
-    environment:
-      - STREAM_DEVICE_BASE_URL=https://161.246.5.67:8001
     networks:
       - python_talk_net
+    environment:
+      # OLD SERVER CONFIGS
+      - STREAM_DEVICE_BASE_URL=https://161.246.5.67:8001
+      # NEW LOCAL OPTIMIZATIONS
+      - DISABLE_SEMANTIC_MATCHING=true
+      - PREWARM_MODELS=false
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
 
   frontend:
     build:
-      context: ./frontend
+      context: .  # CHANGED TO ROOT to see 'packages/shared'
+      dockerfile: frontend/Dockerfile
       args:
+        # KEEPING SERVER URLS
         - VITE_API_BASE_URL=https://turing.se.kmitl.ac.th/pytalk/api
         - VITE_WS_BASE_URL=ws://161.246.5.67:5050
     platform: linux/amd64
     ports:
-      - "1643:1643"
+      - "1643:1643" # KEEPING SERVER PORT
     depends_on:
       - backend
     networks:

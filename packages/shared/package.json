@@ -1,0 +1,15 @@
+{
+  "name": "@py-talk/shared",
+  "version": "1.0.0",
+  "description": "Shared services and composables for Py-Talk apps",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./services/*": "./src/services/*.js",
+    "./composables/*": "./src/composables/*.js"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  }
+}

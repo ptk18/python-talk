@@ -1,32 +1,39 @@
-# Frontend uses Node
-FROM node:20
+# STAGE 1: Build the React App
+FROM node:20 as builder
 
 WORKDIR /app
 
-# Copy package.json & package-lock first for caching
-COPY package*.json ./
+# 1. Copy the shared package first (CRITICAL for new code structure)
+COPY packages/shared /app/packages/shared
 
-# Install dependencies - remove lock file to avoid npm optional dependencies bug
-RUN rm -f package-lock.json && npm install
+# 2. Copy frontend dependencies
+COPY frontend/package*.json ./frontend/
 
-# Copy environment files first
-COPY .env* ./
+# 3. Install dependencies
+WORKDIR /app/frontend
+# install-links allows npm to see the local ../packages/shared folder
+RUN npm install --install-links
 
-# Copy rest of the source
-COPY . .
+# 4. Copy the rest of the frontend source code
+COPY frontend/ ./
 
-# Build args for environment variables
+# 5. Build Arguments for Environment Variables
 ARG VITE_API_BASE_URL
 ARG VITE_WS_BASE_URL
 
-# Build
+# 6. Build for Production
 RUN npm run build
 
-# Use Nginx to serve
+# STAGE 2: Serve with Nginx (Like the old server)
 FROM nginx:alpine
-RUN rm -rf /usr/share/nginx/html/*
-COPY --from=0 /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# WE DELETED THE CRASHING 'rm' COMMAND HERE
+
+# Copy the build output from the builder stage
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
+
+# Copy config
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 1643
 CMD ["nginx", "-g", "daemon off;"]

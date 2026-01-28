@@ -8,3 +8,6 @@ __pycache__/
 backend/hf_cache/
 *.pt
 *.incomplete
+**/.cache/
+**/*.pt
+**/*.bin

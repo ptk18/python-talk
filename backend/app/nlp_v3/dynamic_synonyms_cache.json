@@ -1,0 +1,503 @@
+{
+  "cache_version": 1,
+  "methods": {
+    "b44f4c738a74": {
+      "method_name": "turn_light_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532367"
+    },
+    "df60ae17d26d": {
+      "method_name": "turn_light_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532396"
+    },
+    "079617d086fb": {
+      "method_name": "turn_tv_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532401"
+    },
+    "d7bfec794827": {
+      "method_name": "turn_tv_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532403"
+    },
+    "f05f7756b95c": {
+      "method_name": "turn_ac_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532406"
+    },
+    "29b569c13aba": {
+      "method_name": "turn_ac_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532408"
+    },
+    "1ce623509719": {
+      "method_name": "set_temperature",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532411"
+    },
+    "467a912dcc11": {
+      "method_name": "increase_temperature",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532414"
+    },
+    "2f51e052c3ef": {
+      "method_name": "decrease_temperature",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532416"
+    },
+    "383f22702fd3": {
+      "method_name": "get_temperature",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532418"
+    },
+    "2dd56f413cc9": {
+      "method_name": "is_light_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532421"
+    },
+    "0b1a55cdc0ad": {
+      "method_name": "is_tv_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532425"
+    },
+    "e0b57831efc3": {
+      "method_name": "is_ac_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532428"
+    },
+    "2fb4aab2d580": {
+      "method_name": "count_devices_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532431"
+    },
+    "d71c4a5a1263": {
+      "method_name": "are_all_devices_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532434"
+    },
+    "d402b5fb8268": {
+      "method_name": "status",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532438"
+    },
+    "5463a3be02ff": {
+      "method_name": "turn_all_on",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532441"
+    },
+    "9aa19f6427c1": {
+      "method_name": "turn_all_off",
+      "docstring": null,
+      "synonyms": [],
+      "generated_at": "2026-01-23T03:21:36.532443"
+    },
+    "a80602190308": {
+      "method_name": "back",
+      "docstring": "Move the turtle backward by distance. (aliases: backward, bk)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004294"
+    },
+    "810eff01711e": {
+      "method_name": "begin_fill",
+      "docstring": "Called just before drawing a shape to be filled.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004307"
+    },
+    "0e2f58c354e0": {
+      "method_name": "clear",
+      "docstring": "Delete the turtle's drawings from the screen. Do not move turtle.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004309"
+    },
+    "9e7f4ca37ce9": {
+      "method_name": "clearstamp",
+      "docstring": "Delete stamp with given stampid",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004310"
+    },
+    "d6f3e3f5f18d": {
+      "method_name": "clearstamps",
+      "docstring": "Delete all or first/last n of turtle's stamps.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004313"
+    },
+    "86c247b65e35": {
+      "method_name": "degrees",
+      "docstring": "Set angle measurement units to degrees.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004314"
+    },
+    "3b9f2939c605": {
+      "method_name": "distance",
+      "docstring": "Return the distance from the turtle to (x,y) in turtle step units.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004316"
+    },
+    "97ecd0c14ad1": {
+      "method_name": "dot",
+      "docstring": "Draw a dot with diameter size, using color.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004317"
+    },
+    "dce4c20e67b5": {
+      "method_name": "end_fill",
+      "docstring": "Fill the shape drawn after the call begin_fill().",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004319"
+    },
+    "c08fa6f5eaf6": {
+      "method_name": "filling",
+      "docstring": "Return fillstate (True if filling, False else).",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004320"
+    },
+    "508d549bbfec": {
+      "method_name": "forward",
+      "docstring": "Move the turtle forward by the specified distance. (aliases: fd)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004322"
+    },
+    "b72e40271560": {
+      "method_name": "heading",
+      "docstring": "Return the turtle's current heading.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004323"
+    },
+    "2f146e66d431": {
+      "method_name": "hideturtle",
+      "docstring": "Makes the turtle invisible. (aliases: ht)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004324"
+    },
+    "a4446a0d2652": {
+      "method_name": "home",
+      "docstring": "Move turtle to the origin - coordinates (0,0).",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004325"
+    },
+    "75d2330b1157": {
+      "method_name": "isdown",
+      "docstring": "Return True if pen is down, False if it's up.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004327"
+    },
+    "802b707def3c": {
+      "method_name": "isvisible",
+      "docstring": "Return True if the Turtle is shown, False if it's hidden.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004328"
+    },
+    "5a8ce22807f0": {
+      "method_name": "left",
+      "docstring": "Turn turtle left by angle units. (aliases: lt)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004329"
+    },
+    "3479ea6aa47e": {
+      "method_name": "pendown",
+      "docstring": "Pull the pen down -- drawing when moving. (aliases: pd, down)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004331"
+    },
+    "082a566688a1": {
+      "method_name": "penup",
+      "docstring": "Pull the pen up -- no drawing when moving. (aliases: pu, up)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004340"
+    },
+    "775a4f27a9a0": {
+      "method_name": "pos",
+      "docstring": "Return the turtle's current location (x,y), as a Vec2D-vector. (aliases: position)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004342"
+    },
+    "cfbf21827976": {
+      "method_name": "radians",
+      "docstring": "Set the angle measurement units to radians.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004344"
+    },
+    "0c0a7f229e6b": {
+      "method_name": "reset",
+      "docstring": "Delete the turtle's drawings and restore its default values.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004345"
+    },
+    "7fcc6eb4d74f": {
+      "method_name": "right",
+      "docstring": "Turn turtle right by angle units. (aliases: rt)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004347"
+    },
+    "ef10eb34c725": {
+      "method_name": "setheading",
+      "docstring": "Set the orientation of the turtle to to_angle. (aliases: seth)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004348"
+    },
+    "3f83cc74a2a6": {
+      "method_name": "setpos",
+      "docstring": "Move turtle to an absolute position. (aliases: setposition, goto:)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004349"
+    },
+    "0380ee304822": {
+      "method_name": "setx",
+      "docstring": "Set the turtle's first coordinate to x",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004352"
+    },
+    "05ae685c6c26": {
+      "method_name": "sety",
+      "docstring": "Set the turtle's second coordinate to y",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004353"
+    },
+    "1bbdfb942975": {
+      "method_name": "showturtle",
+      "docstring": "Makes the turtle visible. (aliases: st)",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004355"
+    },
+    "ad5b8d9c7bee": {
+      "method_name": "speed",
+      "docstring": "Return or set the turtle's speed.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004356"
+    },
+    "a2587bb962ad": {
+      "method_name": "stamp",
+      "docstring": "Stamp a copy of the turtleshape onto the canvas and return its id.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004358"
+    },
+    "c1e6918ab496": {
+      "method_name": "towards",
+      "docstring": "Return the angle of the line from the turtle's position to (x, y).",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004359"
+    },
+    "54240235896e": {
+      "method_name": "undo",
+      "docstring": "undo (repeatedly) the last turtle action.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004361"
+    },
+    "02bfb7a3f0c3": {
+      "method_name": "write",
+      "docstring": "Write text at the current turtle position.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004362"
+    },
+    "3bb0dffab212": {
+      "method_name": "xcor",
+      "docstring": "Return the turtle's x coordinate.",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004363"
+    },
+    "d40b848434ee": {
+      "method_name": "ycor",
+      "docstring": "Return the turtle's y coordinate",
+      "synonyms": [],
+      "generated_at": "2026-01-24T04:24:50.004364"
+    },
+    "c0cae009d5f6": {
+      "method_name": "add",
+      "docstring": null,
+      "synonyms": [
+        "combine",
+        "join",
+        "accumulate",
+        "append",
+        "tack on",
+        "put together",
+        "merge",
+        "incorporate"
+      ],
+      "generated_at": "2026-01-24T12:25:49.440941"
+    },
+    "75c9655f5eea": {
+      "method_name": "subtract",
+      "docstring": null,
+      "synonyms": [
+        "remove",
+        "take away",
+        "deduct",
+        "diminish",
+        "reduce",
+        "decrease",
+        "drop",
+        "subtract from"
+      ],
+      "generated_at": "2026-01-24T12:25:49.440960"
+    },
+    "bf1e77ab20ec": {
+      "method_name": "multiply",
+      "docstring": null,
+      "synonyms": [
+        "increase",
+        "amplify",
+        "scale up",
+        "repeat",
+        "duplicate",
+        "grow",
+        "expand",
+        "multiply by"
+      ],
+      "generated_at": "2026-01-24T12:25:49.440961"
+    },
+    "c44b4febbeba": {
+      "method_name": "divide",
+      "docstring": null,
+      "synonyms": [
+        "split",
+        "separate",
+        "partition",
+        "break up",
+        "cut",
+        "slice",
+        "segment",
+        "divide by"
+      ],
+      "generated_at": "2026-01-24T12:25:49.440962"
+    },
+    "a66d0ed24195": {
+      "method_name": "deposit",
+      "docstring": "Deposit money into the account",
+      "synonyms": [
+        "put money in",
+        "add funds",
+        "make a deposit",
+        "lodge money",
+        "credit the account",
+        "transfer in",
+        "input cash"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385661"
+    },
+    "313c30fe7d4e": {
+      "method_name": "withdraw",
+      "docstring": "Withdraw money from the account",
+      "synonyms": [
+        "take out",
+        "remove money",
+        "make a withdrawal",
+        "debit the account",
+        "extract funds",
+        "pull out cash",
+        "draw from the account"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385671"
+    },
+    "3bc12b680472": {
+      "method_name": "get_balance",
+      "docstring": "Get the current account balance",
+      "synonyms": [
+        "check the balance",
+        "view the current amount",
+        "see how much is in the account",
+        "get the account total",
+        "find the available funds",
+        "look up the balance",
+        "display the current value"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385672"
+    },
+    "eaacf5544740": {
+      "method_name": "get_owner",
+      "docstring": "Get the account owner name",
+      "synonyms": [
+        "find the account holder",
+        "get the owner's name",
+        "identify the account owner",
+        "reveal the customer name",
+        "look up the account holder",
+        "determine the owner"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385673"
+    },
+    "d8afb23b7d71": {
+      "method_name": "has_sufficient_funds",
+      "docstring": "Check if account has sufficient funds for a withdrawal",
+      "synonyms": [
+        "verify enough money",
+        "check if there's enough",
+        "ensure adequate funds",
+        "confirm sufficient balance",
+        "validate available funds",
+        "assess if there's enough money"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385674"
+    },
+    "c7c2760ac76e": {
+      "method_name": "is_overdrawn",
+      "docstring": "Check if account balance is negative",
+      "synonyms": [
+        "see if the account is negative",
+        "check if it's overdrawn",
+        "determine if balance is below zero",
+        "find out if it's in the red",
+        "inspect for a deficit",
+        "look for a negative balance"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385675"
+    },
+    "ebe0629a10c8": {
+      "method_name": "is_low_balance",
+      "docstring": "Check if balance is below a threshold (default: 100)",
+      "synonyms": [
+        "see if the balance is low",
+        "check if it's below the threshold",
+        "determine if it's a small amount",
+        "find out if it's a minimal balance",
+        "inspect for a low value",
+        "look for a balance under the limit"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385676"
+    },
+    "04d5a04a5ca4": {
+      "method_name": "is_high_balance",
+      "docstring": "Check if balance is above a threshold (default: 1000)",
+      "synonyms": [
+        "see if the balance is high",
+        "check if it's above the threshold",
+        "determine if it's a large amount",
+        "find out if it's a substantial balance",
+        "inspect for a high value",
+        "look for a balance over the limit"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385676"
+    },
+    "4459e747e3a9": {
+      "method_name": "get_account_info",
+      "docstring": "Get comprehensive account information",
+      "synonyms": [
+        "retrieve full account details",
+        "get comprehensive account data",
+        "pull up all account information",
+        "access complete account specifics",
+        "gather total account particulars",
+        "look into full account particulars"
+      ],
+      "generated_at": "2026-01-24T15:46:16.385677"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# VITE_API_BASE_URL=http://backend:3005/api
+# VITE_API_BASE_URL=https://turing.se.kmitl.ac.th/pytalk/api
+# # VITE_WS_BASE_URL=wss://turing.se.kmitl.ac.th/pytalk/ws
+# VITE_WS_BASE_URL=wss://192.168.4.228:5050
+# VITE_API_BASE_URL=https://turing.se.kmitl.ac.th/pytalk/api
+# VITE_WS_BASE_URL=wss://stream.se.kmitl.ac.th
+# VITE_API_BASE_URL=https://turing.se.kmitl.ac.th/pytalk/api
+# VITE_WS_BASE_URL=wss://kyla-calentural-ona.ngrok-free.dev
+VITE_API_BASE_URL=https://turing.se.kmitl.ac.th/pytalk/api
+VITE_WS_BASE_URL=wss://kyla-calentural-ona.ngrok-free.dev
+
