@@ -11,13 +11,11 @@ from app.routers.voice import voice, google_speech
 from app.nlp_v4 import preload_models
 from app.database.connection import engine, Base
 
-# Create database tables
 Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
-    # Startup: Pre-warm models in background thread to not block server startup
     prewarm_enabled = os.getenv("PREWARM_MODELS", "true").lower() == "true"
 
     if prewarm_enabled:
@@ -25,21 +23,23 @@ async def lifespan(app: FastAPI):
         def prewarm_background():
             try:
                 voice.prewarm_models()
-                preload_models()  # Pre-load NLP models (SentenceTransformer + spaCy)
             except Exception as e:
-                print(f"⚠️ Model pre-warming failed: {e}")
+                print(f"Voice model pre-warming failed: {e}")
+
+            try:
+                preload_models()
+            except Exception as e:
+                print(f"NLP model pre-warming failed: {e}")
 
         thread = threading.Thread(target=prewarm_background, daemon=True)
         thread.start()
     else:
         print("\n⏭️ Model pre-warming disabled (set PREWARM_MODELS=true to enable)")
 
-    yield  # Server runs here
+    yield  
 
-    # Shutdown
-    print("\n👋 Shutting down Py-Talk API...")
+    print("\nShutting down Py-Talk API...")
 
-# Create FastAPI app
 app = FastAPI(
     title="Py-Talk API",
     description="A FastAPI application with PostgreSQL database",
@@ -47,7 +47,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -56,7 +55,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api")
 app.include_router(posts.router, prefix="/api/v1")

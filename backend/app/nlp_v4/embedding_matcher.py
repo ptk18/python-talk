@@ -61,10 +61,16 @@ class EmbeddingMatcher:
             raise RuntimeError("EmbeddingMatcher not initialized")
 
         # Encode query
+        print(f"[EmbeddingMatcher] Query: \"{query}\"")
         query_embedding = self.model.encode(query, convert_to_tensor=True)
 
         # Cosine similarity against all methods
         similarities = self.util.cos_sim(query_embedding, self.method_embeddings)[0]
+
+        # Debug: show all scores
+        print(f"[EmbeddingMatcher] Similarity scores:")
+        for i, score in enumerate(similarities):
+            print(f"  {float(score)*100:.1f}% - {self.method_names[i]}: \"{self.method_descriptions[i][:80]}\"")
 
         # Build results sorted by similarity
         results = []

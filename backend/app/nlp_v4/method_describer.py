@@ -24,24 +24,11 @@ def describe_method(method: MethodInfo, class_name: Optional[str] = None) -> str
     """Build a natural language description from a MethodInfo."""
     parts = []
 
-    # 1. Expand method name: snake_case -> spaces
     name_expanded = method.name.replace("_", " ")
-
-    # 2. Append parameters naturally
-    params = [p for p in method.params if p != "self"]
-    if params:
-        if len(params) == 1:
-            name_expanded += f" with {params[0]}"
-        elif len(params) == 2:
-            name_expanded += f" {params[0]} and {params[1]}"
-        else:
-            name_expanded += " " + ", ".join(params[:-1]) + f", and {params[-1]}"
-
     parts.append(name_expanded)
 
-    # 3. Append docstring if available
     if method.docstring:
-        doc = method.docstring.strip().split("\n")[0]  # First line only
+        doc = method.docstring.strip().split("\n")[0]  
         parts.append(doc)
 
     return ". ".join(parts)

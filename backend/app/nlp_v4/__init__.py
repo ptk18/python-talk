@@ -27,9 +27,9 @@ def get_embedding_model():
                     from sentence_transformers import SentenceTransformer
                     _MODELS["embedding_model"] = SentenceTransformer(MODEL_NAME)
                     print(f"[NLP_v4] Model loaded successfully")
-                except ImportError:
-                    print("[NLP_v4] Warning: sentence_transformers not installed")
-                    _MODELS["embedding_model"] = None
+                except Exception as e:
+                    print(f"[NLP_v4] WARNING: SentenceTransformer failed to load: {e}")
+                    # Don't cache None — allow retry on next call
     return _MODELS.get("embedding_model")
 
 
@@ -41,8 +41,8 @@ def get_sentence_transformer_util():
                 try:
                     from sentence_transformers import util
                     _MODELS["st_util"] = util
-                except ImportError:
-                    _MODELS["st_util"] = None
+                except Exception as e:
+                    print(f"[NLP_v4] WARNING: sentence_transformers util failed to load: {e}")
     return _MODELS.get("st_util")
 
 
@@ -59,9 +59,9 @@ def get_gliner_model():
                     from gliner import GLiNER
                     _MODELS["gliner_model"] = GLiNER.from_pretrained(GLINER_MODEL_NAME)
                     print("[NLP_v4] GLiNER loaded successfully")
-                except ImportError:
-                    print("[NLP_v4] Warning: gliner not installed")
-                    _MODELS["gliner_model"] = None
+                except Exception as e:
+                    print(f"[NLP_v4] WARNING: GLiNER failed to load: {e}")
+                    # Don't cache None — allow retry on next call
     return _MODELS.get("gliner_model")
 
 

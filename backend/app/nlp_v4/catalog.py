@@ -12,7 +12,7 @@ from dataclasses import dataclass
 class MethodCatalog:
     """Simple method info compatible with nlp_v2 structure"""
     name: str
-    parameters: Dict[str, str]  # param_name -> type (as string)
+    parameters: Dict[str, str]  
     required_parameters: List[str]
     return_type: Optional[str]
     docstring: Optional[str]
@@ -50,11 +50,9 @@ def extract_from_file(filepath: str) -> FileCatalog:
 
             for item in node.body:
                 if isinstance(item, ast.FunctionDef):
-                    # Skip private methods
                     if item.name.startswith('_') and item.name != '__init__':
                         continue
 
-                    # Get parameters
                     params = {}
                     required_params = []
 
@@ -62,24 +60,20 @@ def extract_from_file(filepath: str) -> FileCatalog:
                         if arg.arg == 'self':
                             continue
 
-                        # Get type annotation if available
                         param_type = 'Any'
                         if arg.annotation:
                             param_type = ast.unparse(arg.annotation)
 
                         params[arg.arg] = param_type
 
-                        # Check if parameter has default value
                         defaults_start_idx = len(item.args.args) - len(item.args.defaults)
                         if i < defaults_start_idx:
                             required_params.append(arg.arg)
 
-                    # Get return type
                     return_type = None
                     if item.returns:
                         return_type = ast.unparse(item.returns)
 
-                    # Get docstring
                     docstring = ast.get_docstring(item)
 
                     methods.append(MethodCatalog(

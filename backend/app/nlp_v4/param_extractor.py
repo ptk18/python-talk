@@ -53,11 +53,18 @@ class ParamExtractor:
         from . import get_gliner_model
         model = get_gliner_model()
         if model is None:
+            print(f"[ParamExtractor] WARNING: GLiNER model is None - cannot extract params")
             return {}
 
         labels, label_to_params = self._build_labels(params, method)
+        print(f"[ParamExtractor] Labels: {labels}")
+        print(f"[ParamExtractor] Label->Params: {label_to_params}")
+
         entities = model.predict_entities(command, labels, threshold=0.3)
+        print(f"[ParamExtractor] GLiNER entities: {entities}")
+
         raw = self._map_entities(entities, label_to_params)
+        print(f"[ParamExtractor] Mapped raw: {raw}")
 
         # Fallback: fill missing numeric params via regex
         unfilled_numeric = [
@@ -75,7 +82,9 @@ class ParamExtractor:
                         used_numbers.add(n)
                         break
 
-        return self._validate(raw, params, method.param_types)
+        validated = self._validate(raw, params, method.param_types)
+        print(f"[ParamExtractor] Validated result: {validated}")
+        return validated
 
     def _build_labels(
         self, params: List[str], method: MethodInfo
@@ -120,7 +129,6 @@ class ParamExtractor:
         When multiple params share a label (e.g., a, b both → 'number'),
         entities are assigned by position in the text.
         """
-        # Group entities by label, sorted by position
         by_label: Dict[str, List[dict]] = {}
         for ent in entities:
             label = ent["label"]
@@ -134,12 +142,10 @@ class ParamExtractor:
             ents.sort(key=lambda e: e["start"])
 
             if len(param_names) == 1:
-                # Single param for this label — pick highest score
                 if ents:
                     best = max(ents, key=lambda e: e.get("score", 0))
                     result[param_names[0]] = best["text"]
             else:
-                # Multiple params share this label — assign by text position (left to right)
                 assigned = set()
                 for pname in param_names:
                     for e in ents:
@@ -162,7 +168,6 @@ class ParamExtractor:
         if not raw:
             return {}
 
-        # Pre-process: extract numeric part from strings like "50 THB", "6 minutes"
         cleaned = {}
         for p, val in raw.items():
             if self._is_numeric_param(p, param_types):
