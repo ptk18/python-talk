@@ -6,8 +6,8 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from app.nlp_v3 import NLPService, TurtleExtractor, TurtlePreprocessor
-from app.nlp_v3.turtle_introspector import (
+from app.nlp_v4 import NLPService, TurtleExtractor, TurtlePreprocessor
+from app.nlp_v4.turtle_introspector import (
     get_turtle_methods,
     get_introspector,
     refresh_turtle_methods,

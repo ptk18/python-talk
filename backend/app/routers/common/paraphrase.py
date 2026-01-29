@@ -12,7 +12,7 @@ from functools import lru_cache
 import hashlib
 
 # Load environment variables
-load_dotenv(dotenv_path="app/nlp_v3/.env")
+load_dotenv(dotenv_path="app/nlp_v4/.env")
 
 # Initialize Anthropic client once
 _anthropic_client = None

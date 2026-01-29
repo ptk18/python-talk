@@ -73,24 +73,35 @@ export function useCommandProcessor() {
 
       const allResults = data.results && data.results.length > 0 ? data.results : [data.result].filter(r => r)
 
-      let summary
-      let allExecutables = []
+      // Categorize results by status
+      const matched = []
+      const suggestions = []
+      const noMatches = []
 
-      if (allResults.length > 0) {
-        allResults.forEach(r => {
-          if (r.executable) {
-            allExecutables.push(r.executable)
-          }
-        })
-
-        if (allExecutables.length > 0) {
-          summary = allExecutables.join('\n')
+      for (const r of allResults) {
+        if (r.status === 'matched' && r.executable) {
+          matched.push(r)
+        } else if (r.status === 'suggestion') {
+          suggestions.push(r)
         } else {
-          summary = 'No executable command generated'
+          noMatches.push(r)
         }
-      } else {
-        summary = 'No matching commands found'
       }
+
+      // Build summary lines for system message
+      const summaryLines = []
+      for (const r of matched) {
+        summaryLines.push(r.executable)
+      }
+      for (const r of suggestions) {
+        summaryLines.push(`Did you mean ${r.method}(${Object.entries(r.parameters || {}).map(([k, v]) => `${k}=${v}`).join(', ')})?`)
+      }
+      for (const r of noMatches) {
+        const cmd = r.original_command || 'unknown'
+        summaryLines.push(`Could not understand: "${cmd}"`)
+      }
+
+      const summary = summaryLines.length > 0 ? summaryLines.join('\n') : 'No matching commands found'
 
       console.log('Processed Command(s):', summary)
       console.log('Time to Process:', commandProcessingTime.toFixed(3), 'seconds')
@@ -104,14 +115,34 @@ export function useCommandProcessor() {
         onMessagesUpdate(msgs)
       }
 
+      // TTS feedback based on result categories
+      if (matched.length > 0 && suggestions.length === 0 && noMatches.length === 0) {
+        // All matched — proceed to confirmation
+      } else if (suggestions.length > 0) {
+        const sugNames = suggestions.map(s => s.method).join(', ')
+        voiceService.speak(`Did you mean ${sugNames}?`)
+      }
+      if (noMatches.length > 0 && matched.length === 0 && suggestions.length === 0) {
+        voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
+      }
+
+      // Only offer to append matched commands
+      const allExecutables = matched.map(r => r.executable)
       const executable = allExecutables.length > 0 ? allExecutables.join('\n') : null
 
       if (executable) {
         const commandCount = allExecutables.length
         const pluralText = commandCount > 1 ? `${commandCount} commands` : 'command'
-        const confirmed = window.confirm(
-          `Do you want to append the ${pluralText} to the runner file?\n\n${executable}`
-        )
+
+        let confirmMsg = `Do you want to append the ${pluralText} to the runner file?\n\n${executable}`
+        if (suggestions.length > 0) {
+          confirmMsg += `\n\n(${suggestions.length} suggestion(s) skipped — low confidence)`
+        }
+        if (noMatches.length > 0) {
+          confirmMsg += `\n\n(${noMatches.length} command(s) not recognized)`
+        }
+
+        const confirmed = window.confirm(confirmMsg)
 
         if (confirmed) {
           await executeAPI.appendCommand(Number(conversationId), executable)
@@ -140,8 +171,10 @@ export function useCommandProcessor() {
             : 'Command appended successfully'
           voiceService.speak(speechMessage)
         }
+      } else if (suggestions.length > 0) {
+        // Only suggestions, no strong matches — already spoke TTS above
       } else {
-        voiceService.speak("I couldn't process that command. Could you please try again?")
+        voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
       }
     } catch (err) {
       console.error('Failed to send or analyze message:', err)

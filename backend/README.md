@@ -24,7 +24,7 @@ app/
 │   ├── codespace/     # Code analysis, execution, conversations
 │   ├── turtle/        # Turtle graphics commands & execution
 │   └── voice/         # Voice recognition (Whisper, Google Speech)
-├── nlp_v3/            # NLP pipeline for Thai/English command parsing
+├── nlp_v4/            # NLP pipeline for Thai/English command parsing
 ├── models/            # SQLAlchemy database models
 ├── database/          # Database connection & config
 ├── security/          # Authentication & authorization

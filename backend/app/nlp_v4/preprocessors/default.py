@@ -4,12 +4,7 @@ from .base import BasePreprocessor
 
 
 class DefaultPreprocessor(BasePreprocessor):
-    """
-    No-op preprocessor that passes commands through unchanged.
-
-    Used when no special preprocessing is needed (e.g., Codespace app).
-    """
+    """No-op preprocessor that passes commands through unchanged."""
 
     def preprocess(self, command: str) -> str:
-        """Return command unchanged"""
         return command

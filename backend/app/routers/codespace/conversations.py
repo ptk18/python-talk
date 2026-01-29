@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ConversationCreate, ConversationResponse, ConversationUpdate
-from app.nlp_v3.catalog import extract_from_file
+from app.nlp_v4.catalog import extract_from_file
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 

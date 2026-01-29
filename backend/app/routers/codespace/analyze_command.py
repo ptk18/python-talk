@@ -1,4 +1,5 @@
 import ast
+import re
 import threading
 import time
 from collections import OrderedDict
@@ -6,12 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
-from app.nlp_v3 import NLPService, ASTExtractor
+from app.nlp_v4 import NLPService, ASTExtractor
 
 from app.models.schemas import AnalyzeCommandRequest
 
 # Configuration
 CONFIDENCE_THRESHOLD = 0.15  # Minimum confidence (15%) to return a match
+SUGGESTION_THRESHOLD = 0.40  # Below this = "suggestion", above = "matched"
 CACHE_MAX_SIZE = 50  # Maximum number of cached pipelines
 CACHE_TTL_SECONDS = 3600  # 1 hour TTL for cache entries
 
@@ -73,6 +75,128 @@ class LRUCache:
 _service_cache = LRUCache(max_size=CACHE_MAX_SIZE, ttl_seconds=CACHE_TTL_SECONDS)
 
 router = APIRouter(tags=["Analyze Command"])
+
+
+def _split_compound_command(command: str, method_names: list = None):
+    """Split compound commands like 'add 2 and 3 then multiply 4 by 6' into parts.
+
+    When method_names is provided, also splits on bare 'and' when it is followed
+    by a known method name (e.g. 'divide 3 by 9 and add 4 and 6' splits into
+    ['divide 3 by 9', 'add 4 and 6']).  Without this, bare 'and' is preserved
+    so that 'add 2 and 3' keeps working.
+    """
+    processed = command.strip()
+
+    split_patterns = [
+        r'\s+and\s+then\s+',
+        r'\s+after\s+that\s+',
+        r'\s+then\s+',
+        r'\s+next\s+',
+        r',\s*then\s+',
+        r',\s*and\s+',
+        r',\s+',
+    ]
+
+    parts = [processed]
+    for pattern in split_patterns:
+        new_parts = []
+        for part in parts:
+            split_result = re.split(pattern, part, flags=re.IGNORECASE)
+            new_parts.extend([p.strip() for p in split_result if p.strip()])
+        parts = new_parts
+
+    # Smart "and" splitting: only split on bare "and" when it is followed by
+    # a known method name.  This preserves "add 2 and 3" while splitting
+    # "divide 3 by 9 and add 4 and 6" correctly.
+    if method_names:
+        names_lower = {n.lower() for n in method_names}
+        new_parts = []
+        for part in parts:
+            new_parts.extend(_split_on_and_before_method(part, names_lower))
+        parts = new_parts
+
+    parts = [p for p in parts if len(p) > 2]
+    return parts if parts else [command]
+
+
+def _split_on_and_before_method(text: str, method_names_lower: set) -> list:
+    """Split text on ' and ' only when the word immediately after is a known method name."""
+    # Find all occurrences of ' and ' (case-insensitive)
+    pattern = re.compile(r'\s+and\s+', re.IGNORECASE)
+    matches = list(pattern.finditer(text))
+    if not matches:
+        return [text]
+
+    # Determine which 'and' occurrences are separators (next word is a method name)
+    split_positions = []
+    for m in matches:
+        after = text[m.end():].strip()
+        first_word = after.split()[0].lower() if after.split() else ""
+        # Also check underscore-separated method names (e.g. "set_temperature")
+        if first_word in method_names_lower:
+            split_positions.append((m.start(), m.end()))
+
+    if not split_positions:
+        return [text]
+
+    # Split at the identified positions
+    result = []
+    prev_end = 0
+    for start, end in split_positions:
+        chunk = text[prev_end:start].strip()
+        if chunk:
+            result.append(chunk)
+        prev_end = end
+    # Remaining text after last split
+    remaining = text[prev_end:].strip()
+    if remaining:
+        result.append(remaining)
+
+    return result
+
+
+def _process_single_command(command: str, service: NLPService):
+    """Process a single sub-command and return a result dict with status."""
+    results = service.process(command, top_k=1)
+
+    if not results:
+        return {
+            "success": False,
+            "status": "no_match",
+            "original_command": command,
+            "suggestion_message": None,
+            "method": None,
+            "parameters": {},
+            "confidence": 0.0,
+            "executable": None,
+        }
+
+    r = results[0]
+    confidence_frac = r.confidence / 100.0  # Convert back to 0-1 for threshold check
+
+    if confidence_frac >= SUGGESTION_THRESHOLD:
+        status = "matched"
+        suggestion_message = None
+    else:
+        status = "suggestion"
+        suggestion_message = f"Did you mean {r.method_name}?"
+
+    return {
+        "success": r.success,
+        "status": status,
+        "original_command": command,
+        "suggestion_message": suggestion_message,
+        "method": r.method_name,
+        "parameters": r.parameters,
+        "confidence": r.confidence,
+        "executable": r.executable,
+        "intent_type": "nlp_v4",
+        "source": "nlp_v4",
+        "action_verb": r.action_verb,
+        "explanation": r.explanation,
+        "breakdown": r.breakdown,
+    }
+
 
 @router.post("/prewarm_pipeline")
 def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
@@ -193,40 +317,32 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         else:
             print(f"[DEBUG] Cache HIT - Using cached service for conversation {conversation_id}")
 
-        # Process the command using NLPService
+        # Split compound command and process each part
         process_start = time.perf_counter()
-        results = service.process(command, language=language, top_k=None)
+        method_names = service.get_method_names()
+        command_parts = _split_compound_command(command, method_names=method_names)
+        print(f"[DEBUG] Split into {len(command_parts)} part(s): {command_parts}")
+
+        formatted_results = []
+        for part in command_parts:
+            result = _process_single_command(part, service)
+            formatted_results.append(result)
+
         process_time = (time.perf_counter() - process_start) * 1000
         print(f"\n[TIMING] Service processing: {process_time:.2f}ms")
 
-        if not results:
+        if not formatted_results:
             return {
                 "class_name": class_name,
                 "file_name": convo.file_name,
                 "results": [],
                 "result": {
                     "success": False,
+                    "status": "no_match",
                     "message": f"No confident matches found (threshold: {CONFIDENCE_THRESHOLD*100:.0f}%)",
                     "confidence": 0.0
                 }
             }
-
-        # Format results from ProcessResult objects
-        formatted_results = []
-        for r in results:
-            result_item = {
-                "success": r.success,
-                "method": r.method_name,
-                "parameters": r.parameters,
-                "confidence": r.confidence,
-                "executable": r.executable,
-                "intent_type": "nlp_v3",
-                "source": "nlp_v3",
-                "action_verb": r.action_verb,
-                "explanation": r.explanation,
-                "breakdown": r.breakdown
-            }
-            formatted_results.append(result_item)
 
         # Maintain backward compatibility - return the top result as "result"
         top_result = formatted_results[0]
@@ -236,14 +352,15 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         print(f"\n[TIMING] Total request time: {total_time:.2f}ms")
         print(f"[DEBUG] Returning {len(formatted_results)} result(s):")
         for i, r in enumerate(formatted_results, 1):
-            print(f"  Result {i}: {r['method']}({r['parameters']}) - {r['confidence']:.1f}%")
+            status_tag = r['status'].upper()
+            print(f"  Result {i} [{status_tag}]: {r.get('method', '?')}({r.get('parameters', {})}) - {r.get('confidence', 0):.1f}%")
         print(f"{'='*60}\n")
 
         return {
             "class_name": class_name,
             "file_name": convo.file_name,
-            "result": top_result,  # For backward compatibility
-            "results": formatted_results,  # All detected commands
+            "result": top_result,
+            "results": formatted_results,
             "command_count": len(formatted_results)
         }
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ExecuteCommandRequest, SimpleCodeRequest
-from app.nlp_v3.catalog import extract_from_file
+from app.nlp_v4.catalog import extract_from_file
 from app.security import validate_code
 
 router = APIRouter(tags=["Execute Command"])

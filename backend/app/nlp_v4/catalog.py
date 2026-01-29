@@ -1,6 +1,6 @@
 """
-Catalog compatibility layer for nlp_v3
-Provides same interface as nlp_v2's extract_from_file for backward compatibility
+Catalog utility for nlp_v4 — extracts class/method info from Python files via AST.
+Standalone copy (no nlp_v3 dependency).
 """
 
 import ast

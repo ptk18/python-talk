@@ -8,7 +8,7 @@ from app.routers.common import auth, users, posts, messages, translate, paraphra
 from app.routers.codespace import analyze_command, execute_command, conversations
 from app.routers.turtle import turtle_commands, turtle_execute
 from app.routers.voice import voice, google_speech
-from app.nlp_v3 import preload_models
+from app.nlp_v4 import preload_models
 from app.database.connection import engine, Base
 
 # Create database tables
