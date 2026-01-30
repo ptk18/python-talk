@@ -326,8 +326,9 @@ const testSpeechRate = () => {
   console.log('[Settings] Testing speech rate:', speechRateValue.value);
 };
 
-onMounted(() => {
-  // Google availability is already determined by voiceService singleton
+onMounted(async () => {
+  // Wait for the async Google availability check to complete
+  await voiceService.waitForGoogleCheck();
   googleAvailable.value = voiceService.isGoogleAvailable();
 
   ttsEnabledState.value = ttsEnabled.value;

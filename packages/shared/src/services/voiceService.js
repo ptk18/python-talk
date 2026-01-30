@@ -15,6 +15,7 @@ class VoiceService {
     this.isSpeaking = false;
     this.currentSpeechId = null;
     this.speechRate = 1.0;
+    this.googleCheckPromise = null;
     this.init();
     this.initVoices();
   }
@@ -33,7 +34,7 @@ class VoiceService {
     }
 
     // Check Google API availability in background (non-blocking)
-    googleSpeechAPI.checkStatus()
+    this.googleCheckPromise = googleSpeechAPI.checkStatus()
       .then(status => {
         this.googleAvailable = status.available;
         console.log('[VoiceService] Google Speech API available:', status.available);
@@ -42,6 +43,10 @@ class VoiceService {
         console.warn('[VoiceService] Google Speech API not available:', err);
         this.googleAvailable = false;
       });
+  }
+
+  waitForGoogleCheck() {
+    return this.googleCheckPromise || Promise.resolve();
   }
 
   initVoices() {
@@ -202,12 +207,18 @@ class VoiceService {
 
   async transcribe(audioFile, language = 'en') {
     const currentEngine = this.getEngine();
+    console.log(`[VoiceService] STT Engine: ${currentEngine}`);
 
     if (currentEngine === 'google' && this.googleAvailable) {
-      console.log('[VoiceService] Using Google Speech API');
-      return await this.transcribeWithRetry(() =>
+      console.log('[VoiceService] Using Google Cloud Speech-to-Text');
+      const result = await this.transcribeWithRetry(() =>
         googleSpeechAPI.speechToText(audioFile, language)
       );
+      console.log(`[VoiceService] Transcription successful`);
+      console.log(`[VoiceService] Model: Google Cloud Speech-to-Text`);
+      console.log(`[VoiceService] Text: "${result.text}"`);
+      console.log(`[VoiceService] Confidence: ${result.confidence || 'N/A'}`);
+      return result;
     } else {
       const modelName = language === 'th'
         ? 'Whisper Thai (nectec/Pathumma-whisper-th-large-v3)'

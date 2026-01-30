@@ -8,7 +8,7 @@ import io
 router = APIRouter(prefix="/google-speech", tags=["google-speech"])
 
 # Check if Google Cloud credentials are available
-GOOGLE_CREDENTIALS_PATH = Path(__file__).parent.parent.parent.parent / "google-credentials.json"
+GOOGLE_CREDENTIALS_PATH = Path(__file__).parent.parent.parent / "google-credentials.json"
 GOOGLE_AVAILABLE = GOOGLE_CREDENTIALS_PATH.exists()
 
 if GOOGLE_AVAILABLE:
