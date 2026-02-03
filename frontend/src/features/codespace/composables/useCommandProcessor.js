@@ -63,6 +63,12 @@ export function useCommandProcessor() {
 
       await messageAPI.create(parseInt(conversationId), 'user', msgText)
 
+      // Show user message in chat immediately
+      const currentMsgs = await messageAPI.getByConversation(parseInt(conversationId))
+      if (onMessagesUpdate) {
+        onMessagesUpdate(currentMsgs)
+      }
+
       console.log('COMMAND ANALYSIS STEP')
       console.log('Text for Analysis:', commandForAnalysis)
 
@@ -131,48 +137,26 @@ export function useCommandProcessor() {
       const executable = allExecutables.length > 0 ? allExecutables.join('\n') : null
 
       if (executable) {
+        await executeAPI.appendCommand(Number(conversationId), executable)
+
+        if (onCodeSync) await onCodeSync()
+        if (onFileRefresh) await onFileRefresh()
+
         const commandCount = allExecutables.length
-        const pluralText = commandCount > 1 ? `${commandCount} commands` : 'command'
+        const successMessage = commandCount > 1
+          ? `${commandCount} commands appended successfully.`
+          : 'Command appended successfully.'
 
-        let confirmMsg = `Do you want to append the ${pluralText} to the runner file?\n\n${executable}`
-        if (suggestions.length > 0) {
-          confirmMsg += `\n\n(${suggestions.length} suggestion(s) skipped — low confidence)`
-        }
-        if (noMatches.length > 0) {
-          confirmMsg += `\n\n(${noMatches.length} command(s) not recognized)`
-        }
+        successDialogMessage.value = successMessage
+        showSuccessDialog.value = true
+        setTimeout(() => { showSuccessDialog.value = false }, SUCCESS_DIALOG_DURATION)
 
-        const confirmed = window.confirm(confirmMsg)
-
-        if (confirmed) {
-          await executeAPI.appendCommand(Number(conversationId), executable)
-
-          if (onCodeSync) {
-            await onCodeSync()
-          }
-
-          if (onFileRefresh) {
-            await onFileRefresh()
-          }
-
-          const successMessage = commandCount > 1
-            ? `${commandCount} commands appended successfully.`
-            : 'Command appended successfully.'
-
-          successDialogMessage.value = successMessage
-          showSuccessDialog.value = true
-
-          setTimeout(() => {
-            showSuccessDialog.value = false
-          }, SUCCESS_DIALOG_DURATION)
-
-          const speechMessage = commandCount > 1
-            ? `${commandCount} commands appended successfully`
-            : 'Command appended successfully'
-          voiceService.speak(speechMessage)
-        }
+        const speechMessage = commandCount > 1
+          ? `${commandCount} commands appended successfully`
+          : 'Command appended successfully'
+        voiceService.speak(speechMessage)
       } else if (suggestions.length > 0) {
-        // Only suggestions, no strong matches — already spoke TTS above
+        // Only suggestions, no strong matches
       } else {
         voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
       }

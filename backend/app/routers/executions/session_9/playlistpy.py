@@ -1,7 +1,7 @@
 class Playlist:
-    def add_song(self, title, artist, playlist):
+    def add_song(self, title, artist, duration):
         """Add a new song to the playlist."""
-        return f"Added '{title}' by {artist} to {playist})"
+        return f"Added '{title}' by {artist} ({duration} seconds)"
     
     def remove_song(self, title):
         """Remove a song from the playlist by title."""

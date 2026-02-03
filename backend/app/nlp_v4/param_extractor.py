@@ -188,6 +188,10 @@ class ParamExtractor:
             Model = create_model("ExtractedParams", **fields)
             validated = Model(**cleaned)
             result = validated.model_dump(exclude_none=True)
+            # Preserve int for whole numbers (e.g. 5.0 → 5)
+            for k, v in result.items():
+                if isinstance(v, float) and v == int(v):
+                    result[k] = int(v)
             return {k: v for k, v in result.items() if k in raw}
         except ValidationError:
             return {k: v for k, v in cleaned.items() if k in raw}
