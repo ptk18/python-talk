@@ -48,9 +48,9 @@ services:
   backend:
     build: ./backend
     container_name: pytalk-backend
-    ports:
-      - "3005:3005"
-      - "5050:5050"
+    # ports:
+    #   - "3005:3005"
+    #   - "5050:5050"
     networks:
       - python_talk_net
     environment:

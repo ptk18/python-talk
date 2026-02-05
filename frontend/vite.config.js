@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/pytalk/' : '/',
   plugins: [vue()],
   resolve: {
     alias: {
@@ -14,5 +15,4 @@ export default defineConfig({
     host: '0.0.0.0',
     open: true
   }
-})
-
+}))

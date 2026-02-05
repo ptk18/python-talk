@@ -1,22 +1,35 @@
-# syntax=docker/dockerfile:1
-FROM node:20-slim
+FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Copy shared package first
-COPY packages/shared /app/packages/shared
+# Copy shared package
+COPY packages/shared ./packages/shared
 
-# Copy app package files
+# Copy frontend package files
 COPY frontend/package*.json ./frontend/
 
-# Install dependencies with workspace link
 WORKDIR /app/frontend
-RUN --mount=type=cache,target=/root/.npm \
-    npm install --install-links
+RUN npm install --install-links
 
-# Copy rest of the source
+# Copy source and build
 COPY frontend/ ./
+RUN npm run build
 
-EXPOSE 3001
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3001"]
+# =========================
+# Runtime (nginx)
+# =========================
+FROM nginx:1.25-alpine
+
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy your nginx config
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy built frontend
+COPY --from=build /app/frontend/dist /usr/share/nginx/html
+
+EXPOSE 1643
+
+CMD ["nginx", "-g", "daemon off;"]
