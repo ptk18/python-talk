@@ -1,43 +1,86 @@
+# services:
+#   backend:
+#     build: ./backend
+#     platform: linux/amd64
+#     ports:
+#       - "8000:8000"
+#     volumes:
+#       - ./backend:/app
+#     networks:
+#       - python_talk_net
+#     environment:
+#       # Disable SentenceTransformer for fast startup
+#       - DISABLE_SEMANTIC_MATCHING=true
+#       # Disable Whisper voice model pre-warming (saves 4.5GB RAM)
+#       # Voice models will lazy-load on first transcription request
+#       - PREWARM_MODELS=false
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 2G
+#         reservations:
+#           memory: 512M
+
+#   frontend:
+#     build:
+#       context: .
+#       dockerfile: frontend/Dockerfile
+#     platform: linux/amd64
+#     ports:
+#       - "3001:3001"
+#     volumes:
+#       - ./frontend:/app/frontend
+#       - ./packages/shared:/app/packages/shared
+#       - /app/frontend/node_modules
+#     depends_on:
+#       - backend
+#     networks:
+#       - python_talk_net
+#     environment:
+#       - VITE_API_URL=http://backend:8000
+
+# networks:
+#   python_talk_net:
+
+
+
 services:
   backend:
     build: ./backend
     platform: linux/amd64
+    container_name: pytalk-backend
     ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
+      - "3005:3005"
+      - "5050:5050"
     networks:
       - python_talk_net
     environment:
-      # Disable SentenceTransformer for fast startup
+      - PORT=3005
+      - STREAM_DEVICE_BASE_URL=https://161.246.5.67:8001
       - DISABLE_SEMANTIC_MATCHING=true
-      # Disable Whisper voice model pre-warming (saves 4.5GB RAM)
-      # Voice models will lazy-load on first transcription request
       - PREWARM_MODELS=false
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 512M
+    volumes:
+      - ./backend/hf_cache:/app/hf_cache
+      - ./backend/pytalk.db:/app/pytalk.db
+    restart: unless-stopped
+    # user: "${UID}:${GID}"
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL=https://turing.se.kmitl.ac.th/pytalk/api
+        VITE_WS_BASE_URL=wss://turing.se.kmitl.ac.th/pytalk/ws
     platform: linux/amd64
+    container_name: pytalk-frontend
     ports:
-      - "3001:3001"
-    volumes:
-      - ./frontend:/app/frontend
-      - ./packages/shared:/app/packages/shared
-      - /app/frontend/node_modules
+      - "1643:1643"
     depends_on:
       - backend
     networks:
       - python_talk_net
-    environment:
-      - VITE_API_URL=http://backend:8000
+    restart: unless-stopped
 
 networks:
   python_talk_net:

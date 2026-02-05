@@ -1,8 +1,29 @@
-# Development override - uses native ARM builds for faster local development
-# This file is automatically merged with docker-compose.yml
-# For production builds, use: docker compose -f docker-compose.yml build
+# # Development override - uses native ARM builds for faster local development
+# # This file is automatically merged with docker-compose.yml
+# # For production builds, use: docker compose -f docker-compose.yml build
+# services:
+#   backend:
+#     platform: linux/arm64
+#   frontend:
+#     platform: linux/arm64
+
+
 services:
   backend:
-    platform: linux/arm64
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DISABLE_SEMANTIC_MATCHING=true
+      - PREWARM_MODELS=false
+
   frontend:
-    platform: linux/arm64
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./frontend:/app/frontend
+      - ./packages/shared:/app/packages/shared
+      - /app/frontend/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
