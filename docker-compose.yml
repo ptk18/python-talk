@@ -47,7 +47,6 @@
 services:
   backend:
     build: ./backend
-    platform: linux/amd64
     container_name: pytalk-backend
     ports:
       - "3005:3005"
@@ -60,10 +59,9 @@ services:
       - DISABLE_SEMANTIC_MATCHING=true
       - PREWARM_MODELS=false
     volumes:
-      - ./backend/hf_cache:/app/hf_cache
-      - ./backend/pytalk.db:/app/pytalk.db
+      - hf_cache:/app/hf_cache
+      - pytalk_db:/app/data
     restart: unless-stopped
-    # user: "${UID}:${GID}"
 
   frontend:
     build:
@@ -84,3 +82,7 @@ services:
 
 networks:
   python_talk_net:
+
+volumes:
+  hf_cache:
+  pytalk_db:
