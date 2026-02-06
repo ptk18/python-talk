@@ -58,7 +58,7 @@
               </div>
             </div>
             <div class="turtle-playground__canvas-wrapper" ref="canvasWrapper">
-              <canvas
+              <!-- <canvas
                 ref="turtleCanvas"
                 width="600"
                 height="450"
@@ -67,7 +67,18 @@
               <div
                 ref="turtleIndicator"
                 class="turtle-playground__indicator"
-              ></div>
+              ></div> -->
+              <!-- STREAM VIEWER -->
+              <div class="turtle-playground__stream-wrapper">
+                <img
+                  v-if="streamFrame"
+                  :src="streamFrame"
+                  class="turtle-playground__stream"
+                />
+                <div v-else class="turtle-playground__stream-placeholder">
+                  Waiting for turtle stream…
+                </div>
+              </div>
             </div>
           </section>
 
@@ -175,6 +186,14 @@ export default {
   name: 'TurtlePlayground',
   components: { TopToolbar, Sidebar, AppSidebar, MonacoEditor },
   setup() {
+
+    const STREAM_DEVICE_BASE_URL="https://161.246.5.67:8001"
+    const STREAM_WS_BASE_URL="wss://161.246.5.67:5050/publish"
+
+    const streamSocket = ref(null);
+    const streamFrame = ref(null);
+    const isStreaming = ref(false);
+
     const route = useRoute();
     const { language } = useLanguage();
     const { ttsEnabled } = useTTS();
@@ -207,6 +226,76 @@ t = turtle.Turtle()
     const alertType = ref('success');
     const showAlert = ref(false);
     let alertTimeout = null;
+    
+    // Auto-save state
+    let saveTimeout = null;
+
+    const connectStream = (cid) => {
+      // const wsUrl = `${import.meta.env.VITE_STREAM_WS_BASE_URL}/${cid}`;
+      const wsUrl = `${STREAM_WS_BASE_URL}/${cid}`;
+      console.log('[STREAM] Connecting to', wsUrl);
+
+      const ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        // Pi sends base64 JPG
+        streamFrame.value = `data:image/jpeg;base64,${event.data}`;
+      };
+
+      ws.onopen = () => {
+        console.log('[STREAM] WebSocket connected');
+        isStreaming.value = true;
+      };
+
+      ws.onerror = (err) => {
+        console.error('[STREAM] WebSocket error', err);
+      };
+
+      ws.onclose = () => {
+        console.log('[STREAM] WebSocket closed');
+        isStreaming.value = false;
+      };
+
+      streamSocket.value = ws;
+    };
+
+    const disconnectStream = () => {
+      if (streamSocket.value) {
+        streamSocket.value.close();
+        streamSocket.value = null;
+      }
+    };
+
+    const runRemoteTurtle = async () => {
+      if (!appId.value) return;
+
+      disconnectStream();
+      streamFrame.value = null;
+
+      // connect viewer FIRST
+      connectStream(appId.value);
+
+      // send code to Pi
+      const payload = {
+        files: {
+          "runner.py": codeContent.value
+        }
+      };
+
+      const res = await fetch(
+        `${STREAM_DEVICE_BASE_URL}/runturtle/${appId.value}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!res.ok) {
+        showAlertBox("Failed to start turtle stream", "error");
+      }
+    };
+
 
     const showAlertBox = (message, type = 'success', duration = 3500) => {
       if (alertTimeout) clearTimeout(alertTimeout);
@@ -218,8 +307,39 @@ t = turtle.Turtle()
 
     let turtle = null;
 
+    // --- AUTO SAVE LOGIC START ---
+    const saveAppData = async (code) => {
+      if (!appId.value) return;
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/conversations/${appId.value}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ code: code }),
+        });
+
+        if (response.ok) {
+          console.log('ok', code)
+        }
+        
+        if (!response.ok) {
+           console.warn('[TurtlePlayground] Save request failed');
+        }
+      } catch (err) {
+        console.warn('[TurtlePlayground] Failed to auto-save code:', err);
+      }
+    };
+    // --- AUTO SAVE LOGIC END ---
+
     const handleCodeUpdate = (newCode) => {
       codeContent.value = newCode;
+      
+      // Debounce save: wait 2 seconds after typing stops before saving
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        saveAppData(newCode);
+      }, 2000);
     };
 
     // Handle method insertion from AppSidebar
@@ -234,6 +354,12 @@ t = turtle.Turtle()
     const appendToCodeEditor = (command, comment = null) => {
       const newLine = comment ? `\n# ${comment}\n${command}` : `\n${command}`;
       codeContent.value += newLine;
+      
+      // Also trigger save when code is appended via commands
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        saveAppData(codeContent.value);
+      }, 2000);
     };
 
     // Load app data if appId is provided
@@ -255,6 +381,10 @@ t = turtle.Turtle()
         }
       }
     };
+
+    onUnmounted(() => {
+      disconnectStream();
+    });
 
     onMounted(async () => {
       await nextTick();
@@ -343,20 +473,32 @@ t = turtle.Turtle()
       }
     };
 
+    // const handleRunCommand = async () => {
+    //   if (!commandText.value.trim() || isProcessing.value) return;
+
+    //   const cmd = commandText.value.trim();
+    //   const directResult = executeDirectCommand(cmd);
+
+    //   if (directResult.success) {
+    //     showAlertBox(directResult.result, 'success');
+    //     appendToCodeEditor(`t.${cmd}`);
+    //     voiceService.speak(t.value.turtlePlayground.commandExecuted);
+    //   } else {
+    //     await processNaturalLanguageCommand(cmd, cmd);
+    //   }
+    // };
+
     const handleRunCommand = async () => {
       if (!commandText.value.trim() || isProcessing.value) return;
 
       const cmd = commandText.value.trim();
-      const directResult = executeDirectCommand(cmd);
 
-      if (directResult.success) {
-        showAlertBox(directResult.result, 'success');
-        appendToCodeEditor(`t.${cmd}`);
-        voiceService.speak(t.value.turtlePlayground.commandExecuted);
-      } else {
-        await processNaturalLanguageCommand(cmd, cmd);
-      }
+      appendToCodeEditor(`t.${cmd}`);
+      commandText.value = '';
+
+      await runRemoteTurtle();
     };
+
 
     const handleMicClick = async () => {
       voiceService.enableAudioContext();
@@ -577,4 +719,25 @@ t = turtle.Turtle()
   flex: 1;
   min-height: 0;
 }
+
+.turtle-playground__stream-wrapper {
+  width: 100%;
+  height: 450px;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.turtle-playground__stream {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.turtle-playground__stream-placeholder {
+  color: #aaa;
+  font-size: 14px;
+}
+
 </style>

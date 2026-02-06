@@ -70,6 +70,8 @@ export default {
     const router = useRouter();
     const { login } = useAuth();
 
+    console.log("API_BASE_URL",API_BASE_URL)
+
     const handleLogin = async () => {
       isLoading.value = true;
       error.value = '';
