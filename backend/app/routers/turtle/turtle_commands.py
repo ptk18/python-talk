@@ -6,52 +6,13 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from app.nlp_v4 import NLPService, TurtleExtractor, TurtlePreprocessor
-from app.nlp_v4.turtle_introspector import (
-    get_turtle_methods,
-    get_introspector,
-    refresh_turtle_methods,
-    get_excluded_turtle_methods,
-    get_exclusion_stats
-)
+from app.nlp_main_process import DictionaryNLPService
 
 router = APIRouter(tags=["Turtle Commands"])
 
-# Configuration
-CONFIDENCE_THRESHOLD = 0.15  # 15% minimum confidence
-
 _executor = ThreadPoolExecutor(max_workers=2)
-_turtle_service: Optional[NLPService] = None
-_direct_commands: Optional[Dict[str, List[str]]] = None
-_no_arg_commands: Optional[set] = None
+_turtle_service: Optional[DictionaryNLPService] = None
 _turtle_lock = threading.Lock()
-
-
-def _build_direct_command_maps():
-    """Build command maps from introspector (called once, cached, thread-safe)."""
-    global _direct_commands, _no_arg_commands
-    with _turtle_lock:
-        if _direct_commands is not None:
-            return
-
-        introspector = get_introspector()
-        introspector.introspect()
-
-        _direct_commands = {}
-        _no_arg_commands = set()
-
-        for method in introspector._methods:
-            detail = introspector._detailed_methods.get(method.name)
-            if not detail:
-                continue
-
-            names = [method.name] + (detail.aliases if detail.aliases else [])
-
-            if not method.params:
-                _no_arg_commands.update(names)
-            else:
-                for name in names:
-                    _direct_commands[name] = method.params
 
 
 class TurtleCommandRequest(BaseModel):
@@ -66,7 +27,6 @@ class TurtleCommandResponse(BaseModel):
     parameters: Optional[Dict[str, Any]] = None
     confidence: float = 0.0
     error: Optional[str] = None
-    breakdown: Optional[Dict[str, float]] = None
     executables: Optional[List[str]] = None
     is_compound: bool = False
 
@@ -74,89 +34,65 @@ class TurtleCommandResponse(BaseModel):
 class TurtleMethodInfo(BaseModel):
     name: str
     params: List[str]
-    docstring: Optional[str]
-    category: Optional[str] = None
 
 
 class TurtleMethodsResponse(BaseModel):
     success: bool
     methods: List[TurtleMethodInfo]
     total: int
-    categories: Optional[Dict[str, List[str]]] = None
 
 
-def _get_turtle_service() -> NLPService:
-    """Get or initialize turtle NLP service (thread-safe)."""
+def _get_turtle_service() -> DictionaryNLPService:
     global _turtle_service
-
     with _turtle_lock:
         if _turtle_service is None:
-            print("[TurtleCommands] Initializing NLP service...")
-
-            # Create service with TurtleExtractor and TurtlePreprocessor
-            _turtle_service = NLPService(
-                extractor=TurtleExtractor(canonical_only=True),
-                preprocessor=TurtlePreprocessor(),
-                confidence_threshold=CONFIDENCE_THRESHOLD
-            )
-
-            # Initialize (source is ignored for TurtleExtractor)
-            methods = _turtle_service.initialize(None)
+            print("[TurtleCommands] Initializing Dictionary NLP service...")
+            _turtle_service = DictionaryNLPService()
+            methods = _turtle_service.initialize_turtle()
             print(f"[TurtleCommands] Service ready with {len(methods)} methods")
-
         return _turtle_service
 
 
 def _try_direct_match(command: str) -> Optional[Dict]:
-    _build_direct_command_maps()
     command = command.strip().lower()
-    match = re.match(r'^(\w+)\s*(-?\d+(?:\.\d+)?)?$', command)
-    if not match:
-        return None
+    match = re.match(r'^(forward|fd|backward|back|bk|left|lt|right|rt|circle|dot|pensize|speed|setheading|seth)\s+(-?\d+(?:\.\d+)?)$', command)
+    if match:
+        method_map = {"fd": "forward", "bk": "backward", "back": "backward", "lt": "left", "rt": "right", "seth": "setheading"}
+        method_name = match.group(1)
+        method_name = method_map.get(method_name, method_name)
+        value = float(match.group(2)) if '.' in match.group(2) else int(match.group(2))
+        return {
+            "success": True,
+            "executable": f"{method_name}({value})",
+            "method": method_name,
+            "parameters": {"value": value},
+            "confidence": 1.0,
+        }
 
-    method_name = match.group(1)
-    number_str = match.group(2)
-
-    if method_name in _direct_commands:
-        params = _direct_commands[method_name]
-        if number_str and params:
-            param_name = params[0]
-            value = float(number_str) if '.' in number_str else int(number_str)
-            return {
-                "success": True,
-                "executable": f"{method_name}({param_name}={value})",
-                "method": method_name,
-                "parameters": {param_name: value},
-                "confidence": 100.0,
-            }
-
-    if method_name in _no_arg_commands and not number_str:
+    no_arg_match = re.match(r'^(penup|pu|pendown|pd|home|clear|reset|hideturtle|ht|showturtle|st|begin_fill|end_fill|stamp)$', command)
+    if no_arg_match:
+        method_map = {"pu": "penup", "pd": "pendown", "ht": "hideturtle", "st": "showturtle"}
+        method_name = no_arg_match.group(1)
+        method_name = method_map.get(method_name, method_name)
         return {
             "success": True,
             "executable": f"{method_name}()",
             "method": method_name,
             "parameters": {},
-            "confidence": 100.0,
+            "confidence": 1.0,
         }
 
     return None
 
 
 def _split_compound_command(command: str) -> List[str]:
-    """Split compound commands like 'forward 50 and then left 90' into parts."""
     processed = command.lower().strip()
-
     split_patterns = [
         r'\s+and\s+then\s+',
-        r'\s+after\s+that\s+',
         r'\s+then\s+',
         r'\s+and\s+',
-        r'\s+next\s+',
-        r',\s*then\s+',
-        r',\s*and\s+',
-        r',\s+',
+        r',\s*',
     ]
-
     parts = [processed]
     for pattern in split_patterns:
         new_parts = []
@@ -164,42 +100,30 @@ def _split_compound_command(command: str) -> List[str]:
             split_result = re.split(pattern, part, flags=re.IGNORECASE)
             new_parts.extend([p.strip() for p in split_result if p.strip()])
         parts = new_parts
-
-    parts = [p for p in parts if len(p) > 2]
-    return parts if parts else [command]
+    return [p for p in parts if len(p) > 2] or [command]
 
 
-def _process_single_command(command: str, service: NLPService) -> Dict:
-    """Process a single turtle command through NLP service."""
-    # Preprocess command for direct match using the service's preprocessor
-    preprocessed = service.preprocessor.preprocess(command)
-
-    # Try direct match first (for simple commands like "forward 50")
+def _process_single_command(command: str, service: DictionaryNLPService) -> Dict:
+    preprocessed = service.preprocess(command)
     direct_result = _try_direct_match(preprocessed)
     if direct_result:
         return direct_result
 
-    # Process through NLP service (preprocessor will be applied again, but that's fine)
-    results = service.process(command, top_k=1)
-
-    if not results:
+    results = service.process(command)
+    if not results or not results[0].get("success"):
         return {"success": False, "error": f"No matching command for: '{command}'"}
 
-    # Get top result (already filtered by confidence threshold in service)
     r = results[0]
-
     return {
         "success": True,
-        "executable": r.executable,
-        "method": r.method_name,
-        "parameters": r.parameters,
-        "confidence": r.confidence,
-        "breakdown": r.breakdown
+        "executable": r.get("executable", ""),
+        "method": r.get("method", ""),
+        "parameters": r.get("parameters", {}),
+        "confidence": r.get("confidence", 0.0),
     }
 
 
 def _process_command_sync(command: str) -> Dict:
-    """Process command synchronously (runs in thread pool)."""
     service = _get_turtle_service()
     command_parts = _split_compound_command(command)
 
@@ -233,44 +157,30 @@ def _process_command_sync(command: str) -> Dict:
 
 @router.post("/analyze_turtle_command", response_model=TurtleCommandResponse)
 async def analyze_turtle_command(payload: TurtleCommandRequest):
-    """Analyze natural language and return executable turtle code."""
     try:
+        print(f"\n{'='*60}")
+        print(f"[NLP] Input: '{payload.command}'")
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            _executor, _process_command_sync, payload.command
-        )
+        result = await loop.run_in_executor(_executor, _process_command_sync, payload.command)
+        print(f"[NLP] Result: {result.get('executable')} (confidence={result.get('confidence', 0):.2f})")
+        print(f"{'='*60}\n")
         return TurtleCommandResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
 @router.get("/turtle_methods", response_model=TurtleMethodsResponse)
-async def list_turtle_methods(canonical_only: bool = True):
-    """List available turtle methods with parameters and descriptions."""
+async def list_turtle_methods():
     try:
-        introspector = get_introspector()
-        methods = introspector.get_canonical_methods_only() if canonical_only else introspector.introspect()
-        introspector.introspect()
-
-        categorized_methods = {}
-        for m in methods:
-            detail = introspector.get_detailed_method(m.name)
-            cat = detail.category if detail else introspector._get_method_category(m.name)
-            if cat not in categorized_methods:
-                categorized_methods[cat] = []
-            categorized_methods[cat].append(m.name)
-
+        service = _get_turtle_service()
+        methods = service._methods
         return TurtleMethodsResponse(
             success=True,
             methods=[
-                TurtleMethodInfo(
-                    name=m.name, params=m.params, docstring=m.docstring,
-                    category=introspector._get_method_category(m.name)
-                )
+                TurtleMethodInfo(name=m.name, params=[p["name"] for p in m.params])
                 for m in methods
             ],
-            total=len(methods),
-            categories=categorized_methods
+            total=len(methods)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
@@ -278,64 +188,23 @@ async def list_turtle_methods(canonical_only: bool = True):
 
 @router.post("/prewarm_turtle_pipeline")
 async def prewarm_turtle_pipeline(background_tasks: BackgroundTasks):
-    """Pre-warm the NLP service for faster first request."""
     global _turtle_service
     try:
-        if _turtle_service is not None and _turtle_service.initialized:
-            return {"status": "already_initialized", "method_count": len(_turtle_service.methods)}
-
+        if _turtle_service is not None:
+            return {"status": "already_initialized", "method_count": len(_turtle_service._methods)}
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(_executor, _get_turtle_service)
-        return {"status": "initialized", "method_count": len(get_turtle_methods())}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-@router.post("/refresh_turtle_methods")
-async def refresh_methods():
-    """Force refresh the turtle method list."""
-    global _turtle_service
-    try:
-        # Reset service to force reinitialization
-        with _turtle_lock:
-            _turtle_service = None
-
-        loop = asyncio.get_event_loop()
-        methods = await loop.run_in_executor(_executor, refresh_turtle_methods)
-        await loop.run_in_executor(_executor, _get_turtle_service)
-        return {"status": "refreshed", "method_count": len(methods)}
+        return {"status": "initialized", "method_count": len(_turtle_service._methods)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
 @router.delete("/turtle_cache")
 async def clear_turtle_cache():
-    """Clear the turtle service and introspector cache."""
     global _turtle_service
     try:
         with _turtle_lock:
             _turtle_service = None
-        get_introspector().clear_cache()
         return {"status": "cleared"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-@router.get("/turtle_excluded")
-async def get_excluded_methods():
-    """
-    Get all excluded turtle methods with their exclusion reasons.
-
-    Returns a detailed breakdown of why each method was excluded from NLP processing.
-    Useful for debugging and understanding the filtering logic.
-    """
-    try:
-        excluded = get_excluded_turtle_methods()
-        stats = get_exclusion_stats()
-        return {
-            "success": True,
-            "excluded_methods": excluded,
-            "statistics": stats
-        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")

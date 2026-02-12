@@ -433,31 +433,12 @@ t = turtle.Turtle()
 
         if (result.success && (result.executable || result.executables)) {
           const commands = result.executables || [result.executable];
-          const outputs = [];
-          const codeLines = [];
-          let allSuccess = true;
+          const codeLines = commands.map(exe => `t.${exe}`);
 
-          for (const executable of commands) {
-            const execResult = executeDirectCommand(executable);
-            if (execResult.success) {
-              outputs.push(`${executable} -> ${execResult.result}`);
-              codeLines.push(`t.${executable}`);
-            } else {
-              outputs.push(`${executable} -> Error: ${execResult.error}`);
-              allSuccess = false;
-            }
-          }
-
-          showAlertBox(outputs.join(' | '), allSuccess ? 'success' : 'error');
+          showAlertBox(`Matched: ${commands.join(', ')}`, 'success');
           appendToCodeEditor(codeLines.join('\n'), originalText || cmd);
-
-          if (allSuccess) {
-            voiceService.speak(t.value.turtlePlayground.commandExecuted);
-            return { success: true, executables: commands };
-          } else {
-            voiceService.speak(t.value.turtlePlayground.invalidCommand);
-            return { success: false, error: 'Some commands failed' };
-          }
+          voiceService.speak(t.value.turtlePlayground.commandExecuted);
+          return { success: true, executables: commands };
         } else {
           showAlertBox(result.error || t.value.turtlePlayground.invalidCommand, 'error');
           voiceService.speak(t.value.turtlePlayground.invalidCommand);
@@ -473,30 +454,20 @@ t = turtle.Turtle()
       }
     };
 
-    // const handleRunCommand = async () => {
-    //   if (!commandText.value.trim() || isProcessing.value) return;
-
-    //   const cmd = commandText.value.trim();
-    //   const directResult = executeDirectCommand(cmd);
-
-    //   if (directResult.success) {
-    //     showAlertBox(directResult.result, 'success');
-    //     appendToCodeEditor(`t.${cmd}`);
-    //     voiceService.speak(t.value.turtlePlayground.commandExecuted);
-    //   } else {
-    //     await processNaturalLanguageCommand(cmd, cmd);
-    //   }
-    // };
-
     const handleRunCommand = async () => {
       if (!commandText.value.trim() || isProcessing.value) return;
 
       const cmd = commandText.value.trim();
-
-      appendToCodeEditor(`t.${cmd}`);
       commandText.value = '';
 
-      await runRemoteTurtle();
+      const directResult = executeDirectCommand(cmd);
+      if (directResult.success) {
+        showAlertBox(directResult.result, 'success');
+        appendToCodeEditor(`t.${cmd}`);
+        voiceService.speak(t.value.turtlePlayground.commandExecuted);
+      } else {
+        await processNaturalLanguageCommand(cmd, cmd);
+      }
     };
 
 
