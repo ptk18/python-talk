@@ -60,7 +60,7 @@ V O A
       <verb> <object> <adverbial>                          → SVOA
       <verb> <indirect_object> <object>                    → SVOO 
       <verb> <object> <complement>                         → SVOC 
-      <verb> <indirect_object> <object> <adverbial>
+      <verb> <indirect_object> <object> <adverbial>        → SVOOA
 ```
 
 ## Supporting rules: 
@@ -73,9 +73,9 @@ V O A
 ```
 
 # Examples
-`
-SV
-`
+
+### SV
+
 
 Sentence:
 `
@@ -92,9 +92,7 @@ Label:
 SV
 `
 
-`
-SVO
-`
+### SVO
 
 Sentence:
 `
@@ -111,9 +109,7 @@ Label:
 SVO
 `
 
-`
-SVA
-`
+### SVA
 
 Sentence:
 `
@@ -130,9 +126,7 @@ Label:
 SVA
 `
 
-`
-SVOA
-`
+### SVOA
 
 Sentence:
 `
@@ -148,9 +142,7 @@ Label:
 `
 SVOA`
 
-`
-SVOO
-`
+### SVOO
 
 Sentence:
 `
@@ -165,9 +157,7 @@ Label:
 `
 SVOO`
 
-`
-SVOC
-`
+### SVOC
 
 Sentence:
 `

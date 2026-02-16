@@ -1,22 +1,25 @@
-***How to Write Method Docstrings***
+# How to Write Method Docstrings
 
-Each method must include:
+## Each method must include:
 
-A clear action description
+- A clear action description
 
-Common phrases users might say
+- Common phrases users might say
 
-An Args section if parameters exist
+- An Args section if parameters exist
 
-- Template (No Parameters)
+### - Template (No Parameters)
+```py
 def action_name(self):
     """
     Describe what this action does.
 
     Phrases: alternative user expressions.
     """
+```
 
-- Template (With Parameters)
+### - Template (With Parameters)
+```py
 def action_name(self, parameter):
     """
     Describe what this action does.
@@ -26,8 +29,10 @@ def action_name(self, parameter):
     Args:
         parameter: explanation of this value.
     """
+```
 
 - Example: Robot Domain
+```py
 class Robot:
     """
     A simple robot that can walk and speak.
@@ -62,9 +67,10 @@ class Robot:
         Phrases: say hello, greet, introduce yourself, hi.
         """
         pass
+```
 
 - Example: Smart Home Domain
-
+```py
 class SmartHome:
     """
     A smart home system for controlling devices.
@@ -88,8 +94,9 @@ class SmartHome:
             amount: number of degrees to increase.
         """
         pass
-
+```
 - Example: Bank Account Domain
+```py
 class BankAccount:
     """
     A simple bank account system.
@@ -105,33 +112,34 @@ class BankAccount:
             amount: amount of money to add.
         """
         pass
+```
 
-- What NOT to Do
+### - What NOT to Do
 
 Avoid short or meaningless docstrings:
-
+```py
 """Turns it on"""
-
+```
 
 Avoid technical implementation details:
-
+```py
 """Updates internal boolean state variable"""
-
+```
 
 Docstrings must describe user-level meaning, not internal logic.
 
-- Key Design Principle
+## Key Design Principle
 
-Docstrings describe:
+### Docstrings describe:
 
-What the user would say, not how the code works.
+#### What the user would say, not how the code works.
 
 This makes the system:
 
-Domain-independent
+-> Domain-independent
 
-Extensible
+-> Extensible
 
-Based on semantic similarity
+-> Based on semantic similarity
 
-Not dependent on hardcoded rules
+-> Not dependent on hardcoded rules

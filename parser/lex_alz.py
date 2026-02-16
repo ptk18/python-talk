@@ -108,5 +108,5 @@ if __name__ == "__main__":
     # Example usage
     import json
     setup_nltk()
-    sentence = "The Sun above take 3 steps slowly"
+    sentence = "take 3 steps slowly"
     print(json.dumps(analyze_sentence(sentence), indent=2))
