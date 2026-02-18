@@ -20,4 +20,4 @@ node_modules/
 command-variations/
 temp/
 
-
+.venv

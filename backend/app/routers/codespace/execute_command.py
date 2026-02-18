@@ -8,18 +8,26 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ExecuteCommandRequest, SimpleCodeRequest
-from app.nlp_v4.catalog import extract_from_file
+import ast
 from app.security import validate_code
 
 router = APIRouter(tags=["Execute Command"])
 
-BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
+BASE_EXEC_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "executions")
+)
 os.makedirs(BASE_EXEC_DIR, exist_ok=True)
 
 
 def safe_filename(name: str) -> str:
-    """Return a filesystem-safe filename component."""
-    return "".join(c for c in name if c.isalnum() or c in ("_", "-")).rstrip()
+    """Return a filesystem-safe filename component (keeps .py)."""
+    name = os.path.basename(name)  # remove any path
+    name = "".join(c for c in name if c.isalnum() or c in ("_", "-", ".")).rstrip(".")
+    # prevent weird names like ".py"
+    if not name or name.startswith("."):
+        return "module.py"
+    return name
+
 
 
 @router.post("/execute_command")
@@ -56,18 +64,25 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
     with open(module_path, "w", encoding="utf-8") as f:
         f.write(convo.code)
 
+    # Detect first class using AST (no NLP)
     try:
-        catalog = extract_from_file(module_path)
+        with open(module_path, "r", encoding="utf-8") as f:
+            tree = ast.parse(f.read())
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse module to detect class: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse module: {e}")
 
-    if not catalog.classes:
+    class_name = None
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            class_name = node.name
+            break
+
+    if not class_name:
         raise HTTPException(
             status_code=400,
             detail=f"No class found in uploaded Python file '{orig_fname}'. Please ensure your file contains at least one class definition."
         )
 
-    class_name = list(catalog.classes.keys())[0]
 
     if not os.path.exists(runner_path):
         module_name = os.path.splitext(safe_module_fname)[0]

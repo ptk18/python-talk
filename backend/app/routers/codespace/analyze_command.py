@@ -3,60 +3,61 @@ import re
 import threading
 import time
 from collections import OrderedDict
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.database.connection import get_db
 from app.models.models import Conversation
-from app.nlp_v4 import NLPService, ASTExtractor
-
 from app.models.schemas import AnalyzeCommandRequest
 
-# Configuration
-CONFIDENCE_THRESHOLD = 0.15  # Minimum confidence (15%) to return a match
-SUGGESTION_THRESHOLD = 0.40  # Below this = "suggestion", above = "matched"
-CACHE_MAX_SIZE = 50  # Maximum number of cached pipelines
-CACHE_TTL_SECONDS = 3600  # 1 hour TTL for cache entries
+from app.parser_engine.api import compile_single, apply_followup 
 
-# LRU Cache with TTL for pipeline instances
+import json
+import os
+
+router = APIRouter()
+
+# Parser confidence thresholds (0-100 scale)
+CONFIDENCE_THRESHOLD = 20.0   # below -> no_match
+SUGGESTION_THRESHOLD = 35.0   # below this but >= CONFIDENCE -> suggestion, above -> matched
+
+CACHE_MAX_SIZE = 50
+CACHE_TTL_SECONDS = 3600
+
+BASE_EXEC_DIR = Path(__file__).resolve().parents[2] / "executions"
+
 class LRUCache:
     def __init__(self, max_size: int = 50, ttl_seconds: int = 3600):
         self.max_size = max_size
         self.ttl = ttl_seconds
-        self.cache = OrderedDict()  # {key: (pipeline, timestamp)}
+        self.cache = OrderedDict()  # {key: (value, timestamp)}
         self.lock = threading.Lock()
 
     def get(self, key: str):
         with self.lock:
             if key not in self.cache:
                 return None
-            pipeline, timestamp = self.cache[key]
-            # Check TTL
+            value, timestamp = self.cache[key]
             if time.time() - timestamp > self.ttl:
                 del self.cache[key]
                 return None
-            # Move to end (most recently used)
             self.cache.move_to_end(key)
-            return pipeline
+            return value
 
-    def set(self, key: str, pipeline):
+    def set(self, key: str, value):
         with self.lock:
-            # Remove if exists to update position
             if key in self.cache:
-                del self.cache[key]
-            # Evict oldest if at capacity
-            while len(self.cache) >= self.max_size:
-                oldest_key = next(iter(self.cache))
-                print(f"[Cache] Evicting oldest pipeline: {oldest_key}")
-                del self.cache[oldest_key]
-            # Add new entry
-            self.cache[key] = (pipeline, time.time())
+                self.cache.move_to_end(key)
+            self.cache[key] = (value, time.time())
+            while len(self.cache) > self.max_size:
+                self.cache.popitem(last=False)
 
-    def delete(self, key: str):
+    def invalidate(self, key: str):
         with self.lock:
             if key in self.cache:
                 del self.cache[key]
-                return True
-            return False
 
     def clear(self):
         with self.lock:
@@ -64,308 +65,402 @@ class LRUCache:
 
     def stats(self):
         with self.lock:
+            now = time.time()
+            valid_items = sum(1 for _, ts in self.cache.values() if now - ts <= self.ttl)
             return {
                 "size": len(self.cache),
+                "valid_items": valid_items,
                 "max_size": self.max_size,
                 "ttl_seconds": self.ttl,
-                "keys": list(self.cache.keys())
             }
 
-# Global service cache with LRU eviction
-_service_cache = LRUCache(max_size=CACHE_MAX_SIZE, ttl_seconds=CACHE_TTL_SECONDS)
 
-router = APIRouter(tags=["Analyze Command"])
+pipeline_cache = LRUCache(max_size=CACHE_MAX_SIZE, ttl_seconds=CACHE_TTL_SECONDS)
+
+
+def _state_path(session_dir: Path) -> Path:
+    return session_dir / "state.json"
+
+def _load_state(session_dir: Path) -> dict:
+    p = _state_path(session_dir)
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+def _save_state(session_dir: Path, state: dict) -> None:
+    p = _state_path(session_dir)
+    p.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str) -> Path:
+    runner_path = session_dir / "runner.py"
+    if runner_path.exists():
+        return runner_path
+
+    module_name = module_path.stem  # "smarthome" from "smarthome.py"
+
+    runner_path.write_text(
+        f"from {module_name} import {class_name}\n"
+        f"import sys\n\n"
+        f"obj = {class_name}()\n",
+        encoding="utf-8"
+    )
+    return runner_path
+
+
+def _append_to_runner(runner_path: Path, executable: str) -> None:
+    # executable is like: turn_on(device='tv')
+    line = executable.strip()
+    if not line:
+        return
+    with runner_path.open("a", encoding="utf-8") as f:
+        f.write(f"print(obj.{line})\n")
+
+
+def _extract_class_and_methods(py_text: str):
+    """
+    Returns (class_name, method_names)
+    Uses first ClassDef found.
+    """
+    try:
+        tree = ast.parse(py_text)
+    except Exception:
+        return None, []
+
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            class_name = node.name
+            methods = []
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef):
+                    if item.name.startswith("__") and item.name.endswith("__"):
+                        continue
+                    methods.append(item.name)
+            return class_name, methods
+    return None, []
 
 
 def _split_compound_command(command: str, method_names: list = None):
-    """Split compound commands like 'add 2 and 3 then multiply 4 by 6' into parts.
-
-    When method_names is provided, also splits on bare 'and' when it is followed
-    by a known method name (e.g. 'divide 3 by 9 and add 4 and 6' splits into
-    ['divide 3 by 9', 'add 4 and 6']).  Without this, bare 'and' is preserved
-    so that 'add 2 and 3' keeps working.
+    """
+    Split compound commands like:
+      'turn on light and turn on tv then wait'
     """
     processed = command.strip()
 
     split_patterns = [
-        r'\s+and\s+then\s+',
-        r'\s+after\s+that\s+',
-        r'\s+then\s+',
-        r'\s+next\s+',
-        r',\s*then\s+',
-        r',\s*and\s+',
-        r',\s+',
+        r"\bthen\b",
+        r"\bnext\b",
+        r"\band then\b",
+        r"\bafter that\b",
+        r"\bafterwards\b",
+        r";",
     ]
 
+    # Split on hard separators first
     parts = [processed]
     for pattern in split_patterns:
         new_parts = []
-        for part in parts:
-            split_result = re.split(pattern, part, flags=re.IGNORECASE)
-            new_parts.extend([p.strip() for p in split_result if p.strip()])
+        for p in parts:
+            new_parts.extend([x.strip() for x in re.split(pattern, p, flags=re.IGNORECASE) if x.strip()])
         parts = new_parts
 
-    # Smart "and" splitting: only split on bare "and" when it is followed by
-    # a known method name.  This preserves "add 2 and 3" while splitting
-    # "divide 3 by 9 and add 4 and 6" correctly.
+    # Optional: split on bare "and" only when it starts a new method
     if method_names:
-        names_lower = {n.lower() for n in method_names}
-        new_parts = []
-        for part in parts:
-            new_parts.extend(_split_on_and_before_method(part, names_lower))
-        parts = new_parts
+        final_parts = []
+        for p in parts:
+            tokens = p.split()
+            if "and" not in [t.lower() for t in tokens]:
+                final_parts.append(p)
+                continue
 
-    parts = [p for p in parts if len(p) > 2]
-    return parts if parts else [command]
-
-
-def _split_on_and_before_method(text: str, method_names_lower: set) -> list:
-    """Split text on ' and ' only when the word immediately after is a known method name."""
-    # Find all occurrences of ' and ' (case-insensitive)
-    pattern = re.compile(r'\s+and\s+', re.IGNORECASE)
-    matches = list(pattern.finditer(text))
-    if not matches:
-        return [text]
-
-    # Determine which 'and' occurrences are separators (next word is a method name)
-    split_positions = []
-    for m in matches:
-        after = text[m.end():].strip()
-        first_word = after.split()[0].lower() if after.split() else ""
-        # Also check underscore-separated method names (e.g. "set_temperature")
-        if first_word in method_names_lower:
-            split_positions.append((m.start(), m.end()))
-
-    if not split_positions:
-        return [text]
-
-    # Split at the identified positions
-    result = []
-    prev_end = 0
-    for start, end in split_positions:
-        chunk = text[prev_end:start].strip()
-        if chunk:
-            result.append(chunk)
-        prev_end = end
-    # Remaining text after last split
-    remaining = text[prev_end:].strip()
-    if remaining:
-        result.append(remaining)
-
-    return result
+            buf = []
+            i = 0
+            while i < len(tokens):
+                t = tokens[i]
+                if t.lower() == "and" and i + 1 < len(tokens) and tokens[i + 1].lower() in {m.lower() for m in method_names}:
+                    if buf:
+                        final_parts.append(" ".join(buf).strip())
+                        buf = []
+                    i += 1  # skip 'and'
+                    continue
+                buf.append(t)
+                i += 1
+            if buf:
+                final_parts.append(" ".join(buf).strip())
+        parts = [p for p in final_parts if p]
+    return parts
 
 
-def _process_single_command(command: str, service: NLPService):
-    """Process a single sub-command and return a result dict with status."""
-    results = service.process(command, top_k=1)
+def _process_single_command(command: str, module_path: Path):
+    r = compile_single(command, str(module_path))
 
-    if not results:
+    status = r.get("status")
+    confidence = float(r.get("confidence", 0.0))
+
+    # Need clarification -> return no_match but with a helpful suggestion_message
+    if status == "need_clarification":
         return {
             "success": False,
             "status": "no_match",
             "original_command": command,
-            "suggestion_message": None,
-            "method": None,
-            "parameters": {},
-            "confidence": 0.0,
+            "suggestion_message": r.get("question"),
+            "method": r.get("method"),
+            "parameters": r.get("parameters", {}) or {},
+            "confidence": confidence,
             "executable": None,
+            "intent_type": "parser",
+            "source": "parser",
+            "explanation": r.get("explanation"),
+            "breakdown": r.get("meta"),
         }
 
-    r = results[0]
-    confidence_frac = r.confidence / 100.0  # Convert back to 0-1 for threshold check
+    if status == "matched" and r.get("executable"):
+        return {
+            "success": True,
+            "status": "matched",
+            "original_command": command,
+            "suggestion_message": None,
+            "method": r.get("method"),
+            "parameters": r.get("parameters", {}) or {},
+            "confidence": confidence,
+            "executable": r.get("executable"),
+            "intent_type": "parser",
+            "source": "parser",
+            "explanation": r.get("explanation"),
+            "breakdown": r.get("meta"),
+        }
 
-    if confidence_frac >= SUGGESTION_THRESHOLD:
-        status = "matched"
-        suggestion_message = None
-    else:
-        status = "suggestion"
-        suggestion_message = f"Did you mean {r.method_name}?"
+    if status == "suggestion":
+        return {
+            "success": True,
+            "status": "suggestion",
+            "original_command": command,
+            "suggestion_message": r.get("suggestion_message") or f"Did you mean {r.get('method')}?",
+            "method": r.get("method"),
+            "parameters": r.get("parameters", {}) or {},
+            "confidence": confidence,
+            "executable": None,
+            "intent_type": "parser",
+            "source": "parser",
+            "explanation": r.get("explanation"),
+            "breakdown": r.get("meta"),
+        }
 
+    # no match
     return {
-        "success": r.success,
-        "status": status,
+        "success": False,
+        "status": "no_match",
         "original_command": command,
-        "suggestion_message": suggestion_message,
-        "method": r.method_name,
-        "parameters": r.parameters,
-        "confidence": r.confidence,
-        "executable": r.executable,
-        "intent_type": "nlp_v4",
-        "source": "nlp_v4",
-        "action_verb": r.action_verb,
-        "explanation": r.explanation,
-        "breakdown": r.breakdown,
+        "suggestion_message": None,
+        "method": None,
+        "parameters": {},
+        "confidence": confidence,
+        "executable": None,
+        "intent_type": "parser",
+        "source": "parser",
+        "explanation": r.get("explanation"),
+        "breakdown": r.get("meta"),
     }
 
 
 @router.post("/prewarm_pipeline")
 def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
-    """Pre-warm the NLP service for faster first command processing"""
     conversation_id = payload.conversation_id
-
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    if not convo.code:
-        raise HTTPException(status_code=400, detail="This conversation has no uploaded code")
+    session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
+    module_path = session_dir / convo.file_name
+    if not module_path.exists():
+        raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
 
-    # Check if already cached
-    cache_key = f"conv_{conversation_id}"
-    existing = _service_cache.get(cache_key)
-
-    if existing is not None:
-        return {"status": "already_cached", "message": "Service already initialized"}
-
-    try:
-        print(f"Pre-warming NLP service for conversation {conversation_id}")
-
-        # Create NLPService with ASTExtractor (no preprocessor for Codespace)
-        service = NLPService(
-            extractor=ASTExtractor(),
-            confidence_threshold=CONFIDENCE_THRESHOLD
-        )
-
-        # Initialize with the code string directly (ASTExtractor supports this)
-        methods = service.initialize(convo.code)
-
-        if not methods:
-            raise HTTPException(status_code=400, detail="No public methods found in uploaded file")
-
-        _service_cache.set(cache_key, service)
-        return {
-            "status": "initialized",
-            "message": "Service pre-warmed successfully",
-            "method_count": len(methods)
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error pre-warming service: {str(e)}")
+    # cache class/method list only (optional)
+    py_text = module_path.read_text(encoding="utf-8")
+    class_name, method_names = _extract_class_and_methods(py_text)
+    pipeline_cache.set(f"conv_{conversation_id}", {"class_name": class_name, "methods": method_names})
+    return {"success": True, "message": "Pipeline prewarmed"}
 
 
 @router.post("/invalidate_pipeline_cache")
 def invalidate_pipeline_cache(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
-    """Invalidate (clear) the NLP service cache for a conversation when code is updated"""
     conversation_id = payload.conversation_id
-    cache_key = f"conv_{conversation_id}"
-
-    if _service_cache.delete(cache_key):
-        print(f"Invalidated service cache for conversation {conversation_id}")
-        return {"status": "invalidated", "message": "Service cache cleared successfully"}
-    else:
-        return {"status": "not_cached", "message": "No cache found for this conversation"}
+    pipeline_cache.invalidate(f"conv_{conversation_id}")
+    return {"success": True, "message": "Cache invalidated"}
 
 
 @router.get("/pipeline_cache_stats")
 def get_pipeline_cache_stats():
-    """Get statistics about the service cache"""
-    return _service_cache.stats()
+    return pipeline_cache.stats()
 
 
 @router.post("/analyze_command")
 def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
-    request_start = time.perf_counter()
-    print(f"\n{'='*60}")
-    print(f"[DEBUG] Processing command: '{payload.command}'")
-    print(f"[DEBUG] Conversation ID: {payload.conversation_id}")
-    print(f"[DEBUG] Language: {payload.language or 'en'}")
-    print(f"{'='*60}")
-
     conversation_id = payload.conversation_id
     command = payload.command
-    language = payload.language or "en"
 
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    if not convo.code:
-        raise HTTPException(status_code=400, detail="This conversation has no uploaded code")
+    session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
+    module_path = session_dir / convo.file_name
+    if not module_path.exists():
+        raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
+    
+    # get class_name + method_names early (needed for follow-up response too)
+    cached = pipeline_cache.get(f"conv_{conversation_id}")
+    if cached:
+        class_name = cached.get("class_name")
+        method_names = cached.get("methods", [])
+    else:
+        py_text = module_path.read_text(encoding="utf-8")
+        class_name, method_names = _extract_class_and_methods(py_text)
+        pipeline_cache.set(f"conv_{conversation_id}", {"class_name": class_name, "methods": method_names})
 
-    try:
-        # Extract class name from the code (for response compatibility)
-        tree = ast.parse(convo.code)
-        class_name = None
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                class_name = node.name
-                break
-        if not class_name:
-            class_name = "UnknownClass"
+    
+    # follow-up flow (answer to "turn on what?")
+    state = _load_state(session_dir)
+    pending = state.get("pending")
 
-        # Use cached service or create new one (LRU with TTL)
-        cache_key = f"conv_{conversation_id}"
-        service = _service_cache.get(cache_key)
+    if pending:
+        r = apply_followup(pending, command, str(module_path))
 
-        if service is None:
-            print(f"[DEBUG] Cache MISS - Initializing NLP service for conversation {conversation_id}")
-            init_start = time.perf_counter()
-
-            # Create NLPService with ASTExtractor (no preprocessor for Codespace)
-            service = NLPService(
-                extractor=ASTExtractor(),
-                confidence_threshold=CONFIDENCE_THRESHOLD
-            )
-            methods = service.initialize(convo.code)
-
-            if not methods:
-                raise HTTPException(status_code=400, detail="No public methods found in uploaded file")
-
-            _service_cache.set(cache_key, service)
-            init_time = (time.perf_counter() - init_start) * 1000
-            print(f"[TIMING] Service initialization: {init_time:.2f}ms")
-        else:
-            print(f"[DEBUG] Cache HIT - Using cached service for conversation {conversation_id}")
-
-        # Split compound command and process each part
-        process_start = time.perf_counter()
-        method_names = service.get_method_names()
-        command_parts = _split_compound_command(command, method_names=method_names)
-        print(f"[DEBUG] Split into {len(command_parts)} part(s): {command_parts}")
-
-        formatted_results = []
-        for part in command_parts:
-            result = _process_single_command(part, service)
-            formatted_results.append(result)
-
-        process_time = (time.perf_counter() - process_start) * 1000
-        print(f"\n[TIMING] Service processing: {process_time:.2f}ms")
-
-        if not formatted_results:
-            return {
-                "class_name": class_name,
-                "file_name": convo.file_name,
-                "results": [],
-                "result": {
-                    "success": False,
-                    "status": "no_match",
-                    "message": f"No confident matches found (threshold: {CONFIDENCE_THRESHOLD*100:.0f}%)",
-                    "confidence": 0.0
-                }
+        # clear or update pending
+        if r.get("status") == "matched":
+            state["pending"] = None
+        elif r.get("status") == "need_clarification":
+            state["pending"] = {
+                "method": r.get("method"),
+                "missing": (r.get("meta") or {}).get("missing", []),
+                "parameters": r.get("parameters", {}) or {},
             }
+        else:
+            state["pending"] = None
 
-        # Maintain backward compatibility - return the top result as "result"
-        top_result = formatted_results[0]
+        _save_state(session_dir, state)
 
-        # Final timing summary
-        total_time = (time.perf_counter() - request_start) * 1000
-        print(f"\n[TIMING] Total request time: {total_time:.2f}ms")
-        print(f"[DEBUG] Returning {len(formatted_results)} result(s):")
-        for i, r in enumerate(formatted_results, 1):
-            status_tag = r['status'].upper()
-            print(f"  Result {i} [{status_tag}]: {r.get('method', '?')}({r.get('parameters', {})}) - {r.get('confidence', 0):.1f}%")
-        print(f"{'='*60}\n")
+        # return in same schema
+        result_obj = _process_single_command("FOLLOWUP", module_path)  # dummy call not used
+        # overwrite with followup result in frontend schema:
+        if r.get("status") == "matched":
+            formatted = {
+                "success": True,
+                "status": "matched",
+                "original_command": command,
+                "suggestion_message": None,
+                "method": r.get("method"),
+                "parameters": r.get("parameters", {}) or {},
+                "confidence": float(r.get("confidence", 0.0)),
+                "executable": r.get("executable"),
+                "intent_type": "parser",
+                "source": "parser",
+                "explanation": r.get("explanation"),
+                "breakdown": r.get("meta"),
+            }
+        elif r.get("status") == "need_clarification":
+            formatted = {
+                "success": False,
+                "status": "no_match",
+                "original_command": command,
+                "suggestion_message": r.get("question"),
+                "method": r.get("method"),
+                "parameters": r.get("parameters", {}) or {},
+                "confidence": float(r.get("confidence", 0.0)),
+                "executable": None,
+                "intent_type": "parser",
+                "source": "parser",
+                "explanation": r.get("explanation"),
+                "breakdown": r.get("meta"),
+            }
+        else:
+            formatted = {
+                "success": False,
+                "status": "no_match",
+                "original_command": command,
+                "suggestion_message": None,
+                "method": None,
+                "parameters": {},
+                "confidence": float(r.get("confidence", 0.0)),
+                "executable": None,
+                "intent_type": "parser",
+                "source": "parser",
+                "explanation": r.get("explanation"),
+                "breakdown": r.get("meta"),
+            }
+            
+        if r.get("status") == "matched" and r.get("executable"):
+            runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
+            _append_to_runner(runner_path, r["executable"])
 
         return {
+            "success": True,
             "class_name": class_name,
             "file_name": convo.file_name,
-            "result": top_result,
-            "results": formatted_results,
-            "command_count": len(formatted_results)
+            "command_count": 1,
+            "result": formatted,
+            "results": [formatted],
         }
 
-    except Exception as e:
-        total_time = (time.perf_counter() - request_start) * 1000
-        print(f"\n[ERROR] Request failed after {total_time:.2f}ms: {str(e)}")
-        print(f"{'='*60}\n")
-        raise HTTPException(status_code=500, detail=f"Error analyzing command: {str(e)}")
+
+    # cached method names for better compound split
+    cached = pipeline_cache.get(f"conv_{conversation_id}")
+    if cached:
+        class_name = cached.get("class_name")
+        method_names = cached.get("methods", [])
+    else:
+        py_text = module_path.read_text(encoding="utf-8")
+        class_name, method_names = _extract_class_and_methods(py_text)
+        pipeline_cache.set(f"conv_{conversation_id}", {"class_name": class_name, "methods": method_names})
+
+    command_parts = _split_compound_command(command, method_names=method_names)
+
+    results = []
+    for part in command_parts:
+        results.append(_process_single_command(part, module_path))
+        
+    # auto-append all matched commands to runner.py
+    runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
+    for rr in results:
+        if rr.get("status") == "matched" and rr.get("executable"):
+            _append_to_runner(runner_path, rr["executable"])
+            
+    # if parser asked a question, store pending in session state
+    for i, r in enumerate(results):
+        if r.get("suggestion_message") and r.get("method"):
+            state = _load_state(session_dir)
+            state["pending"] = {
+                "method": r.get("method"),
+                "missing": ((r.get("breakdown") or {}).get("missing")) or ["unknown"],
+                "parameters": r.get("parameters", {}) or {},
+            }
+            _save_state(session_dir, state)
+            break
+
+
+    # Keep same response fields your frontend uses
+    primary = results[0] if results else {
+        "success": False,
+        "status": "no_match",
+        "original_command": command,
+        "suggestion_message": None,
+        "method": None,
+        "parameters": {},
+        "confidence": 0.0,
+        "executable": None,
+        "intent_type": "parser",
+        "source": "parser",
+        "explanation": "No results",
+        "breakdown": {},
+    }
+
+    return {
+        "success": True,
+        "class_name": class_name,
+        "file_name": convo.file_name,
+        "command_count": len(command_parts),
+        "result": primary,
+        "results": results,
+    }

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ConversationCreate, ConversationResponse, ConversationUpdate
-from app.nlp_v4.catalog import extract_from_file
+import ast
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
@@ -73,7 +73,7 @@ def update_conversation(conversation_id: int, update: ConversationUpdate, db: Se
 
 @router.get("/{conversation_id}/available_methods")
 def get_available_methods(conversation_id: int, db: Session = Depends(get_db)):
-    """Extract and return all available methods from the conversation's uploaded code"""
+    """Extract and return all available methods from uploaded code (AST-based, no NLP)"""
 
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
@@ -83,51 +83,48 @@ def get_available_methods(conversation_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="No code found in conversation")
 
     try:
-        # Create a temporary file with the code
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
-            temp_file.write(convo.code)
-            temp_file_path = temp_file.name
+        tree = ast.parse(convo.code)
 
-        try:
-            # Extract catalog from the file
-            catalog = extract_from_file(temp_file_path)
+        classes_info = {}
 
-            all_methods = {}
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                class_name = node.name
+                class_doc = ast.get_docstring(node)
 
-            # Process each class in the catalog
-            for class_name, class_info in catalog.classes.items():
-                methods_list = []
+                methods = []
 
-                for method in class_info.methods:
-                    methods_list.append({
-                        "name": method.name,
-                        "parameters": {
-                            param_name: str(param_type)
-                            for param_name, param_type in method.parameters.items()
-                        },
-                        "required_parameters": method.required_parameters,
-                        "return_type": str(method.return_type) if method.return_type else None,
-                        "docstring": method.docstring
-                    })
+                for item in node.body:
+                    if isinstance(item, ast.FunctionDef):
+                        if item.name.startswith("__") and item.name.endswith("__"):
+                            continue
 
-                all_methods[class_name] = {
-                    "docstring": class_info.docstring,
-                    "methods": methods_list
+                        params = {}
+                        required_params = []
+
+                        for arg in item.args.args[1:]:  # skip self
+                            params[arg.arg] = "Any"
+                            required_params.append(arg.arg)
+
+                        methods.append({
+                            "name": item.name,
+                            "parameters": params,
+                            "required_parameters": required_params,
+                            "return_type": None,
+                            "docstring": ast.get_docstring(item)
+                        })
+
+                classes_info[class_name] = {
+                    "docstring": class_doc,
+                    "methods": methods
                 }
 
-            return {
-                "success": True,
-                "file_name": convo.file_name,
-                "classes": all_methods,
-                "total_classes": len(all_methods)
-            }
-
-        finally:
-            # Clean up the temporary file
-            try:
-                os.unlink(temp_file_path)
-            except OSError:
-                pass
+        return {
+            "success": True,
+            "file_name": convo.file_name,
+            "classes": classes_info,
+            "total_classes": len(classes_info)
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error extracting methods: {str(e)}")
