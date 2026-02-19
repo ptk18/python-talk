@@ -419,7 +419,9 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
 
     results = []
     for part in command_parts:
-        results.append(_process_single_command(part, module_path))
+        r = _process_single_command(part, module_path)
+        results.append(r)
+
         
     # auto-append all matched commands to runner.py
     runner_path = _ensure_runner_exists(session_dir, module_path, class_name)

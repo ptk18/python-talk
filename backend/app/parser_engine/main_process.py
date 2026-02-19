@@ -25,7 +25,7 @@ from app.parser_engine.phase2_domain import (
     to_required_output,
 )
 
-from app.parser_engine.cfg_parser import parse_command
+from app.parser_engine.cfg_parser import parse_command, extract_vps, span_to_text
 
 # ------------------------------------------------------------
 # POS categories (from your process 1)
@@ -411,12 +411,18 @@ def run(sentence: str, py_file: str) -> List[Dict[str, Any]]:
     # cleanup string args like "turn tv" -> "tv", "turn" -> missing
     bind_info["args"] = _clean_string_args(bind_info.get("args", {}) or {}, bind_info.get("action"))
 
-    # Main: grammar + slots
-    g = parse_command(lex_tokens)
+    # Main: grammar + parse tree (recursive descent)
+    g = parse_command(lex_tokens, sem_tokens)
     grammar = g["structure"]
     grammar_seq = g["grammar_seq"]
-    result[-1]["parse_tree"] = g["parse_tree"]
-    result[-1]["leftover"] = g["leftover"]
+
+    # OPTIONAL: Extract VP(s) from parse tree (for compound command support / professor demo)
+    vp_texts = []
+    if g.get("parse_tree"):
+        vps = extract_vps(g["parse_tree"])
+        for vp in vps:
+            vp_texts.append(span_to_text(g.get("merged_tokens", lex_tokens), vp["start"], vp["end"]))
+
 
     adverbs = extract_adverbs(lex_tokens)
     prep_phrases = extract_prep_phrases(lex_tokens)
@@ -429,6 +435,9 @@ def run(sentence: str, py_file: str) -> List[Dict[str, Any]]:
 
     # Output in your required format
     result = to_required_output(sentence, sem_tokens, bind_info)
+    result[-1]["parse_tree"] = g["parse_tree"]
+    result[-1]["leftover"] = g["leftover"]
+    result[-1]["vp_texts"] = vp_texts
     result[-1]["bindings_explained"] = bind_info.get("bindings_explained", [])
     result[-1]["grammar"] = grammar
     result[-1]["grammar_seq"] = grammar_seq

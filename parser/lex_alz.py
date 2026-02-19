@@ -32,7 +32,9 @@ def penn_to_simple(tag: str, word: str) -> str:
         return "conjunction"
     if tag == "CD": # Cardinal number
         return "NUMBER"
-    if tag in (".", ",", ":", "(", ")", "''", "``"):
+    if tag == ",":
+        return "COMMA"
+    if tag in (".", ":", "(", ")", "''", "``"):
         return "punctuation"
     return "UNKNOWN"
 

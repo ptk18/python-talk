@@ -1,0 +1,16 @@
+S -> CommandList
+
+CommandList -> Command Separator CommandList
+CommandList -> Command
+
+Separator -> CONJ
+Separator -> COMMA
+
+Command -> VP
+
+VP -> V NP? PP* ADV*
+
+NP -> DET? ADJ* HEAD
+HEAD -> (NOUN | PRONOUN | NUMBER)+
+
+PP -> PREPOSITION NP

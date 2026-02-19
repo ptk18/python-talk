@@ -52,6 +52,25 @@ V O A
 ```
 
 ```
+S        -> CommandList
+
+CommandList -> Command Separator CommandList
+             | Command
+
+Separator -> CONJ
+           | ','
+
+Command  -> VP
+
+VP       -> V NP? PP* ADV*
+
+NP       -> DET? ADJ* (NOUN|PRONOUN|NUMBER)+
+
+PP       -> PREPOSITION NP
+
+```
+
+```
 <verb_phrase> ::= 
 
       <verb>                                               → SV
