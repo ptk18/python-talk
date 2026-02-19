@@ -9,7 +9,12 @@ import ssl
 # -----------------------------
 # Penn Treebank tag → simple POS
 # -----------------------------
+
+CONJ_WORDS = {"and", "then", "next", "after", "afterwards", "or"}
+
 def penn_to_simple(tag: str, word: str) -> str:
+    if word.lower() in CONJ_WORDS:
+        return "conjunction"
     if word.isdigit():
         return "NUMBER"
     if tag.startswith("NN"):

@@ -1,9 +1,10 @@
 import ast
-import re
+import json
 import threading
 import time
 from collections import OrderedDict
 from pathlib import Path
+from typing import List, Tuple, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -12,22 +13,28 @@ from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import AnalyzeCommandRequest
 
-from app.parser_engine.api import compile_single, apply_followup 
-
-import json
-import os
+from app.parser_engine.api import compile_single, apply_followup
+from app.parser_engine.lex_alz import analyze_sentence
+from app.parser_engine.phase2_domain import load_domain, phase2_map_tokens
+from app.parser_engine.cfg_parser import parse_command, extract_nodes_by_name, span_to_text
 
 router = APIRouter()
 
 # Parser confidence thresholds (0-100 scale)
-CONFIDENCE_THRESHOLD = 20.0   # below -> no_match
-SUGGESTION_THRESHOLD = 35.0   # below this but >= CONFIDENCE -> suggestion, above -> matched
+CONFIDENCE_THRESHOLD = 20.0
+SUGGESTION_THRESHOLD = 35.0
 
 CACHE_MAX_SIZE = 50
 CACHE_TTL_SECONDS = 3600
 
+# IMPORTANT: file is in backend/app/routers/codespace/
+# parents[2] = backend/app
 BASE_EXEC_DIR = Path(__file__).resolve().parents[2] / "executions"
 
+
+# ============================================================
+# Cache
+# ============================================================
 class LRUCache:
     def __init__(self, max_size: int = 50, ttl_seconds: int = 3600):
         self.max_size = max_size
@@ -59,10 +66,6 @@ class LRUCache:
             if key in self.cache:
                 del self.cache[key]
 
-    def clear(self):
-        with self.lock:
-            self.cache.clear()
-
     def stats(self):
         with self.lock:
             now = time.time()
@@ -78,6 +81,9 @@ class LRUCache:
 pipeline_cache = LRUCache(max_size=CACHE_MAX_SIZE, ttl_seconds=CACHE_TTL_SECONDS)
 
 
+# ============================================================
+# Session State (follow-up)
+# ============================================================
 def _state_path(session_dir: Path) -> Path:
     return session_dir / "state.json"
 
@@ -92,15 +98,20 @@ def _load_state(session_dir: Path) -> dict:
 
 def _save_state(session_dir: Path, state: dict) -> None:
     p = _state_path(session_dir)
+    session_dir.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
+
+# ============================================================
+# Runner (session runner)
+# ============================================================
 def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str) -> Path:
+    session_dir.mkdir(parents=True, exist_ok=True)
     runner_path = session_dir / "runner.py"
     if runner_path.exists():
         return runner_path
 
     module_name = module_path.stem  # "smarthome" from "smarthome.py"
-
     runner_path.write_text(
         f"from {module_name} import {class_name}\n"
         f"import sys\n\n"
@@ -109,20 +120,20 @@ def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str)
     )
     return runner_path
 
-
 def _append_to_runner(runner_path: Path, executable: str) -> None:
-    # executable is like: turn_on(device='tv')
-    line = executable.strip()
+    line = (executable or "").strip()
     if not line:
         return
     with runner_path.open("a", encoding="utf-8") as f:
         f.write(f"print(obj.{line})\n")
 
 
-def _extract_class_and_methods(py_text: str):
+# ============================================================
+# Domain helpers (class/methods)
+# ============================================================
+def _extract_class_and_methods(py_text: str) -> Tuple[Optional[str], List[str]]:
     """
-    Returns (class_name, method_names)
-    Uses first ClassDef found.
+    Returns (class_name, method_names) using first ClassDef found.
     """
     try:
         tree = ast.parse(py_text)
@@ -139,67 +150,72 @@ def _extract_class_and_methods(py_text: str):
                         continue
                     methods.append(item.name)
             return class_name, methods
+
     return None, []
 
 
-def _split_compound_command(command: str, method_names: list = None):
+# ============================================================
+# CFG-based splitting
+# ============================================================
+def _filtered_tokens_for_cfg(lex_tokens: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Split compound commands like:
-      'turn on light and turn on tv then wait'
+    Must match RDParser filtering (punctuation/UNKNOWN removed).
     """
-    processed = command.strip()
+    return [t for t in lex_tokens if t.get("POS") not in ("punctuation", "UNKNOWN")]
 
-    split_patterns = [
-        r"\bthen\b",
-        r"\bnext\b",
-        r"\band then\b",
-        r"\bafter that\b",
-        r"\bafterwards\b",
-        r";",
-    ]
+def _split_with_cfg(full_text: str, module_path: Path) -> List[str]:
+    """
+    CFG-based command splitting:
+      'turn on tv then turn on light' -> ['turn on tv', 'turn on light']
+    If CFG fails, returns [full_text].
+    """
+    lex_tokens = analyze_sentence(full_text)
+    domain = load_domain(str(module_path))
+    sem_tokens = phase2_map_tokens(lex_tokens, domain)
 
-    # Split on hard separators first
-    parts = [processed]
-    for pattern in split_patterns:
-        new_parts = []
-        for p in parts:
-            new_parts.extend([x.strip() for x in re.split(pattern, p, flags=re.IGNORECASE) if x.strip()])
-        parts = new_parts
+    g = parse_command(lex_tokens, sem_tokens)
+    tree = g.get("parse_tree")
+    if not tree:
+        return [full_text.strip()]
 
-    # Optional: split on bare "and" only when it starts a new method
-    if method_names:
-        final_parts = []
-        for p in parts:
-            tokens = p.split()
-            if "and" not in [t.lower() for t in tokens]:
-                final_parts.append(p)
-                continue
+    command_nodes = extract_nodes_by_name(tree, "Command")
+    if not command_nodes:
+        return [full_text.strip()]
 
-            buf = []
-            i = 0
-            while i < len(tokens):
-                t = tokens[i]
-                if t.lower() == "and" and i + 1 < len(tokens) and tokens[i + 1].lower() in {m.lower() for m in method_names}:
-                    if buf:
-                        final_parts.append(" ".join(buf).strip())
-                        buf = []
-                    i += 1  # skip 'and'
-                    continue
-                buf.append(t)
-                i += 1
-            if buf:
-                final_parts.append(" ".join(buf).strip())
-        parts = [p for p in final_parts if p]
-    return parts
+    # IMPORTANT: parse tree spans are based on parser's filtered token list
+    toks_for_span = _filtered_tokens_for_cfg(lex_tokens)
+
+    out: List[str] = []
+    for n in command_nodes:
+        start = int(n.get("start", 0))
+        end = int(n.get("end", 0))
+        txt = span_to_text(toks_for_span, start, end)
+        txt = " ".join(txt.split()).strip()
+        if txt:
+            out.append(txt)
+
+    # remove duplicates, keep order
+    seen = set()
+    cleaned: List[str] = []
+    for x in out:
+        k = x.lower()
+        if k not in seen:
+            seen.add(k)
+            cleaned.append(x)
+
+    return cleaned if cleaned else [full_text.strip()]
 
 
-def _process_single_command(command: str, module_path: Path):
+# ============================================================
+# Single command compilation to frontend schema
+# ============================================================
+def _process_single_command(command: str, module_path: Path) -> Dict[str, Any]:
     r = compile_single(command, str(module_path))
 
     status = r.get("status")
     confidence = float(r.get("confidence", 0.0))
 
-    # Need clarification -> return no_match but with a helpful suggestion_message
+    # Need clarification -> return no_match but with a suggestion_message
     if status == "need_clarification":
         return {
             "success": False,
@@ -248,7 +264,6 @@ def _process_single_command(command: str, module_path: Path):
             "breakdown": r.get("meta"),
         }
 
-    # no match
     return {
         "success": False,
         "status": "no_match",
@@ -265,6 +280,20 @@ def _process_single_command(command: str, module_path: Path):
     }
 
 
+# ============================================================
+# Routes
+# ============================================================
+@router.get("/pipeline_cache_stats")
+def get_pipeline_cache_stats():
+    return pipeline_cache.stats()
+
+
+@router.post("/invalidate_pipeline_cache")
+def invalidate_pipeline_cache(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
+    pipeline_cache.invalidate(f"conv_{payload.conversation_id}")
+    return {"success": True, "message": "Cache invalidated"}
+
+
 @router.post("/prewarm_pipeline")
 def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
     conversation_id = payload.conversation_id
@@ -277,29 +306,16 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
     if not module_path.exists():
         raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
 
-    # cache class/method list only (optional)
     py_text = module_path.read_text(encoding="utf-8")
     class_name, method_names = _extract_class_and_methods(py_text)
     pipeline_cache.set(f"conv_{conversation_id}", {"class_name": class_name, "methods": method_names})
     return {"success": True, "message": "Pipeline prewarmed"}
 
 
-@router.post("/invalidate_pipeline_cache")
-def invalidate_pipeline_cache(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
-    conversation_id = payload.conversation_id
-    pipeline_cache.invalidate(f"conv_{conversation_id}")
-    return {"success": True, "message": "Cache invalidated"}
-
-
-@router.get("/pipeline_cache_stats")
-def get_pipeline_cache_stats():
-    return pipeline_cache.stats()
-
-
 @router.post("/analyze_command")
 def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
     conversation_id = payload.conversation_id
-    command = payload.command
+    command = (payload.command or "").strip()
 
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
@@ -309,26 +325,29 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     module_path = session_dir / convo.file_name
     if not module_path.exists():
         raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
-    
-    # get class_name + method_names early (needed for follow-up response too)
+
+    # class/methods cache
     cached = pipeline_cache.get(f"conv_{conversation_id}")
     if cached:
         class_name = cached.get("class_name")
-        method_names = cached.get("methods", [])
     else:
         py_text = module_path.read_text(encoding="utf-8")
         class_name, method_names = _extract_class_and_methods(py_text)
         pipeline_cache.set(f"conv_{conversation_id}", {"class_name": class_name, "methods": method_names})
 
-    
-    # follow-up flow (answer to "turn on what?")
+    if not class_name:
+        raise HTTPException(status_code=400, detail="No class found in session file")
+
+    # ------------------------------------------------------------
+    # Follow-up flow ("turn on" -> "turn on what?" then user says "tv")
+    # ------------------------------------------------------------
     state = _load_state(session_dir)
     pending = state.get("pending")
 
     if pending:
         r = apply_followup(pending, command, str(module_path))
 
-        # clear or update pending
+        # update pending state
         if r.get("status") == "matched":
             state["pending"] = None
         elif r.get("status") == "need_clarification":
@@ -342,9 +361,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
 
         _save_state(session_dir, state)
 
-        # return in same schema
-        result_obj = _process_single_command("FOLLOWUP", module_path)  # dummy call not used
-        # overwrite with followup result in frontend schema:
+        # format result
         if r.get("status") == "matched":
             formatted = {
                 "success": True,
@@ -390,10 +407,11 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 "explanation": r.get("explanation"),
                 "breakdown": r.get("meta"),
             }
-            
-        if r.get("status") == "matched" and r.get("executable"):
+
+        # append to runner if matched
+        if formatted.get("status") == "matched" and formatted.get("executable"):
             runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
-            _append_to_runner(runner_path, r["executable"])
+            _append_to_runner(runner_path, formatted["executable"])
 
         return {
             "success": True,
@@ -404,45 +422,36 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             "results": [formatted],
         }
 
+    # ------------------------------------------------------------
+    # Normal flow: split into multiple commands using CFG
+    # ------------------------------------------------------------
+    command_parts = _split_with_cfg(command, module_path)
 
-    # cached method names for better compound split
-    cached = pipeline_cache.get(f"conv_{conversation_id}")
-    if cached:
-        class_name = cached.get("class_name")
-        method_names = cached.get("methods", [])
-    else:
-        py_text = module_path.read_text(encoding="utf-8")
-        class_name, method_names = _extract_class_and_methods(py_text)
-        pipeline_cache.set(f"conv_{conversation_id}", {"class_name": class_name, "methods": method_names})
-
-    command_parts = _split_compound_command(command, method_names=method_names)
-
-    results = []
+    results: List[Dict[str, Any]] = []
     for part in command_parts:
-        r = _process_single_command(part, module_path)
-        results.append(r)
+        part = (part or "").strip()
+        if not part:
+            continue
+        results.append(_process_single_command(part, module_path))
 
-        
-    # auto-append all matched commands to runner.py
+    # append matched results to runner
     runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
     for rr in results:
         if rr.get("status") == "matched" and rr.get("executable"):
             _append_to_runner(runner_path, rr["executable"])
-            
-    # if parser asked a question, store pending in session state
-    for i, r in enumerate(results):
-        if r.get("suggestion_message") and r.get("method"):
+
+    # store pending follow-up if needed
+    for rr in results:
+        if rr.get("suggestion_message") and rr.get("method"):
             state = _load_state(session_dir)
             state["pending"] = {
-                "method": r.get("method"),
-                "missing": ((r.get("breakdown") or {}).get("missing")) or ["unknown"],
-                "parameters": r.get("parameters", {}) or {},
+                "method": rr.get("method"),
+                "missing": ((rr.get("breakdown") or {}).get("missing")) or ["unknown"],
+                "parameters": rr.get("parameters", {}) or {},
             }
             _save_state(session_dir, state)
             break
 
-
-    # Keep same response fields your frontend uses
     primary = results[0] if results else {
         "success": False,
         "status": "no_match",

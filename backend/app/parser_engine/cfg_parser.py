@@ -1,5 +1,6 @@
 # backend/app/parser_engine/cfg_parser.py
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Iterator
 
@@ -17,6 +18,18 @@ DETERMINER = "determiner"
 PREPOSITION = "preposition"
 CONJUNCTION = "conjunction"
 COMMA = "COMMA"
+
+
+# =========================
+# Separator vocabulary
+# =========================
+SEPARATOR_ADVERBS = {
+    "then",
+    "next",
+    "afterwards",
+    "afterward",
+    "later",
+}
 
 
 # ============================================================
@@ -52,6 +65,8 @@ class ParseError(Exception):
 
 class RDParser:
     def __init__(self, tokens: List[Dict[str, Any]]):
+        # keep same behavior as your original file:
+        # remove punctuation/unknown from the CFG stream
         self.tokens = [
             t for t in tokens
             if t.get("POS") not in ("punctuation", "UNKNOWN")
@@ -68,25 +83,47 @@ class RDParser:
         t = self._peek()
         return t.get("POS") if t else None
 
+    def _word(self) -> str:
+        t = self._peek()
+        if not t:
+            return ""
+        return str(t.get("word", "")).strip().lower()
+
     def _eat(self, pos: str) -> Dict[str, Any]:
         t = self._peek()
-        if not t or t.get("POS") != pos:
-            raise ParseError(f"Expected {pos}, got {t.get('POS') if t else None}")
+        if not t:
+            raise ParseError("Unexpected end")
+        if t.get("POS") != pos:
+            raise ParseError(f"Expected {pos}, got {t.get('POS')}")
         self.i += 1
         return t
 
     def _try(self, fn):
-        save = self.i
+        saved = self.i
         try:
             return fn()
         except ParseError:
-            self.i = save
+            self.i = saved
             return None
 
-    # ============================================================
-    # Grammar
-    # ============================================================
+    def _is_separator_adverb_here(self) -> bool:
+        """
+        True if current token is an adverb-word that should split commands,
+        e.g. 'then', 'next', ...
+        """
+        w = self._word()
+        p = self._pos()
 
+        # accept both POS-aware and POS-agnostic matching for robustness
+        if w in SEPARATOR_ADVERBS:
+            return True
+        if p == ADVERB and w in SEPARATOR_ADVERBS:
+            return True
+        return False
+
+    # -------------------------
+    # Grammar
+    # -------------------------
     # S -> CommandList
     def parse_S(self) -> Node:
         start = self.i
@@ -118,14 +155,21 @@ class RDParser:
         vp = self.parse_VP()
         return Node("Command", [vp], start, self.i)
 
-    # Separator -> CONJUNCTION | COMMA
+    # Separator -> CONJUNCTION | (separator ADVERB) | COMMA
     def parse_Separator(self) -> Node:
         start = self.i
 
+        # conjunction like "and"
         if self._pos() == CONJUNCTION:
-            self._eat(CONJUNCTION)
+            self.i += 1
             return Node("Separator", [], start, self.i)
 
+        # adverb separators like "then"
+        if self._is_separator_adverb_here():
+            self.i += 1
+            return Node("Separator", [], start, self.i)
+
+        # comma separator
         if self._pos() == COMMA:
             self._eat(COMMA)
             return Node("Separator", [], start, self.i)
@@ -133,9 +177,11 @@ class RDParser:
         raise ParseError("Expected separator")
 
     # VP -> V NP? PP* ADV*
+    # IMPORTANT FIX:
+    #   Do NOT let VP consume separator-adverbs like "then".
     def parse_VP(self) -> Node:
         start = self.i
-        children = []
+        children: List[Any] = []
 
         v = self.parse_V()
         children.append(v)
@@ -150,7 +196,8 @@ class RDParser:
                 break
             children.append(pp)
 
-        while self._pos() == ADVERB:
+        # Only consume adverbs that are NOT separators (so "then" remains for Separator)
+        while self._pos() == ADVERB and not self._is_separator_adverb_here():
             children.append(self.parse_ADV())
 
         return Node("VP", children, start, self.i)
@@ -162,93 +209,124 @@ class RDParser:
             raise ParseError("Unexpected end in V")
 
         start = self.i
+        pos = str(t.get("POS", ""))
+        word = str(t.get("word", "")).strip().lower()
 
-        if t.get("POS") == VERB:
+        # normal VERB
+        if pos == VERB:
+            tok = self._eat(VERB)
+            return Node("V", [tok], start, self.i)
+
+        # fallback for semantic-tagged actions (if ever used)
+        if pos.startswith("ACTION"):
             self.i += 1
-            return Node("V", [], start, self.i)
+            return Node("V", [t], start, self.i)
 
-        st = t.get("semantic_type")
-        if isinstance(st, str) and st.startswith("ACTION_"):
+        # IMPORTANT TOLERANCE:
+        # Many taggers label imperative verbs like "turn" as NOUN.
+        # If we're at the beginning of a VP, force the first meaningful token to V
+        # (but don't do it for adverb/preposition or separators like "then").
+        if pos not in (ADVERB, PREPOSITION) and (word not in SEPARATOR_ADVERBS) and word != "and":
             self.i += 1
-            return Node("V", [], start, self.i)
+            return Node("V", [t], start, self.i)
 
-        if self.i == 0 and t.get("POS") in (NOUN,):
-            self.i += 1
-            return Node("V", [], start, self.i)
+        raise ParseError("Expected VERB")
 
-        raise ParseError(f"Expected VERB, got {t.get('POS')}")
+
+    # NP -> (DET)? (ADJ)* (NOUN|PRONOUN|NUMBER)+
+    def parse_NP(self) -> Node:
+        start = self.i
+        children: List[Any] = []
+
+        det = self._try(self.parse_DET)
+        if det:
+            children.append(det)
+
+        while self._pos() == ADJECTIVE:
+            children.append(self.parse_ADJ())
+
+        # require at least one head (noun/pronoun/number)
+        if self._pos() not in (NOUN, PRONOUN, NUMBER):
+            raise ParseError("Expected NP head")
+
+        while self._pos() in (NOUN, PRONOUN, NUMBER):
+            if self._pos() == NOUN:
+                children.append(self.parse_N())
+            elif self._pos() == PRONOUN:
+                children.append(self.parse_PRO())
+            else:
+                children.append(self.parse_NUM())
+
+        return Node("NP", children, start, self.i)
+
+    # PP -> PREP NP
+    def parse_PP(self) -> Node:
+        start = self.i
+        prep = self.parse_PREP()
+        np = self.parse_NP()
+        return Node("PP", [prep, np], start, self.i)
 
     # ADV -> ADVERB
     def parse_ADV(self) -> Node:
         start = self.i
-        self._eat(ADVERB)
-        return Node("ADV", [], start, self.i)
+        tok = self._eat(ADVERB)
+        return Node("ADV", [tok], start, self.i)
 
-    # NP -> DET? ADJ* (NOUN|PRONOUN|NUMBER)+
-    def parse_NP(self) -> Node:
+    # ADJ -> ADJECTIVE
+    def parse_ADJ(self) -> Node:
         start = self.i
-        children = []
+        tok = self._eat(ADJECTIVE)
+        return Node("ADJ", [tok], start, self.i)
 
-        if self._pos() == DETERMINER:
-            self._eat(DETERMINER)
-            children.append(Node("DET", [], self.i - 1, self.i))
-
-        while self._pos() == ADJECTIVE:
-            self._eat(ADJECTIVE)
-            children.append(Node("ADJ", [], self.i - 1, self.i))
-
-        if self._pos() not in (NOUN, PRONOUN, NUMBER):
-            raise ParseError("NP requires head")
-
-        head_start = self.i
-        while self._pos() in (NOUN, PRONOUN, NUMBER):
-            self.i += 1
-
-        children.append(Node("HEAD", [], head_start, self.i))
-
-        return Node("NP", children, start, self.i)
-
-    # PP -> PREPOSITION NP
-    def parse_PP(self) -> Node:
+    # DET -> DETERMINER
+    def parse_DET(self) -> Node:
         start = self.i
-        self._eat(PREPOSITION)
-        np = self.parse_NP()
-        return Node("PP", [np], start, self.i)
+        tok = self._eat(DETERMINER)
+        return Node("DET", [tok], start, self.i)
+
+    # PREP -> PREPOSITION
+    def parse_PREP(self) -> Node:
+        start = self.i
+        tok = self._eat(PREPOSITION)
+        return Node("PREP", [tok], start, self.i)
+
+    # N -> NOUN
+    def parse_N(self) -> Node:
+        start = self.i
+        tok = self._eat(NOUN)
+        return Node("N", [tok], start, self.i)
+
+    # PRO -> PRONOUN
+    def parse_PRO(self) -> Node:
+        start = self.i
+        tok = self._eat(PRONOUN)
+        return Node("PRO", [tok], start, self.i)
+
+    # NUM -> NUMBER
+    def parse_NUM(self) -> Node:
+        start = self.i
+        tok = self._eat(NUMBER)
+        return Node("NUM", [tok], start, self.i)
 
 
 # ============================================================
-# Flatten Grammar Symbols
-# ============================================================
-
-def _flatten_symbols(node: Node) -> List[str]:
-    symbols = []
-
-    def walk(n: Node):
-        if n.name == "V":
-            symbols.append("V")
-            return
-        if n.name == "NP":
-            symbols.append("O")
-            return
-        if n.name in ("PP", "ADV"):
-            symbols.append("A")
-            return
-
-        for c in n.children:
-            if isinstance(c, Node):
-                walk(c)
-
-    walk(node)
-    return symbols
-
-
-# ============================================================
-# Public API
+# API
 # ============================================================
 
 def parse_command(lex_tokens, sem_tokens=None) -> Dict[str, Any]:
+    """
+    Main API used by main_process.py
 
-    # Merge semantic info
+    Returns:
+      {
+        "structure": "SVO" | "SVOA" | ... | None,
+        "grammar_seq": ["V","O","A", ...],
+        "parse_tree": {...} | None,
+        "leftover": ["..."]
+      }
+    """
+
+    # Merge semantic info (keep your old behavior)
     if sem_tokens:
         merged = []
         for lt, st in zip(lex_tokens, sem_tokens):
@@ -276,6 +354,7 @@ def parse_command(lex_tokens, sem_tokens=None) -> Dict[str, Any]:
 
     grammar_seq = _flatten_symbols(tree)
 
+    # Keep your original mapping
     structure_map = {
         ("V",): "SV",
         ("V", "O"): "SVO",
@@ -291,7 +370,7 @@ def parse_command(lex_tokens, sem_tokens=None) -> Dict[str, Any]:
     return {
         "structure": structure,
         "grammar_seq": grammar_seq,
-        "parse_tree": tree.to_dict(),
+        "parse_tree": to_dict(tree),
         "leftover": [t.get("word") for t in leftover],
     }
 
@@ -322,8 +401,56 @@ def extract_commands(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def extract_vps(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
+    # main_process imports this
     return extract_nodes_by_name(tree, "VP")
 
 
 def span_to_text(tokens: List[Dict[str, Any]], start: int, end: int) -> str:
+    # main_process imports this
     return " ".join(t.get("word", "") for t in tokens[start:end]).strip()
+
+
+def to_dict(node: Node) -> Dict[str, Any]:
+    out_children = []
+    for c in node.children:
+        if isinstance(c, Node):
+            out_children.append(to_dict(c))
+        elif isinstance(c, dict):
+            out_children.append(c)
+        else:
+            out_children.append(c)
+    return {
+        "name": node.name,
+        "start": node.start,
+        "end": node.end,
+        "children": out_children,
+    }
+
+
+def _flatten_symbols(tree: Node) -> List[str]:
+    """
+    Convert parse tree to compact grammar symbols:
+      - V  -> "V"
+      - NP -> "O"
+      - PP/ADV -> "A"
+    """
+    seq: List[str] = []
+
+    def walk(n: Any):
+        if not isinstance(n, dict):
+            return
+
+        name = n.get("name")
+        if name == "V":
+            seq.append("V")
+        elif name == "NP":
+            seq.append("O")
+        elif name in ("PP", "ADV"):
+            seq.append("A")
+
+        for c in n.get("children", []):
+            if isinstance(c, dict):
+                walk(c)
+
+    walk(to_dict(tree))
+    return seq
