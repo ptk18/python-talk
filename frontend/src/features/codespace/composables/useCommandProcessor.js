@@ -142,18 +142,26 @@ export function useCommandProcessor() {
         if (onCodeSync) await onCodeSync()
         if (onFileRefresh) await onFileRefresh()
 
+        // Auto-execute the command and log output - freya fix
+        try {
+          const execResult = await executeAPI.rerunCommand(Number(conversationId))
+          console.log('[Output]', execResult.output || 'No output')
+        } catch (execErr) {
+          console.error('[Execute Error]', execErr)
+        }
+
         const commandCount = allExecutables.length
         const successMessage = commandCount > 1
-          ? `${commandCount} commands appended successfully.`
-          : 'Command appended successfully.'
+          ? `${commandCount} commands executed successfully.`
+          : 'Command executed successfully.'
 
         successDialogMessage.value = successMessage
         showSuccessDialog.value = true
         setTimeout(() => { showSuccessDialog.value = false }, SUCCESS_DIALOG_DURATION)
 
         const speechMessage = commandCount > 1
-          ? `${commandCount} commands appended successfully`
-          : 'Command appended successfully'
+          ? `${commandCount} commands executed successfully`
+          : 'Command executed successfully'
         voiceService.speak(speechMessage)
       } else if (suggestions.length > 0) {
         // Only suggestions, no strong matches

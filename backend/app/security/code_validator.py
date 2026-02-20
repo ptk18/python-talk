@@ -23,7 +23,7 @@ class CodeSecurityValidator:
         'os', 'subprocess', 'sys', 'shutil', 'pathlib',
         'glob', 'fnmatch', 'tempfile', 'io',
         # Network access
-        'socket', 'http', 'urllib', 'requests', 'httpx',
+        'socket', 'http', 'urllib', 'httpx',
         'ftplib', 'smtplib', 'poplib', 'imaplib', 'telnetlib',
         'asyncio', 'aiohttp', 'websocket', 'ssl',
         # Serialization (can be used for RCE)
@@ -73,6 +73,8 @@ class CodeSecurityValidator:
         'copy',
         # Pretty printing
         'pprint',
+        # HTTP requests (for API access) - freya fix
+        'requests',
     }
 
     # Dangerous attribute access patterns (can be used to escape sandbox)

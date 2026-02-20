@@ -71,15 +71,11 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
             "meta": {"missing": missing, "ranked": ranked},
         }
 
-    # Build method-call-only executable: method(a=..., b=...)
-    # Keep param order as in signature if possible.
+    # Build executable: only include required params - freya fix
     parts = []
     if required:
         for p in required:
             parts.append(f"{p}={repr(args.get(p))}")
-    else:
-        for k, v in args.items():
-            parts.append(f"{k}={repr(v)}")
     executable = f"{action}({', '.join(parts)})"
 
     # Matched vs suggestion thresholds (you can tune)
@@ -141,15 +137,11 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
             "meta": {"missing": still_missing},
         }
 
-    # build executable (method-call-only)
+    # Build executable: only include required params - freya fix
     parts = []
     if required:
         for p in required:
             parts.append(f"{p}={repr(params.get(p))}")
-    else:
-        for k, v in params.items():
-            parts.append(f"{k}={repr(v)}")
-
     executable = f"{method}({', '.join(parts)})"
 
     return {
