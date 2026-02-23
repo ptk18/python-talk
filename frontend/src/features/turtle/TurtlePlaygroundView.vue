@@ -188,11 +188,17 @@ export default {
   setup() {
 
     const STREAM_DEVICE_BASE_URL="https://161.246.5.67:8001"
-    const STREAM_WS_BASE_URL="wss://161.246.5.67:5050/publish"
+    const STREAM_WS_BASE_URL="wss://161.246.5.67:5050"
 
     const streamSocket = ref(null);
     const streamFrame = ref(null);
     const isStreaming = ref(false);
+
+    let reconnectTimer = null;
+    let manuallyClosed = false;
+
+    const streamOutput = ref("");
+    let ws = null;
 
     const route = useRoute();
     const { language } = useLanguage();
@@ -231,51 +237,67 @@ t = turtle.Turtle()
     let saveTimeout = null;
 
     const connectStream = (cid) => {
-      // const wsUrl = `${import.meta.env.VITE_STREAM_WS_BASE_URL}/${cid}`;
-      const wsUrl = `${STREAM_WS_BASE_URL}/${cid}`;
-      console.log('[STREAM] Connecting to', wsUrl);
+      if (!cid) return;
+
+      // prevent duplicate connections
+      if (streamSocket.value && streamSocket.value.readyState === WebSocket.OPEN) {
+        console.log("[STREAM] already connected");
+        return;
+      }
+
+      const wsUrl = `${STREAM_WS_BASE_URL}/subscribe/${cid}`;
+      console.log("[STREAM] connecting to", wsUrl);
+
+      manuallyClosed = false;
 
       const ws = new WebSocket(wsUrl);
 
+      ws.onopen = () => {
+        console.log("[STREAM] connected");
+        isStreaming.value = true;
+        clearTimeout(reconnectTimer);
+      };
+
       ws.onmessage = (event) => {
-        // Pi sends base64 JPG
         streamFrame.value = `data:image/jpeg;base64,${event.data}`;
       };
 
-      ws.onopen = () => {
-        console.log('[STREAM] WebSocket connected');
-        isStreaming.value = true;
-      };
-
       ws.onerror = (err) => {
-        console.error('[STREAM] WebSocket error', err);
+        console.warn("[STREAM] error", err);
       };
 
       ws.onclose = () => {
-        console.log('[STREAM] WebSocket closed');
+        console.warn("[STREAM] closed");
         isStreaming.value = false;
+        streamSocket.value = null;
+
+        // 🔁 auto-reconnect unless page is leaving
+        if (!manuallyClosed) {
+          reconnectTimer = setTimeout(() => {
+            console.log("[STREAM] reconnecting...");
+            connectStream(cid);
+          }, 2000);
+        }
       };
 
       streamSocket.value = ws;
     };
 
+
     const disconnectStream = () => {
+      manuallyClosed = true;
+      clearTimeout(reconnectTimer);
+
       if (streamSocket.value) {
+        console.log("[STREAM] manual close");
         streamSocket.value.close();
         streamSocket.value = null;
       }
     };
 
-    const runRemoteTurtle = async () => {
+    const startRemoteTurtleSession = async () => {
       if (!appId.value) return;
 
-      disconnectStream();
-      streamFrame.value = null;
-
-      // connect viewer FIRST
-      connectStream(appId.value);
-
-      // send code to Pi
       const payload = {
         files: {
           "runner.py": codeContent.value
@@ -292,9 +314,42 @@ t = turtle.Turtle()
       );
 
       if (!res.ok) {
-        showAlertBox("Failed to start turtle stream", "error");
+        showAlertBox("Failed to start turtle session", "error");
+        return;
       }
+
+      console.log("[TURTLE] Pi turtle started");
     };
+
+    // const runRemoteTurtle = async () => {
+    //   if (!appId.value) return;
+
+    //   // disconnectStream();
+    //   streamFrame.value = null;
+
+    //   // connect viewer FIRST
+    //   connectStream(appId.value);
+
+    //   // send code to Pi
+    //   const payload = {
+    //     files: {
+    //       "runner.py": codeContent.value
+    //     }
+    //   };
+
+    //   const res = await fetch(
+    //     `${STREAM_DEVICE_BASE_URL}/runturtle/${appId.value}`,
+    //     {
+    //       method: "POST",
+    //       headers: { "Content-Type": "application/json" },
+    //       body: JSON.stringify(payload)
+    //     }
+    //   );
+
+    //   if (!res.ok) {
+    //     showAlertBox("Failed to start turtle stream", "error");
+    //   }
+    // };
 
 
     const showAlertBox = (message, type = 'success', duration = 3500) => {
@@ -382,36 +437,27 @@ t = turtle.Turtle()
       }
     };
 
-    onUnmounted(() => {
-      disconnectStream();
-    });
+  onMounted(async () => {
+    console.log("[MOUNT] appId =", appId.value);
+    console.log("[MOUNT] route params =", route.params);
 
-    onMounted(async () => {
-      await nextTick();
+    if (!appId.value) {
+      console.error("❌ appId missing");
+      return;
+    }
 
-      const handleFirstInteraction = () => {
-        if (!hasGreeted.value) {
-          hasGreeted.value = true;
-          voiceService.enableAudioContext();
-          voiceService.speak("Turtle ready! Let's draw something!");
-        }
-        document.removeEventListener('click', handleFirstInteraction);
-        document.removeEventListener('keydown', handleFirstInteraction);
-      };
+    // 1️⃣ load saved code + metadata
+    await loadAppData();
 
-      document.addEventListener('click', handleFirstInteraction);
-      document.addEventListener('keydown', handleFirstInteraction);
+    // 2️⃣ connect stream FIRST (viewer)
+    connectStream(appId.value);
 
-      if (turtleCanvas.value) {
-        turtle = new Turtle(turtleCanvas.value, turtleIndicator.value);
-        try {
-          await turtleAPI.prewarmPipeline();
-        } catch (err) {
-          console.warn('[TurtlePlayground] Failed to pre-warm pipeline:', err);
-        }
-        await loadAppData();
-      }
-    });
+    // 3️⃣ start turtle session on Pi
+    await startRemoteTurtleSession();
+
+    console.log("[MOUNT] turtle session + stream initialized");
+  });
+
 
     const executeDirectCommand = (cmd) => {
       if (!turtle) return { success: false, error: 'Turtle not initialized' };
@@ -488,17 +534,33 @@ t = turtle.Turtle()
     //   }
     // };
 
+    // const handleRunCommand = async () => {
+    //   if (!commandText.value.trim() || isProcessing.value) return;
+
+    //   const cmd = commandText.value.trim();
+
+    //   appendToCodeEditor(`t.${cmd}`);
+    //   commandText.value = '';
+
+    //   await runRemoteTurtle();
+    // };
+
     const handleRunCommand = async () => {
-      if (!commandText.value.trim() || isProcessing.value) return;
+      if (!commandText.value.trim()) return;
 
       const cmd = commandText.value.trim();
-
+      
+      // 1. Add command to editor
       appendToCodeEditor(`t.${cmd}`);
       commandText.value = '';
 
-      await runRemoteTurtle();
+      // 2. SEND TO PI (This was missing)
+      await startRemoteTurtleSession(); 
     };
 
+    onUnmounted(() => {
+      disconnectStream();
+    });
 
     const handleMicClick = async () => {
       voiceService.enableAudioContext();
@@ -606,6 +668,7 @@ t = turtle.Turtle()
       handleReset,
       handleUndo,
       handleRedo,
+      streamFrame,
     };
   }
 };
