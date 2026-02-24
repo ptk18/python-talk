@@ -10,7 +10,7 @@ Vue 3 + Vite + Vue Router + Monaco Editor
 
 ```bash
 npm install
-npm run dev      # http://localhost:3001
+npm run dev      # http://localhost:3005
 npm run build    # production build
 ```
 

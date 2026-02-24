@@ -427,9 +427,8 @@ t = turtle.Turtle()
             appName.value = data.title || '';
             appIcon.value = data.app_image || null;
             // Load saved code if available
-            if (data.code) {
-              codeContent.value = data.code;
-            }
+            const runner = await executeAPI.getRunnerCode(appId.value);
+            codeContent.value = runner.code;
           }
         } catch (err) {
           console.warn('[TurtlePlayground] Failed to load app data:', err);

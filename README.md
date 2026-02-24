@@ -27,7 +27,7 @@ cd frontend && npm install && npm run dev
 ## Ports
 
 - Backend: http://localhost:8000
-- Frontend: http://localhost:3001
+- Frontend: http://localhost:3005
 
 ## Features
 

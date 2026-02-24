@@ -13,6 +13,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Download NLTK data into /usr/local/share/nltk_data so it gets copied into final image
 RUN python -m nltk.downloader -d /usr/local/share/nltk_data wordnet omw-1.4
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data punkt
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data punkt_tab
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data averaged_perceptron_tagger
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data averaged_perceptron_tagger_eng
 
 # (Optional, only if you use them)
 # RUN python -m nltk.downloader -d /usr/local/share/nltk_data punkt averaged_perceptron_tagger

@@ -180,7 +180,10 @@ def append_command(request: ExecuteCommandRequest):
                 line = line.strip()
                 if not line:
                     continue
-                f.write(f"print(obj.{line})\n")
+                if line.startswith("obj."):
+                    f.write(f"{line}\n")
+                else:
+                    f.write(f"obj.{line}\n")
 
         return {"message": f"Appended command '{executable}' successfully"}
     except Exception as e:

@@ -122,12 +122,18 @@ def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str)
     )
     return runner_path
 
-def _append_to_runner(runner_path: Path, executable: str) -> None:
+def _append_to_runner(runner_path: Path, executable: str, comment: str | None = None) -> None:
     line = (executable or "").strip()
     if not line:
         return
     with runner_path.open("a", encoding="utf-8") as f:
-        f.write(f"print(obj.{line})\n")
+        if comment:
+            f.write(f"# {comment.strip()}\n")
+        # write raw call, no print, no obj. prefix here unless executable lacks it
+        if line.startswith("obj."):
+            f.write(f"{line}\n")
+        else:
+            f.write(f"obj.{line}\n")
 
 
 # ============================================================
