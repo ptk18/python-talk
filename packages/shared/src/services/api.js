@@ -434,33 +434,6 @@ export const translateAPI = {
   },
 };
 
-export const turtleAPI = {
-  analyzeCommand: async (command, language = 'en') => {
-    return apiCall(`/api/analyze_turtle_command`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        command,
-        language,
-      }),
-    });
-  },
-
-  getMethods: async () => {
-    return apiCall(`/api/turtle_methods`, {
-      method: 'GET',
-    });
-  },
-
-  prewarmPipeline: async () => {
-    return apiCall(`/api/prewarm_turtle_pipeline`, {
-      method: 'POST',
-    });
-  },
-};
-
 export const favoritesAPI = {
   async getByUser(userId) {
     return apiCall(`/api/favorites/${userId}`);

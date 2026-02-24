@@ -18,6 +18,8 @@ from app.parser_engine.lex_alz import analyze_sentence
 from app.parser_engine.phase2_domain import load_domain, phase2_map_tokens
 from app.parser_engine.cfg_parser import parse_command, extract_nodes_by_name, span_to_text
 
+from app.routers.codespace.conversations import initialize_turtle_session, load_turtle_domain_code
+
 router = APIRouter()
 
 # Parser confidence thresholds (0-100 scale)
@@ -304,6 +306,15 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
     session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
     module_path = session_dir / convo.file_name
     if not module_path.exists():
+        # Auto-heal for turtle conversations (old DB rows without session files)
+        if getattr(convo, "app_type", None) == "turtle":
+            code = load_turtle_domain_code()
+            initialize_turtle_session(conversation_id, code)
+        else:
+            raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
+
+    # re-check after auto-heal
+    if not module_path.exists():
         raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
 
     py_text = module_path.read_text(encoding="utf-8")
@@ -323,6 +334,15 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
 
     session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
     module_path = session_dir / convo.file_name
+    if not module_path.exists():
+        # Auto-heal for turtle conversations (old DB rows without session files)
+        if getattr(convo, "app_type", None) == "turtle":
+            code = load_turtle_domain_code()
+            initialize_turtle_session(conversation_id, code)
+        else:
+            raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
+
+    # re-check after auto-heal
     if not module_path.exists():
         raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
 

@@ -9,19 +9,52 @@ from app.models.models import Conversation
 from app.models.schemas import ConversationCreate, ConversationResponse, ConversationUpdate
 import ast
 
+from pathlib import Path
+import json
+
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
+
+# This matches analyze_command.py (it uses parents[2] == backend/app)
+BASE_EXEC_DIR = Path(__file__).resolve().parents[2] / "executions"
+print("BASE_EXEC_DIR ", BASE_EXEC_DIR)
+
+# backend/app/domains/turtle_app.py
+APP_DIR = Path(__file__).resolve().parents[2]  # backend/app
+print("APP_DIR ", APP_DIR)
+TURTLE_DOMAIN_PATH = APP_DIR / "domains" / "turtle_app.py"
+
+
+def load_turtle_domain_code() -> str:
+    if not TURTLE_DOMAIN_PATH.exists():
+        raise FileNotFoundError(f"Turtle domain file not found at {TURTLE_DOMAIN_PATH}")
+    return TURTLE_DOMAIN_PATH.read_text(encoding="utf-8")
+
+
+def initialize_turtle_session(conversation_id: int, domain_code: str):
+    session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    # The domain file must be named exactly convo.file_name (we use turtle_app.py)
+    (session_dir / "turtle_app.py").write_text(domain_code, encoding="utf-8")
+
+    # Runner for your codespace/NLP pipeline (obj.<method> prints)
+    (session_dir / "runner.py").write_text(
+        "from turtle_app import TurtleApp\n\nobj = TurtleApp()\n\n",
+        encoding="utf-8"
+    )
+
+    # Pending follow-up state for parser
+    (session_dir / "state.json").write_text(json.dumps({}, indent=2), encoding="utf-8")
+
 
 @router.post("/{user_id}", response_model=ConversationResponse)
 def create_conversation(user_id: int, convo: ConversationCreate, db: Session = Depends(get_db)):
     """Create a new conversation with title + uploaded code or imported library"""
-
-    # Handle turtle app type - generate default code
+    
     if convo.app_type.value == "turtle":
-        code = convo.code or """import turtle
-
-t = turtle.Turtle()
-"""
-        file_name = convo.file_name or "turtle_app.py"
+        code = load_turtle_domain_code()
+        file_name = "turtle_app.py"
+    
     else:
         # Upload type requires code and file_name
         if not convo.code or not convo.file_name:
@@ -40,8 +73,27 @@ t = turtle.Turtle()
     db.add(db_convo)
     db.commit()
     db.refresh(db_convo)
+    initialize_session(db_convo.id, file_name, code)
     return db_convo
 
+def initialize_session(conversation_id: int, file_name: str, code: str):
+    session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    # main file
+    (session_dir / file_name).write_text(code, encoding="utf-8")
+
+    # runner
+    (session_dir / "runner.py").write_text(
+        f"from {file_name.replace('.py','')} import *\n\n",
+        encoding="utf-8"
+    )
+
+    # state
+    (session_dir / "state.json").write_text(
+        json.dumps({}, indent=2),
+        encoding="utf-8"
+    )
 
 @router.get("/{user_id}", response_model=List[ConversationResponse])
 def get_conversations(user_id: int, db: Session = Depends(get_db)):
@@ -137,8 +189,7 @@ def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     # Clean up session directory
-    BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
-    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+    session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
 
     if os.path.exists(session_dir):
         try:

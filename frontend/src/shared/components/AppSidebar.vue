@@ -132,7 +132,7 @@
 <script>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useLanguage, conversationAPI, fileAPI, turtleAPI } from '@py-talk/shared'
+import { useLanguage, conversationAPI, fileAPI } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
 
 export default {
@@ -239,7 +239,7 @@ export default {
       methodsLoading.value = true
       try {
         if (props.appType === 'turtle') {
-          const response = await turtleAPI.getMethods()
+          const response = await conversationAPI.getAvailableMethods(props.appId)
           if (response.success && response.methods) {
             methodsList.value = response.methods
           }

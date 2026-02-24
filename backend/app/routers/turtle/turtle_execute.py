@@ -4,6 +4,8 @@ import re
 from fastapi import APIRouter, HTTPException
 import httpx
 
+from pathlib import Path
+
 router = APIRouter(tags=["Turtle Execute"])
 
 # Streaming device configuration
@@ -13,7 +15,9 @@ STREAM_DEVICE_PORT = "8001"
 # API base URL for internal calls
 CODE_API_BASE = os.getenv("CODE_API_BASE", "http://localhost:8000/api")
 
-BASE_EXEC_DIR = os.path.join(os.path.dirname(__file__), "..", "executions")
+
+BASE_EXEC_DIR = Path(__file__).resolve().parents[2] / "executions"
+BASE_EXEC_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.get("/run_turtle/{conversation_id}")
 async def run_turtle(conversation_id: int):
@@ -26,7 +30,7 @@ async def run_turtle(conversation_id: int):
         is_turtle_code = False
 
         # 1️⃣ Optional: collect any extra .py files from session directory
-        session_dir = os.path.join(BASE_EXEC_DIR, f"session_{conversation_id}")
+        session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
         if os.path.isdir(session_dir):
             for filename in os.listdir(session_dir):
                 if filename.endswith(".py"):

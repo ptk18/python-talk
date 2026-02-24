@@ -172,7 +172,7 @@ import TopToolbar from '@/shared/components/TopToolbar.vue';
 import Sidebar from '@/shared/components/Sidebar.vue';
 import AppSidebar from '@/shared/components/AppSidebar.vue';
 import MonacoEditor from '@/shared/components/MonacoEditor.vue';
-import { useLanguage, useTTS, voiceService, turtleAPI, translateAPI, conversationAPI } from '@py-talk/shared';
+import { useLanguage, useTTS, voiceService, translateAPI, conversationAPI, analyzeAPI } from '@py-talk/shared';
 import { useTranslations } from '@/utils/translations';
 import { getGreeting } from '@/shared/utils/formatters';
 import { Turtle } from './lib/turtle';
@@ -470,26 +470,39 @@ t = turtle.Turtle()
       try {
         let commandForAnalysis = cmd;
 
+        // 1) Translate Thai -> English for analysis
         if (language.value === 'th') {
           const translateResult = await translateAPI.translateToEnglish(cmd);
-          commandForAnalysis = translateResult.translated_text;
+          commandForAnalysis = translateResult?.translated_text || cmd;
         }
 
-        const result = await turtleAPI.analyzeCommand(commandForAnalysis, 'en');
+        // 2) Call unified parser endpoint (codespace)
+        const apiRes = await analyzeAPI.analyzeCommand(appId.value, commandForAnalysis);
 
-        if (result.success && (result.executable || result.executables)) {
-          const commands = result.executables || [result.executable];
+        // Backend returns: { success: true, result: {...}, results: [{...}, ...] }
+        const items = Array.isArray(apiRes?.results)
+          ? apiRes.results
+          : (apiRes?.result ? [apiRes.result] : []);
+
+        // Collect executable strings from matched items
+        const commands = items
+          .map((x) => x?.executable)
+          .filter(Boolean);
+
+        // 3) If we got executables, run them locally + append to editor
+        if (commands.length > 0) {
           const outputs = [];
           const codeLines = [];
           let allSuccess = true;
 
           for (const executable of commands) {
             const execResult = executeDirectCommand(executable);
-            if (execResult.success) {
+
+            if (execResult?.success) {
               outputs.push(`${executable} -> ${execResult.result}`);
               codeLines.push(`t.${executable}`);
             } else {
-              outputs.push(`${executable} -> Error: ${execResult.error}`);
+              outputs.push(`${executable} -> Error: ${execResult?.error || 'Unknown error'}`);
               allSuccess = false;
             }
           }
@@ -504,16 +517,26 @@ t = turtle.Turtle()
             voiceService.speak(t.value.turtlePlayground.invalidCommand);
             return { success: false, error: 'Some commands failed' };
           }
-        } else {
-          showAlertBox(result.error || t.value.turtlePlayground.invalidCommand, 'error');
-          voiceService.speak(t.value.turtlePlayground.invalidCommand);
-          return { success: false, error: result.error };
         }
+
+        // 4) No executable: show clarification / suggestion if available
+        const first = items[0];
+        const msg =
+          first?.suggestion_message ||
+          first?.error ||
+          apiRes?.error ||
+          t.value.turtlePlayground.invalidCommand;
+
+        showAlertBox(msg, 'error');
+        voiceService.speak(t.value.turtlePlayground.invalidCommand);
+        return { success: false, error: msg };
+
       } catch (err) {
         console.error('[TurtlePlayground] Command error:', err);
-        showAlertBox(err.message, 'error');
+        const msg = err?.message || 'Unknown error';
+        showAlertBox(msg, 'error');
         voiceService.speak(t.value.turtlePlayground.invalidCommand);
-        return { success: false, error: err.message };
+        return { success: false, error: msg };
       } finally {
         isProcessing.value = false;
       }
@@ -545,17 +568,29 @@ t = turtle.Turtle()
     //   await runRemoteTurtle();
     // };
 
+    const isMethodCallSyntax = (s) => /^[a-zA-Z_]\w*\s*\(.*\)\s*$/.test(s);
+
     const handleRunCommand = async () => {
-      if (!commandText.value.trim()) return;
+      if (!commandText.value.trim() || isProcessing.value) return;
 
       const cmd = commandText.value.trim();
-      
-      // 1. Add command to editor
-      appendToCodeEditor(`t.${cmd}`);
-      commandText.value = '';
 
-      // 2. SEND TO PI (This was missing)
-      await startRemoteTurtleSession(); 
+      // Case 1: user typed something like forward(100)
+      if (isMethodCallSyntax(cmd)) {
+        appendToCodeEditor(`t.${cmd}`);
+        commandText.value = '';
+        await startRemoteTurtleSession();
+        return;
+      }
+
+      // Case 2: natural language -> use your backend parser to get executable(s)
+      const res = await processNaturalLanguageCommand(cmd, cmd);
+
+      // If parser produced executables, send updated code to Pi
+      if (res?.success) {
+        commandText.value = '';
+        await startRemoteTurtleSession();
+      }
     };
 
     onUnmounted(() => {

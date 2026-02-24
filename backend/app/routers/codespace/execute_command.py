@@ -10,13 +10,12 @@ from app.models.models import Conversation
 from app.models.schemas import ExecuteCommandRequest, SimpleCodeRequest
 import ast
 from app.security import validate_code
+from pathlib import Path
 
 router = APIRouter(tags=["Execute Command"])
 
-BASE_EXEC_DIR = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "executions")
-)
-os.makedirs(BASE_EXEC_DIR, exist_ok=True)
+BASE_EXEC_DIR = Path(__file__).resolve().parents[2] / "executions"
+BASE_EXEC_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def safe_filename(name: str) -> str:
@@ -45,7 +44,7 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             detail="Security validation failed:\n" + "\n".join(f"- {v}" for v in violations)
         )
 
-    session_dir = os.path.join(BASE_EXEC_DIR, f"session_{request.conversation_id}")
+    session_dir = BASE_EXEC_DIR / f"session_{request.conversation_id}"
 
     # For first-time initialization, clear existing session directory to ensure clean state
     # This prevents old files from a deleted/reused conversation ID from persisting
