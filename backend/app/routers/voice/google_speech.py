@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse
 import os
 import tempfile
@@ -108,7 +108,7 @@ async def google_text_to_speech(text: str, rate: float = 1.0):
 @router.post("/speech-to-text")
 async def google_speech_to_text(
     file: UploadFile = File(...),
-    language: str = "en"
+    language: str = Form("en")
 ):
     """
     Convert audio to text using Google Cloud Speech-to-Text API

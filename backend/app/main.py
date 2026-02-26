@@ -14,8 +14,7 @@ Base.metadata.create_all(bind=engine)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
-    # prewarm_enabled = os.getenv("PREWARM_MODELS", "true").lower() == "true"
-    prewarm_enabled = False
+    prewarm_enabled = os.getenv("PREWARM_MODELS", "true").lower() == "true"
 
     if prewarm_enabled:
         print("\nStarting pre-warming in background...")

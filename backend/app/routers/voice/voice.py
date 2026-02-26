@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 import subprocess, tempfile
 import threading
 import os
@@ -272,8 +272,10 @@ async def transcribe_audio(
         io_time = time.time()
         print(f"[TIMING] Audio read: {io_time - start_time:.2f}s")
 
-        # Save to temporary file (librosa needs a file path for webm)
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp_file:
+        # Save to temporary file (librosa needs a file path)
+        import mimetypes
+        ext = mimetypes.guess_extension(file.content_type) or '.webm'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
             tmp_file.write(audio_bytes)
             tmp_path = tmp_file.name
 
@@ -321,7 +323,7 @@ async def transcribe_audio(
         text = prediction.strip()
 
         if not text:
-            return {"error": "Empty transcription", "language": lang_code}
+            raise HTTPException(status_code=422, detail="Empty transcription")
 
         # Generate paraphrases only for English
         alternatives = paraphrase(text, n=3) if lang_code == "en" else [text] * 3
@@ -345,4 +347,4 @@ async def transcribe_audio(
         import traceback
         error_details = traceback.format_exc()
         print(f"Error during transcription:\n{error_details}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))

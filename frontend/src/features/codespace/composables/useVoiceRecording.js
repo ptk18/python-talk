@@ -7,8 +7,16 @@ export function useVoiceRecording(language) {
   const isTranscribing = ref(false)
   const mediaRecorder = ref(null)
   const audioChunks = ref([])
+  const activeStream = ref(null)
 
   const { playClickSound } = useAudioContext()
+
+  const stopStream = () => {
+    if (activeStream.value) {
+      activeStream.value.getTracks().forEach(track => track.stop())
+      activeStream.value = null
+    }
+  }
 
   const handleMicClick = async (onTranscriptionComplete) => {
     playClickSound()
@@ -17,8 +25,18 @@ export function useVoiceRecording(language) {
     if (!isRecording.value) {
       try {
         voiceService.speak('Listening')
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        const recorder = new MediaRecorder(stream)
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        })
+        activeStream.value = stream
+
+        // Use browser-appropriate MIME type (Safari uses mp4, Chrome uses webm)
+        const mimeType = voiceService.getPreferredAudioType()
+        const recorder = new MediaRecorder(stream, { mimeType })
         audioChunks.value = []
 
         recorder.ondataavailable = (e) => {
@@ -26,11 +44,22 @@ export function useVoiceRecording(language) {
         }
 
         recorder.onstop = async () => {
-          const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
+          // Release microphone immediately
+          stopStream()
+
+          const extMap = {
+            'audio/webm': 'webm',
+            'audio/webm;codecs=opus': 'webm',
+            'audio/mp4': 'mp4',
+            'audio/wav': 'wav',
+          }
+          const ext = extMap[mimeType] || 'webm'
+
+          const audioBlob = new Blob(audioChunks.value, { type: mimeType })
           const audioFile = new File(
             [audioBlob],
-            `recording_${Date.now()}.webm`,
-            { type: 'audio/webm' }
+            `recording_${Date.now()}.${ext}`,
+            { type: mimeType }
           )
 
           try {
@@ -45,7 +74,9 @@ export function useVoiceRecording(language) {
             const transcribeEndTime = performance.now()
             const transcriptionTime = (transcribeEndTime - transcribeStartTime) / 1000
 
-            const text = result.text || `[Error: ${result.error || 'Unknown'}]`
+            const text = result.error
+              ? `[Error: ${result.error}]`
+              : (result.text || '[Error: No text returned]')
 
             if (text.includes('[Error')) {
               console.log('Transcription failed:', text)
@@ -74,6 +105,7 @@ export function useVoiceRecording(language) {
         isRecording.value = true
       } catch (err) {
         console.error('Microphone access denied:', err)
+        stopStream()
         voiceService.speak('Microphone access denied')
         alert('Microphone access denied or unavailable.')
       }
@@ -81,6 +113,8 @@ export function useVoiceRecording(language) {
       if (mediaRecorder.value && mediaRecorder.value.state !== 'inactive') {
         mediaRecorder.value.stop()
       }
+      // Safety net: ensure stream is released even if onstop doesn't fire
+      stopStream()
       isRecording.value = false
     }
   }
