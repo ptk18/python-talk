@@ -8,9 +8,15 @@ from app.parser_engine.lex_alz import setup_nltk
 from app.parser_engine.phase2_domain import load_domain
 from app.parser_engine import main_process
 
+import re
 
 _nltk_lock = threading.Lock()
 _nltk_ready = False
+
+
+def _first_number(text: str) -> Optional[int]:
+    m = re.search(r"(-?\d+)", text)
+    return int(m.group(1)) if m else None
 
 
 def _ensure_nltk():
@@ -56,6 +62,16 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
 
     # Missing-argument detection (required params missing)
     required = (domain.get("ACTIONS", {}).get(action, {}) or {}).get("params", []) or []
+
+    # ---- number binding (1 required param) ----
+    n = _first_number(command_text)
+    if n is not None and len(required) == 1:
+        p = required[0]
+        v = args.get(p)
+        if v in (None, "", []) or isinstance(v, str):
+            args[p] = n
+
+    # Missing-argument detection (required params missing)
     missing = [p for p in required if (p not in args) or (args.get(p) in (None, "", []))]
 
     if missing:
@@ -118,6 +134,8 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
     # fill the first missing param with user's answer
     param_name = missing.pop(0)
     value = answer_text.strip()
+    if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
+        value = int(value)
     params[param_name] = value
 
     domain = load_domain(module_path)

@@ -84,6 +84,18 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
 
 
     if not os.path.exists(runner_path):
+        # turtle runner template
+        if getattr(convo, "app_type", None) == "turtle":
+            with open(runner_path, "w", encoding="utf-8") as f:
+                f.write("import turtle\n\n")
+                f.write("t = turtle.Turtle()\n\n")
+            # state
+            state_path = os.path.join(session_dir, "state.json")
+            if not os.path.exists(state_path):
+                with open(state_path, "w", encoding="utf-8") as sf:
+                    sf.write('{\n  "active_object": "t",\n  "pending": null\n}\n')
+            return {"output": "Turtle runner initialized"}
+        
         module_name = os.path.splitext(safe_module_fname)[0]
         with open(runner_path, "w", encoding="utf-8") as f:
             f.write(f"from {module_name} import {class_name}\n")

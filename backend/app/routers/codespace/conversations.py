@@ -80,18 +80,28 @@ def initialize_session(conversation_id: int, file_name: str, code: str):
     session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
     session_dir.mkdir(parents=True, exist_ok=True)
 
-    # main file
     (session_dir / file_name).write_text(code, encoding="utf-8")
 
-    # runner
+    if file_name == "turtle_app.py":
+        (session_dir / "runner.py").write_text(
+            "import turtle\n\n"
+            "t = turtle.Turtle()\n\n",
+            encoding="utf-8"
+        )
+        (session_dir / "state.json").write_text(
+            json.dumps({"active_object": "t", "pending": None}, indent=2),
+            encoding="utf-8"
+        )
+        return
+
+    # normal upload
     (session_dir / "runner.py").write_text(
-        f"from {file_name.replace('.py','')} import *\n\n",
+        f"from {file_name.replace('.py','')} import *\n\n"
+        "obj = None\n",
         encoding="utf-8"
     )
-
-    # state
     (session_dir / "state.json").write_text(
-        json.dumps({}, indent=2),
+        json.dumps({"active_object": "obj", "pending": None}, indent=2),
         encoding="utf-8"
     )
 

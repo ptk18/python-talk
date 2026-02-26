@@ -172,10 +172,10 @@ import TopToolbar from '@/shared/components/TopToolbar.vue';
 import Sidebar from '@/shared/components/Sidebar.vue';
 import AppSidebar from '@/shared/components/AppSidebar.vue';
 import MonacoEditor from '@/shared/components/MonacoEditor.vue';
-import { useLanguage, useTTS, voiceService, translateAPI, conversationAPI, analyzeAPI } from '@py-talk/shared';
+import { useLanguage, useTTS, voiceService, translateAPI, conversationAPI, analyzeAPI, executeAPI } from '@py-talk/shared';
 import { useTranslations } from '@/utils/translations';
 import { getGreeting } from '@/shared/utils/formatters';
-import { Turtle } from './lib/turtle';
+// import { Turtle } from './lib/turtle';
 import { parseTurtleCommand } from './lib/turtleCommandParser';
 import undoIcon from '@/assets/R-undo.svg';
 import redoIcon from '@/assets/R-redo.svg';
@@ -360,29 +360,28 @@ t = turtle.Turtle()
       alertTimeout = setTimeout(() => { showAlert.value = false; }, duration);
     };
 
-    let turtle = null;
-
     // --- AUTO SAVE LOGIC START ---
     const saveAppData = async (code) => {
       if (!appId.value) return;
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/conversations/${appId.value}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ code: code }),
-        });
 
-        if (response.ok) {
-          console.log('ok', code)
-        }
-        
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/save_runner_code`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversation_id: Number(appId.value),
+              code: code
+            }),
+          }
+        );
+
         if (!response.ok) {
-           console.warn('[TurtlePlayground] Save request failed');
+          console.warn('[TurtlePlayground] save_runner_code failed');
         }
       } catch (err) {
-        console.warn('[TurtlePlayground] Failed to auto-save code:', err);
+        console.warn('[TurtlePlayground] Failed to auto-save runner:', err);
       }
     };
     // --- AUTO SAVE LOGIC END ---
@@ -427,8 +426,14 @@ t = turtle.Turtle()
             appName.value = data.title || '';
             appIcon.value = data.app_image || null;
             // Load saved code if available
-            const runner = await executeAPI.getRunnerCode(appId.value);
-            codeContent.value = runner.code;
+            // Load runner.py into editor (NOT conversation.code)
+            try {
+              const runner = await executeAPI.getRunnerCode(appId.value);
+              codeContent.value = runner.code;
+            } catch (e) {
+              // runner.py not created yet -> keep default template
+              console.warn('[TurtlePlayground] runner not found yet');
+            }
           }
         } catch (err) {
           console.warn('[TurtlePlayground] Failed to load app data:', err);
@@ -457,12 +462,6 @@ t = turtle.Turtle()
     console.log("[MOUNT] turtle session + stream initialized");
   });
 
-
-    const executeDirectCommand = (cmd) => {
-      if (!turtle) return { success: false, error: 'Turtle not initialized' };
-      return parseTurtleCommand(cmd, turtle);
-    };
-
     const processNaturalLanguageCommand = async (cmd, originalText = null) => {
       isProcessing.value = true;
 
@@ -488,34 +487,15 @@ t = turtle.Turtle()
           .map((x) => x?.executable)
           .filter(Boolean);
 
-        // 3) If we got executables, run them locally + append to editor
+        // 3) If we got executables, append to editor + let Pi run it
         if (commands.length > 0) {
-          const outputs = [];
-          const codeLines = [];
-          let allSuccess = true;
-
-          for (const executable of commands) {
-            const execResult = executeDirectCommand(executable);
-
-            if (execResult?.success) {
-              outputs.push(`${executable} -> ${execResult.result}`);
-              codeLines.push(`t.${executable}`);
-            } else {
-              outputs.push(`${executable} -> Error: ${execResult?.error || 'Unknown error'}`);
-              allSuccess = false;
-            }
-          }
-
-          showAlertBox(outputs.join(' | '), allSuccess ? 'success' : 'error');
+          const codeLines = commands.map((x) => `t.${x}`);
           appendToCodeEditor(codeLines.join('\n'), originalText || cmd);
 
-          if (allSuccess) {
-            voiceService.speak(t.value.turtlePlayground.commandExecuted);
-            return { success: true, executables: commands };
-          } else {
-            voiceService.speak(t.value.turtlePlayground.invalidCommand);
-            return { success: false, error: 'Some commands failed' };
-          }
+          showAlertBox(commands.join(' | '), 'success');
+          voiceService.speak(t.value.turtlePlayground.commandExecuted);
+
+          return { success: true, executables: commands };
         }
 
         // 4) No executable: show clarification / suggestion if available
@@ -648,24 +628,20 @@ t = turtle.Turtle()
       }
     };
 
-    const handleClear = () => {
-      if (turtle) {
-        turtle.clear();
-        const msg = t.value.turtlePlayground.canvasCleared || 'Canvas cleared';
-        showAlertBox(msg, 'success');
-        appendToCodeEditor('t.clear()');
-        voiceService.speak(msg);
-      }
+    const handleClear = async () => {
+      appendToCodeEditor('t.clear()');
+      await startRemoteTurtleSession();
+      const msg = t.value.turtlePlayground.canvasCleared || 'Canvas cleared';
+      showAlertBox(msg, 'success');
+      voiceService.speak(msg);
     };
 
-    const handleReset = () => {
-      if (turtle) {
-        turtle.reset();
-        const msg = t.value.turtlePlayground.turtleReset || 'Turtle reset';
-        showAlertBox(msg, 'success');
-        appendToCodeEditor('t.reset()');
-        voiceService.speak(msg);
-      }
+    const handleReset = async () => {
+      appendToCodeEditor('t.reset()');
+      await startRemoteTurtleSession();
+      const msg = t.value.turtlePlayground.turtleReset || 'Turtle reset';
+      showAlertBox(msg, 'success');
+      voiceService.speak(msg);
     };
 
     return {

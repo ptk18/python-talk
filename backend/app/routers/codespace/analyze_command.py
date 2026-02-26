@@ -122,18 +122,24 @@ def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str)
     )
     return runner_path
 
-def _append_to_runner(runner_path: Path, executable: str, comment: str | None = None) -> None:
+def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, comment: str | None = None) -> None:
     line = (executable or "").strip()
     if not line:
         return
+
+    state = _load_state(session_dir)
+    active = state.get("active_object")  # "t" or "obj"
+    if not active:
+        raise HTTPException(status_code=400, detail="state.json missing active_object")
+
     with runner_path.open("a", encoding="utf-8") as f:
         if comment:
             f.write(f"# {comment.strip()}\n")
-        # write raw call, no print, no obj. prefix here unless executable lacks it
-        if line.startswith("obj."):
+
+        if line.startswith(f"{active}."):
             f.write(f"{line}\n")
         else:
-            f.write(f"obj.{line}\n")
+            f.write(f"{active}.{line}\n")
 
 
 # ============================================================
@@ -437,7 +443,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         # append to runner if matched
         if formatted.get("status") == "matched" and formatted.get("executable"):
             runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
-            _append_to_runner(runner_path, formatted["executable"])
+            _append_to_runner(session_dir, runner_path, formatted["executable"], formatted.get("original_command"))
 
         return {
             "success": True,
@@ -464,7 +470,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
     for rr in results:
         if rr.get("status") == "matched" and rr.get("executable"):
-            _append_to_runner(runner_path, rr["executable"])
+            _append_to_runner(session_dir, runner_path, rr["executable"], rr.get("original_command"))
 
     # store pending follow-up if needed
     for rr in results:
