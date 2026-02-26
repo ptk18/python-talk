@@ -57,7 +57,7 @@ services:
       - PORT=3005
       - STREAM_DEVICE_BASE_URL=https://161.246.5.67:8001
       - DISABLE_SEMANTIC_MATCHING=true
-      - PREWARM_MODELS=false
+      - PREWARM_MODELS=true
     volumes:
       - hf_cache:/app/hf_cache
       - pytalk_db:/app/data
