@@ -21,10 +21,10 @@ class VoiceService {
   }
 
   async init() {
-    const savedEngine = localStorage.getItem('voice_engine') || 'whisper';
+    const savedEngine = localStorage.getItem('voice_engine') || 'google';
     this.engine = savedEngine;
 
-    const savedTTSEngine = localStorage.getItem('tts_engine') || 'browser';
+    const savedTTSEngine = localStorage.getItem('tts_engine') || 'google';
     this.ttsEngine = savedTTSEngine;
 
     // Load saved speech rate

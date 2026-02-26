@@ -493,7 +493,7 @@ t = turtle.Turtle()
           appendToCodeEditor(codeLines.join('\n'), originalText || cmd);
 
           showAlertBox(commands.join(' | '), 'success');
-          voiceService.speak(t.value.turtlePlayground.commandExecuted);
+          voiceService.speak('Command executed');
 
           return { success: true, executables: commands };
         }
@@ -507,14 +507,14 @@ t = turtle.Turtle()
           t.value.turtlePlayground.invalidCommand;
 
         showAlertBox(msg, 'error');
-        voiceService.speak(t.value.turtlePlayground.invalidCommand);
+        voiceService.speak('Invalid command');
         return { success: false, error: msg };
 
       } catch (err) {
         console.error('[TurtlePlayground] Command error:', err);
         const msg = err?.message || 'Unknown error';
         showAlertBox(msg, 'error');
-        voiceService.speak(t.value.turtlePlayground.invalidCommand);
+        voiceService.speak('Invalid command');
         return { success: false, error: msg };
       } finally {
         isProcessing.value = false;
@@ -581,7 +581,7 @@ t = turtle.Turtle()
 
       if (!isRecording.value) {
         try {
-          voiceService.speak(t.value.turtlePlayground.listening);
+          voiceService.speak('Listening');
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const recorder = new MediaRecorder(stream);
           audioChunks.value = [];
@@ -604,12 +604,12 @@ t = turtle.Turtle()
                 await processNaturalLanguageCommand(transcribedText, transcribedText);
               } else {
                 showAlertBox(language.value === 'th' ? 'แปลงเสียงไม่สำเร็จ กรุณาลองอีกครั้ง' : 'Transcription failed. Please try again.', 'error');
-                voiceService.speak(t.value.turtlePlayground.invalidCommand);
+                voiceService.speak('Transcription failed. Please try again.');
                 isTranscribing.value = false;
               }
             } catch (err) {
               showAlertBox(err.message, 'error');
-              voiceService.speak(t.value.turtlePlayground.invalidCommand);
+              voiceService.speak('Transcription error. Please try again.');
               isTranscribing.value = false;
             }
           };
@@ -633,7 +633,7 @@ t = turtle.Turtle()
       await startRemoteTurtleSession();
       const msg = t.value.turtlePlayground.canvasCleared || 'Canvas cleared';
       showAlertBox(msg, 'success');
-      voiceService.speak(msg);
+      voiceService.speak('Canvas cleared');
     };
 
     const handleReset = async () => {
@@ -641,7 +641,7 @@ t = turtle.Turtle()
       await startRemoteTurtleSession();
       const msg = t.value.turtlePlayground.turtleReset || 'Turtle reset';
       showAlertBox(msg, 'success');
-      voiceService.speak(msg);
+      voiceService.speak('Turtle reset');
     };
 
     return {
