@@ -146,7 +146,7 @@ export function useCommandProcessor() {
       const executable = allExecutables.length > 0 ? allExecutables.join('\n') : null
 
       if (executable) {
-        await executeAPI.appendCommand(Number(conversationId), executable)
+        // await executeAPI.appendCommand(Number(conversationId), executable)
 
         if (onCodeSync) await onCodeSync()
         if (onFileRefresh) await onFileRefresh()

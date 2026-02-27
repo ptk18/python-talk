@@ -245,12 +245,25 @@ def _process_single_command(command: str, module_path: Path) -> Dict[str, Any]:
 
     # Need clarification -> return no_match but with a suggestion_message
     if status == "need_clarification":
+        method = r.get("method") or ""
+        meta = r.get("meta") or {}
+        missing = meta.get("missing", [])
+
+        nice_question = None
+
+        if missing:
+            param = missing[0].replace("_", " ")
+            method_nice = method.replace("_", " ")
+            nice_question = f"What {param} would you like to specify for {method_nice}?"
+        else:
+            nice_question = r.get("question") or r.get("explanation")
+
         return {
             "success": False,
             "status": "no_match",
             "original_command": command,
-            "suggestion_message": r.get("question") or r.get("explanation"),
-            "method": r.get("method"),
+            "suggestion_message": nice_question,
+            "method": method,
             "parameters": r.get("parameters", {}) or {},
             "confidence": confidence,
             "executable": None,
