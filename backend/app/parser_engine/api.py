@@ -43,6 +43,10 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
     out = main_process.run(command_text, module_path)
     if not out:
         return {"status": "no_match", "explanation": "Empty parser output", "meta": {}}
+    
+    print("\n========== PARSER DEBUG ==========")
+    print("User input:", command_text)
+    print("Raw parser output:", out)
 
     last = out[-1] if isinstance(out, list) else out
     action = last.get("code_function")
@@ -60,6 +64,11 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
             "meta": {"ranked": ranked},
         }
 
+    print("Selected action:", action)
+    print("Args:", args)
+    print("Ranked similarity:", ranked[:3])  # top 3
+    print("==================================\n")
+    
     # Missing-argument detection (required params missing)
     required = (domain.get("ACTIONS", {}).get(action, {}) or {}).get("params", []) or []
 
@@ -76,7 +85,7 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
 
     if missing:
         # simple question
-        q = f"{action.replace('_', ' ')} what?"
+        q = f"Missing {missing} for {action}"
         return {
             "status": "need_clarification",
             "method": action,
@@ -144,7 +153,7 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
     # still missing?
     still_missing = [p for p in required if (p not in params) or (params.get(p) in (None, "", []))]
     if still_missing:
-        q = f"{method.replace('_', ' ')} what?"
+        q = f"Missing {missing} for {action}"
         return {
             "status": "need_clarification",
             "method": method,

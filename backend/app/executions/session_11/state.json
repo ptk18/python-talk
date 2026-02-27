@@ -1,0 +1,14 @@
+{
+  "active_object": "obj",
+  "pending": {
+    "method": "add_course",
+    "missing": [
+      "course_name"
+    ],
+    "parameters": {}
+  },
+  "constructor_args": [
+    "Demo User"
+  ],
+  "constructor_kwargs": {}
+}

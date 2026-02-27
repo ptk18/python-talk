@@ -103,8 +103,12 @@ export function useCommandProcessor() {
         summaryLines.push(`Did you mean ${r.method}(${Object.entries(r.parameters || {}).map(([k, v]) => `${k}=${v}`).join(', ')})?`)
       }
       for (const r of noMatches) {
-        const cmd = r.original_command || 'unknown'
-        summaryLines.push(`Could not understand: "${cmd}"`)
+        if (r.suggestion_message) {
+          summaryLines.push(r.suggestion_message)
+        } else {
+          const cmd = r.original_command || 'unknown'
+          summaryLines.push(`Could not understand: "${cmd}"`)
+        }
       }
 
       const summary = summaryLines.length > 0 ? summaryLines.join('\n') : 'No matching commands found'
@@ -129,7 +133,12 @@ export function useCommandProcessor() {
         voiceService.speak(`Did you mean ${sugNames}?`)
       }
       if (noMatches.length > 0 && matched.length === 0 && suggestions.length === 0) {
-        voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
+        const first = noMatches[0]
+        if (first.suggestion_message) {
+          voiceService.speak(first.suggestion_message)
+        } else {
+          voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
+        }
       }
 
       // Only offer to append matched commands

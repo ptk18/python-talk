@@ -1,9 +1,9 @@
 {
   "active_object": "t",
   "pending": {
-    "method": "speed",
+    "method": "get_turtle",
     "missing": [
-      "value"
+      "name"
     ],
     "parameters": {}
   }

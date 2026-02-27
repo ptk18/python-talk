@@ -95,13 +95,34 @@ def initialize_session(conversation_id: int, file_name: str, code: str):
         return
 
     # normal upload
+    module_name = file_name.replace(".py", "")
+
+    # find first class name in uploaded code
+    tree = ast.parse(code)
+    class_name = None
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            class_name = node.name
+            break
+
+    if not class_name:
+        # fallback (still allow file, but runner won't work)
+        class_name = "None"
+
+    # default constructor args
+    state = {
+        "active_object": "obj",
+        "pending": None,
+        "constructor_args": ["Demo User"],
+        "constructor_kwargs": {},
+    }
+    (session_dir / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+    args_str = ", ".join([repr(x) for x in state["constructor_args"]])  # ["Demo User"] -> 'Demo User'
+
     (session_dir / "runner.py").write_text(
-        f"from {file_name.replace('.py','')} import *\n\n"
-        "obj = None\n",
-        encoding="utf-8"
-    )
-    (session_dir / "state.json").write_text(
-        json.dumps({"active_object": "obj", "pending": None}, indent=2),
+        f"from {module_name} import {class_name}\n\n"
+        f"obj = {class_name}({args_str})\n",
         encoding="utf-8"
     )
 

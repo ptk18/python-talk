@@ -11,6 +11,7 @@ from app.models.schemas import ExecuteCommandRequest, SimpleCodeRequest
 import ast
 from app.security import validate_code
 from pathlib import Path
+import json
 
 router = APIRouter(tags=["Execute Command"])
 
@@ -96,12 +97,49 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
                     sf.write('{\n  "active_object": "t",\n  "pending": null\n}\n')
             return {"output": "Turtle runner initialized"}
         
+        # -----------------------------
+        # load/ensure state.json (constructor args)
+        # -----------------------------
+        state_path = os.path.join(session_dir, "state.json")
+
+        if os.path.exists(state_path):
+            try:
+                state = json.loads(open(state_path, "r", encoding="utf-8").read())
+            except Exception:
+                state = {}
+        else:
+            state = {}
+
+        state.setdefault("active_object", "obj")
+        state.setdefault("pending", None)
+        state.setdefault("constructor_args", [])
+        state.setdefault("constructor_kwargs", {})
+
+        # default: simple demo value so classes like CourseRegistration(student_name) can construct
+        # later you can make this smarter per-class
+        if not state["constructor_args"]:
+            state["constructor_args"] = ["Demo User"]
+
+        with open(state_path, "w", encoding="utf-8") as sf:
+            sf.write(json.dumps(state, ensure_ascii=False, indent=2))
+
+        constructor_args = state["constructor_args"]
+        constructor_kwargs = state["constructor_kwargs"]
+
+        args_str = ", ".join(
+            [repr(a) for a in constructor_args] +
+            [f"{k}={repr(v)}" for k, v in constructor_kwargs.items()]
+        )
+
+        # -----------------------------
+        # write runner.py
+        # -----------------------------
         module_name = os.path.splitext(safe_module_fname)[0]
         with open(runner_path, "w", encoding="utf-8") as f:
             f.write(f"from {module_name} import {class_name}\n")
             f.write("import sys\n")
             f.write("\n")
-            f.write(f"obj = {class_name}()\n")
+            f.write(f"obj = {class_name}({args_str})\n")
 
         try:
             result = subprocess.run(

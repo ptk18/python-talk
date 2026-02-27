@@ -110,14 +110,28 @@ def _save_state(session_dir: Path, state: dict) -> None:
 def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str) -> Path:
     session_dir.mkdir(parents=True, exist_ok=True)
     runner_path = session_dir / "runner.py"
+
     if runner_path.exists():
         return runner_path
 
-    module_name = module_path.stem  # "smarthome" from "smarthome.py"
+    state = _load_state(session_dir)
+
+    # Default constructor args from state
+    constructor_args = state.get("constructor_args", [])
+    constructor_kwargs = state.get("constructor_kwargs", {})
+
+    # Build constructor call dynamically
+    args_str = ", ".join(
+        [repr(a) for a in constructor_args] +
+        [f"{k}={repr(v)}" for k, v in constructor_kwargs.items()]
+    )
+
+    module_name = module_path.stem
+
     runner_path.write_text(
         f"from {module_name} import {class_name}\n"
         f"import sys\n\n"
-        f"obj = {class_name}()\n",
+        f"obj = {class_name}({args_str})\n",
         encoding="utf-8"
     )
     return runner_path
@@ -235,7 +249,7 @@ def _process_single_command(command: str, module_path: Path) -> Dict[str, Any]:
             "success": False,
             "status": "no_match",
             "original_command": command,
-            "suggestion_message": r.get("question"),
+            "suggestion_message": r.get("question") or r.get("explanation"),
             "method": r.get("method"),
             "parameters": r.get("parameters", {}) or {},
             "confidence": confidence,
@@ -373,7 +387,21 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     # Follow-up flow ("turn on" -> "turn on what?" then user says "tv")
     # ------------------------------------------------------------
+    
+    # Ensure constructor config exists
     state = _load_state(session_dir)
+
+    if "constructor_args" not in state:
+        state["constructor_args"] = []
+    if "constructor_kwargs" not in state:
+        state["constructor_kwargs"] = {}
+
+    # Auto-set default constructor args if empty
+    if not state.get("constructor_args"):
+        state["constructor_args"] = ["Demo User"]
+
+    _save_state(session_dir, state)
+
     pending = state.get("pending")
 
     if pending:
@@ -414,7 +442,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 "success": False,
                 "status": "no_match",
                 "original_command": command,
-                "suggestion_message": r.get("question"),
+                "suggestion_message": r.get("question") or r.get("explanation"),
                 "method": r.get("method"),
                 "parameters": r.get("parameters", {}) or {},
                 "confidence": float(r.get("confidence", 0.0)),
