@@ -67,3 +67,13 @@ set monthly limit rent 10000
 
 set budget 3000
 food
+
+create robot named Atlas call it r1
+say hello
+walk 10
+turn left
+jump 5
+charge 20
+battery status
+rename to Neo
+shutdown

@@ -1,0 +1,13 @@
+{
+  "active_object": "r1",
+  "pending": null,
+  "constructor_args": [],
+  "constructor_kwargs": {},
+  "module_name": "robot",
+  "class_name": "Robot",
+  "objects": {
+    "r1": {
+      "class": "Robot"
+    }
+  }
+}
