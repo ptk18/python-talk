@@ -7,7 +7,6 @@
 #   frontend:
 #     platform: linux/arm64
 
-
 services:
   backend:
     ports:
