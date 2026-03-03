@@ -516,7 +516,7 @@ export default {
           t.value.turtlePlayground.invalidCommand;
 
         showAlertBox(msg, 'error');
-        voiceService.speak('Invalid command');
+        voiceService.speak(msg);
         return { success: false, error: msg };
 
       } catch (err) {
