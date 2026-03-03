@@ -431,8 +431,15 @@ t = turtle.Turtle()
               const runner = await executeAPI.getRunnerCode(appId.value);
               codeContent.value = runner.code;
             } catch (e) {
-              // runner.py not created yet -> keep default template
-              console.warn('[TurtlePlayground] runner not found yet');
+              // runner.py not created yet -> initialize session and retry
+              console.warn('[TurtlePlayground] runner not found, initializing session...');
+              try {
+                await executeAPI.ensureSessionInitialized(appId.value);
+                const runner = await executeAPI.getRunnerCode(appId.value);
+                codeContent.value = runner.code;
+              } catch (e2) {
+                console.warn('[TurtlePlayground] Still no runner after init, using default');
+              }
             }
           }
         } catch (err) {

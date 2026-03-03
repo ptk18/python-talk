@@ -7,6 +7,7 @@
 #   frontend:
 #     platform: linux/arm64
 
+version: "2.4"
 
 services:
   backend:

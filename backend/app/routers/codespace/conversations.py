@@ -8,6 +8,7 @@ from app.database.connection import get_db
 from app.models.models import Conversation
 from app.models.schemas import ConversationCreate, ConversationResponse, ConversationUpdate
 import ast
+import re
 
 from pathlib import Path
 import json
@@ -168,6 +169,50 @@ def get_available_methods(conversation_id: int, db: Session = Depends(get_db)):
     try:
         tree = ast.parse(convo.code)
 
+        # Turtle apps: return flat method list with categories
+        if convo.app_type.value == "turtle":
+            # Parse comment-based category headers from raw source
+            lines = convo.code.splitlines()
+            category_at_line = {}
+            current_category = "General"
+            for i, line in enumerate(lines, start=1):
+                stripped = line.strip()
+                # Match category headers like "# Turtle management ..." but skip
+                # separators (# ----, # ====) and non-category comments
+                if (stripped.startswith("# ")
+                        and not re.match(r'^#\s*[-=]+\s*$', stripped)
+                        and re.search(r'[a-zA-Z]', stripped[2:])):
+                    # Only use indented comments (inside class body) as categories
+                    if line.startswith("    #"):
+                        cat_text = stripped[2:].strip()
+                        # Remove parenthetical notes like "(IMPORTANT: ...)"
+                        paren_idx = cat_text.find("(")
+                        if paren_idx > 0:
+                            cat_text = cat_text[:paren_idx].strip()
+                        current_category = cat_text
+                category_at_line[i] = current_category
+
+            methods = []
+            for node in tree.body:
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                for item in node.body:
+                    if not isinstance(item, ast.FunctionDef):
+                        continue
+                    if item.name.startswith("__") and item.name.endswith("__"):
+                        continue
+                    params = [arg.arg for arg in item.args.args[1:]]  # skip self
+                    category = category_at_line.get(item.lineno, "General")
+                    methods.append({
+                        "name": item.name,
+                        "params": params,
+                        "category": category,
+                        "docstring": ast.get_docstring(item)
+                    })
+
+            return {"success": True, "methods": methods}
+
+        # Codespace apps: return methods grouped by class
         classes_info = {}
 
         for node in tree.body:

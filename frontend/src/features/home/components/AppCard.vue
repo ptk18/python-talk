@@ -54,7 +54,7 @@
       class="install-btn"
       :style="buttonStyle"
       @click.stop="handleButtonClick"
-    >Deploy</button>
+    >Implement</button>
   </div>
 </template>
 
