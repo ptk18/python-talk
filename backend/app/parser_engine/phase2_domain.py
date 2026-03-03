@@ -75,19 +75,48 @@ def extract_phrases_from_docstring(doc: str) -> List[str]:
 
     return out
 
+# -----------------------------
+# Normalization helpers
+# -----------------------------
+def _norm_text(s: str) -> str:
+    """
+    Lowercase, trim, collapse whitespace, strip punctuation around words.
+    Keeps inner spaces for phrase matching.
+    """
+    s = (s or "").lower().strip()
+    # replace punctuation with space (keep letters/numbers/_)
+    s = re.sub(r"[^a-z0-9_]+", " ", s)
+    s = " ".join(s.split())
+    return s
+
+def _token_words(tokens: Optional[List[Dict[str, Any]]]) -> List[str]:
+    out = []
+    if not tokens:
+        return out
+    for t in tokens:
+        w = str(t.get("word") or "").strip()
+        if w:
+            out.append(_norm_text(w))
+    return [w for w in out if w]
+
+
 def build_phrase_index(domain: Dict[str, Any]) -> Dict[str, str]:
     """
-    phrase -> action
-    If multiple actions share a phrase, first one wins (you can later make tie rules).
+    Build phrase -> action map from domain["ACTIONS"][action]["phrases"].
+    Phrases should already be extracted from docstrings in expand_domain().
     """
-    idx: Dict[str, str] = {}
-    actions = domain.get("ACTIONS") or {}
-    for action, info in actions.items():
-        for p in (info.get("phrases") or []):
-            key = str(p).strip().lower()
-            if key and key not in idx:
-                idx[key] = action
-    return idx
+    phrase_to_action: Dict[str, str] = {}
+
+    for action, info in (domain.get("ACTIONS") or {}).items():
+        for raw in (info.get("phrases") or []):
+            ph = _norm_text(str(raw))
+            if not ph:
+                continue
+            # De-dupe: if same phrase maps to multiple actions, keep first (or choose later)
+            phrase_to_action.setdefault(ph, action)
+
+    return phrase_to_action
+
 
 def safe_syns(word: str, pos: str) -> Set[str]:
     try:
@@ -415,58 +444,73 @@ def rank_actions_by_similarity(sentence: str, domain: Dict[str, Any]) -> List[Tu
     ranked = sorted(zip(actions, sims), key=lambda x: x[1], reverse=True)
     return ranked
 
+# ============================================================
+# 1) match_action_by_phrases
+# ============================================================
+def match_action_by_phrases(
+    sentence: str,
+    domain: Dict[str, Any],
+    tokens: Optional[List[Dict[str, Any]]] = None,
+) -> Tuple[Optional[str], Optional[str], List[Tuple[str, float]]]:
+    """
+    Returns:
+      (best_action, matched_phrase, ranked)
 
-def pick_best_action(sentence: str,
-                     domain: Dict[str, Any],
-                     require_number_if_param_int: bool = False,
-                     tokens: Optional[List[Dict[str, Any]]] = None
-                     ) -> Tuple[Optional[str], List[Tuple[str, float]]]:
+    ranked is a lightweight list like [(action, 1.0)] for compatibility
+    """
+    phrase_to_action = build_phrase_index(domain)
+
+    sent_norm = _norm_text(sentence)
+    token_norm = " ".join(_token_words(tokens))
+    # use both representations for robustness
+    hay = f" {sent_norm} "
+    hay2 = f" {token_norm} "
+
+    if not phrase_to_action:
+        # no phrases extracted => impossible to match
+        return None, None, []
+
+    # longest phrase wins
+    phrases_sorted = sorted(phrase_to_action.keys(), key=lambda x: len(x), reverse=True)
+
+    for ph in phrases_sorted:
+        needle = f" {ph} "
+        if needle in hay or needle in hay2:
+            action = phrase_to_action[ph]
+            return action, ph, [(action, 1.0)]
+
+    return None, None, []
+
+# ============================================================
+# 2) pick_best_action (pure phrase match)
+# ============================================================
+def pick_best_action(
+    sentence: str,
+    domain: Dict[str, Any],
+    require_number_if_param_int: bool = False,  # kept for signature compatibility
+    tokens: Optional[List[Dict[str, Any]]] = None,
+) -> Tuple[Optional[str], List[Tuple[str, float]]]:
     """
     Pure docstring phrase matching.
 
     Rule:
       - If any phrase from docstrings appears in user input, choose that method.
-      - Prefer LONGEST phrase match (e.g., 'go back' > 'back').
+      - Prefer LONGEST phrase match (e.g., 'set monthly limit' > 'set').
       - If nothing matches, return None.
     """
-    phrase_to_action = build_phrase_index(domain)
-
-    # normalize sentence
-    s = " " + (sentence or "").strip().lower() + " "
-
-    # also consider token words (more robust than raw sentence spacing)
-    words = []
-    if tokens:
-        for t in tokens:
-            w = str(t.get("word") or "").strip().lower()
-            if w:
-                words.append(w)
-    token_text = " " + " ".join(words) + " "
-
-    # longest phrase wins
-    phrases = sorted(phrase_to_action.keys(), key=len, reverse=True)
-
-    for ph in phrases:
-        needle = " " + ph + " "
-        if needle in s or needle in token_text:
-            action = phrase_to_action[ph]
-            # ---------------- DEBUG BLOCK ----------------
-            print("\n========== DOCSTRING MATCH DEBUG ==========")
-            print("Sentence:", sentence)
-            print("Matched phrase:", ph)
-            print("Selected action:", action)
-            print("===========================================\n")
-            # ------------------------------------------------
-
-            return action, [(action, 1.0)]
+    action, matched_phrase, ranked = match_action_by_phrases(sentence, domain, tokens=tokens)
 
     print("\n========== DOCSTRING MATCH DEBUG ==========")
     print("Sentence:", sentence)
-    print("Matched phrase: None")
-    print("Selected action: None")
+    print("Sentence(norm):", _norm_text(sentence))
+    print("Tokens(norm):", " ".join(_token_words(tokens)))
+    print("Matched phrase:", matched_phrase)
+    print("Selected action:", action)
+    # helpful: show how many phrases exist
+    print("Phrase count:", sum(len((info.get("phrases") or [])) for info in (domain.get("ACTIONS") or {}).values()))
     print("===========================================\n")
 
-    return None, []
+    return action, ranked
 
 # ============================================================
 # Your existing token semantic tagging (kept for PARAM/NUMBER)
@@ -538,14 +582,26 @@ def phase2_map_tokens(tokens: List[Dict[str, Any]], domain: Dict[str, Any]) -> L
     return out
 
 
-from typing import Dict, Any, List, Optional
-
-def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
-                        domain: Dict[str, Any],
-                        action: Optional[str]) -> Dict[str, Any]:
-    args: Dict[str, Any] = {}
-    explain: List[str] = []
-
+# ============================================================
+# 3) bind_args_to_params
+# ============================================================
+def bind_args_to_params(
+    semantic_tokens: List[Dict[str, Any]],
+    domain: Dict[str, Any],
+    action: Optional[str],
+) -> Dict[str, Any]:
+    """
+    Bind args based on:
+      - first NUMBER in sentence -> single int param (amount/limit/days/count/...)
+      - for category-like / note-like strings:
+          * prefer last NOUN/UNKNOWN as category if param exists
+          * for note param: take content phrase after marker words like "note"
+      - special pattern:
+          "set budget 3000 for food" -> amount=3000, category=food
+          "set monthly limit rent 10000" -> category=rent, amount=10000
+          "spend 1200 rent" -> amount=1200, category=rent
+          "add note lunch with friend" -> note="lunch with friend"
+    """
     if not action:
         return {"action": None, "args": {}, "bindings_explained": ["No action selected."]}
 
@@ -553,7 +609,7 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
     if not params:
         return {"action": action, "args": {}, "bindings_explained": ["Action has no parameters."]}
 
-    # ---- helpers ----
+    # ---------- helpers ----------
     def is_number_token(t: Dict[str, Any]) -> bool:
         return t.get("POS") == "NUMBER" or t.get("semantic_type") == "NUMBER"
 
@@ -563,124 +619,155 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
         except Exception:
             return None
 
-    def find_first_number() -> Optional[int]:
+    def first_number() -> Optional[int]:
         for t in semantic_tokens:
             if is_number_token(t):
                 return as_int(str(t.get("word", "")).strip())
         return None
 
-    def find_number_before_param() -> Dict[str, int]:
-        bound: Dict[str, int] = {}
-        for i in range(len(semantic_tokens) - 1):
-            if is_number_token(semantic_tokens[i]):
-                nxt = semantic_tokens[i + 1].get("semantic_type") or ""
-                if isinstance(nxt, str) and nxt.startswith("PARAM_"):
-                    p = nxt.replace("PARAM_", "", 1)
-                    v = as_int(str(semantic_tokens[i].get("word", "")).strip())
-                    if v is not None:
-                        bound[p] = v
-        return bound
-
-    def extract_after_word(markers: List[str]) -> Optional[str]:
-        markers = {m.lower() for m in markers}
-        for i, t in enumerate(semantic_tokens):
-            if str(t.get("word", "")).lower() in markers:
-                j = i + 1
-                while j < len(semantic_tokens) and semantic_tokens[j].get("POS") in (
-                    "determiner", "preposition", "conjunction"
-                ):
-                    j += 1
-                if j < len(semantic_tokens):
-                    w = str(semantic_tokens[j].get("word", "")).strip()
-                    return w.lower() if w else None
-        return None
-
-    def extract_content_phrase() -> Optional[str]:
-        words: List[str] = []
+    def all_words_norm() -> List[str]:
+        out = []
         for t in semantic_tokens:
-            pos = t.get("POS")
-            w = str(t.get("word", "")).strip()
+            w = str(t.get("word") or "").strip()
             if not w:
                 continue
-            if is_number_token(t):
+            out.append(_norm_text(w))
+        return [x for x in out if x]
+
+    def last_content_word(exclude_numbers: bool = True) -> Optional[str]:
+        # take last NOUN/UNKNOWN/ADJECTIVE token as content (common for category)
+        for t in reversed(semantic_tokens):
+            if exclude_numbers and is_number_token(t):
                 continue
-            if pos in ("punctuation", "determiner", "preposition", "conjunction", "pronoun"):
+            pos = t.get("POS")
+            w = _norm_text(str(t.get("word") or ""))
+            if not w:
                 continue
             if pos in ("NOUN", "UNKNOWN", "ADJECTIVE"):
-                words.append(w.lower())
-        return " ".join(words) if words else None
+                return w
+        return None
 
-    def guess_param_kinds(params_: List[str]) -> Dict[str, str]:
-        # add "angle" so right(angle=...) never gets "turn"
-        int_hints = {
-            "steps", "amount", "limit", "degrees", "degree", "temperature",
-            "count", "num", "number", "n", "angle", "distance"
-        }
-        str_hints = {"recipient", "speech", "name", "user", "target", "device", "room"}
-        kinds_: Dict[str, str] = {}
-        for p in params_:
-            pl = p.lower()
-            if pl in int_hints:
-                kinds_[p] = "int"
-            elif pl in str_hints:
-                kinds_[p] = "str"
-            else:
-                kinds_[p] = "str"
-        return kinds_
+    def after_marker(markers: List[str]) -> Optional[str]:
+        markers = {_norm_text(m) for m in markers}
+        words = all_words_norm()
+        for i, w in enumerate(words):
+            if w in markers and i + 1 < len(words):
+                # return everything after marker as a phrase
+                rest = " ".join(words[i + 1 :]).strip()
+                return rest if rest else None
+        return None
 
-    kinds = guess_param_kinds(params)
+    def find_after_word(word: str) -> Optional[str]:
+        return after_marker([word])
 
-    # ---- rule 1: NUMBER + PARAM_x (strongest) ----
-    strong = find_number_before_param()
-    for p, v in strong.items():
-        if p in params:
-            args[p] = v
-            explain.append(f"Bound {p}={v} from pattern NUMBER + PARAM_{p}.")
+    # ---------- param kind guess ----------
+    INT_HINTS = {
+        "amount", "limit", "budget", "days", "day", "count", "num", "number", "n", "distance", "steps", "degrees", "degree"
+    }
+    STR_HINTS = {
+        "category", "note", "recipient", "name", "owner", "owner_name", "target", "device", "room"
+    }
 
-    # ---- rule 2: int-like params: bind numbers only ----
-    num = find_first_number()
-    if num is not None:
-        int_params = [p for p in params if kinds.get(p) == "int"]
-        # your hardcode: if there is a number, put it into the numeric param(s)
-        if len(int_params) == 1 and int_params[0] not in args:
-            args[int_params[0]] = num
-            explain.append(f"Bound {int_params[0]}={num} (first number in sentence).")
+    def kind_of(p: str) -> str:
+        pl = p.lower()
+        if pl in INT_HINTS:
+            return "int"
+        if pl in STR_HINTS:
+            return "str"
+        # default
+        return "str"
 
-    # ---- rule 3: 'to X' binds recipient/target/name-like params ----
-    to_value = extract_after_word(["to"])
-    if to_value:
-        str_params = [p for p in params if kinds.get(p) == "str"]
-        preferred = None
-        for cand in str_params:
-            if cand.lower() in {"recipient", "target", "name", "user"}:
-                preferred = cand
-                break
-        if preferred and preferred not in args:
-            args[preferred] = to_value
-            explain.append(f"Bound {preferred}='{to_value}' from 'to {to_value}'.")
-        elif len(str_params) == 1 and str_params[0] not in args:
-            args[str_params[0]] = to_value
-            explain.append(f"Bound {str_params[0]}='{to_value}' from 'to {to_value}'.")
+    int_params = [p for p in params if kind_of(p) == "int"]
+    str_params = [p for p in params if kind_of(p) == "str"]
 
-    # ---- rule 4: ONLY for str-like params (never for int-like) ----
-    str_params = [p for p in params if kinds.get(p) == "str"]
-    if len(str_params) == 1 and str_params[0] not in args:
-        content = extract_content_phrase()
-        if content:
-            args[str_params[0]] = content
-            explain.append(f"Bound {str_params[0]}='{content}' from content phrase.")
+    args: Dict[str, Any] = {}
+    explain: List[str] = []
+
+    words = all_words_norm()
+    sent_norm = " ".join(words)
+
+    # ---------- NOTE binding (very important for "add note lunch with friend") ----------
+    # If param includes "note", bind everything after the word "note" if present,
+    # otherwise bind content phrase excluding leading command words.
+    note_param = next((p for p in params if p.lower() == "note"), None)
+    if note_param:
+        # "add note X" / "note X" / "attach note X"
+        rest = after_marker(["note", "memo", "remark", "comment"])
+        if rest:
+            args[note_param] = rest
+            explain.append(f"Bound {note_param}='{rest}' from text after note/memo/remark/comment.")
+        elif len(str_params) == 1 and str_params[0] == note_param:
+            # fallback: take everything except stop-ish first word
+            if len(words) >= 2:
+                rest2 = " ".join(words[1:])
+                args[note_param] = rest2
+                explain.append(f"Bound {note_param}='{rest2}' from remaining words (fallback).")
+
+    # ---------- INT binding ----------
+    num = first_number()
+    if num is not None and len(int_params) == 1 and int_params[0] not in args:
+        args[int_params[0]] = num
+        explain.append(f"Bound {int_params[0]}={num} (first number in sentence).")
+
+    # ---------- CATEGORY binding ----------
+    # Works for:
+    #   spend 1200 rent  -> last noun = rent
+    #   set monthly limit rent 10000 -> last noun before number = rent
+    category_param = next((p for p in params if p.lower() == "category"), None)
+    if category_param and category_param not in args:
+        # special: "for X" pattern (set budget 3000 for food)
+        val_for = find_after_word("for")
+        if val_for:
+            # take first word after "for" as category (or full phrase if you want)
+            cat = val_for.split()[0].strip()
+            if cat:
+                args[category_param] = cat
+                explain.append(f"Bound {category_param}='{cat}' from 'for {cat}'.")
+        else:
+            # pick last content word; but for "rent 10000" we want rent not 10000
+            # So: find last noun/unknown before the last number token.
+            last_cat = None
+            # scan right-to-left; stop at first number then continue for noun before it
+            seen_number = False
+            for t in reversed(semantic_tokens):
+                if is_number_token(t):
+                    seen_number = True
+                    continue
+                if seen_number:
+                    pos = t.get("POS")
+                    w = _norm_text(str(t.get("word") or ""))
+                    if w and pos in ("NOUN", "UNKNOWN", "ADJECTIVE"):
+                        last_cat = w
+                        break
+            if not last_cat:
+                last_cat = last_content_word(exclude_numbers=True)
+
+            if last_cat:
+                args[category_param] = last_cat
+                explain.append(f"Bound {category_param}='{last_cat}' from last content word (category heuristic).")
+
+    # ---------- RECIPIENT binding (transfer 500 to mom) ----------
+    recipient_param = next((p for p in params if p.lower() == "recipient"), None)
+    if recipient_param and recipient_param not in args:
+        val_to = find_after_word("to")
+        if val_to:
+            rec = val_to.split()[0].strip()
+            if rec:
+                args[recipient_param] = rec
+                explain.append(f"Bound {recipient_param}='{rec}' from 'to {rec}'.")
 
     if not explain:
         explain.append("No binding rules matched; args may be incomplete.")
 
     print("\n========== ARG BIND DEBUG ==========")
     print("Action:", action)
+    print("Params:", params)
+    print("Tokens:", [(t.get("word"), t.get("POS"), t.get("semantic_type")) for t in semantic_tokens])
     print("Bound args:", args)
     print("Explanation:", explain)
     print("====================================\n")
-    
-    return {"action": action, "args": args, "bindings_explained": explain}
 
+    return {"action": action, "args": args, "bindings_explained": explain}
 
 def bind_number_to_param(semantic_tokens: List[Dict[str, Any]],
                          domain: Dict[str, Any],

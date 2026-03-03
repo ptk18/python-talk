@@ -18,7 +18,7 @@ _nltk_ready = False
 def _extract_name_after_markers(text: str) -> Optional[str]:
     # supports: called t1 / called "t1" / called 't1' / called t1.
     m = re.search(
-        r"\b(?:called|call|named|name)\s+['\"\(\[]*([A-Za-z_]\w*)",
+        r"\b(?:called|call|named|name|calls|names)\s+['\"\(\[]*([A-Za-z_]\w*)",
         text,
         flags=re.IGNORECASE
     )
@@ -78,6 +78,11 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
             }
 
     domain = load_domain(module_path)
+    
+    print("\n[DEBUG] phrases per action:")
+    for a, info in domain["ACTIONS"].items():
+        print(a, "=>", info.get("phrases"))
+    print()
 
     out = main_process.run(command_text, module_path)
     if not out:

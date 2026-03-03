@@ -110,15 +110,12 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
         else:
             state = {}
 
-        state.setdefault("active_object", "obj")
+        state.setdefault("active_object", None)
+        state.setdefault("objects", {}) 
         state.setdefault("pending", None)
         state.setdefault("constructor_args", [])
         state.setdefault("constructor_kwargs", {})
 
-        # default: simple demo value so classes like CourseRegistration(student_name) can construct
-        # later you can make this smarter per-class
-        if not state["constructor_args"]:
-            state["constructor_args"] = ["Demo User"]
 
         with open(state_path, "w", encoding="utf-8") as sf:
             sf.write(json.dumps(state, ensure_ascii=False, indent=2))
@@ -139,7 +136,7 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             f.write(f"from {module_name} import {class_name}\n")
             f.write("import sys\n")
             f.write("\n")
-            f.write(f"obj = {class_name}({args_str})\n")
+
 
         try:
             result = subprocess.run(
@@ -167,7 +164,7 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
                 f.write(f"{executable}\n")
         else:
             with open(runner_path, "a", encoding="utf-8") as f:
-                f.write(f"print(obj.{executable})\n")
+                f.write(f"{executable}\n")
 
     try:
         result = subprocess.run(

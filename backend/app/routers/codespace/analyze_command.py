@@ -84,6 +84,77 @@ def _target_turtle_executable(executable: str, active: str | None) -> str:
 
     return s
 
+def _extract_init_params(module_path: Path, class_name: str) -> List[str]:
+    """
+    Return __init__ params excluding self, in order.
+    If no __init__, return [].
+    """
+    try:
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef) and item.name == "__init__":
+                    return [a.arg for a in item.args.args if a.arg != "self"]
+    return []
+
+
+def _try_build_constructor_executable(command: str, class_name: str, init_params: List[str]) -> Optional[str]:
+    """
+    Detect create/make/init intent and produce:
+      acc1 = ClassName(param="value")
+    Heuristic:
+      - var name from: 'call it X' | 'named X' | 'called X' | 'as X'
+      - value from: after 'named' or 'for' (owner_name-like)
+    """
+    s = " ".join(command.strip().split())
+    low = s.lower()
+
+    # step 1: detect creation intent words
+    if not re.search(r"\b(create|make|initialize|init|new|instantiate|build)\b", low):
+        return None
+
+    # step 2: get variable name
+    var = None
+    m = re.search(r"\bcall\s+it\s+([A-Za-z_]\w*)\b", low)
+    if m: var = m.group(1)
+    if not var:
+        m = re.search(r"\bas\s+([A-Za-z_]\w*)\b", low)
+        if m: var = m.group(1)
+    if not var:
+        m = re.search(r"\bnamed\s+([A-Za-z_]\w*)\b", low)
+        if m: var = m.group(1)
+    if not var:
+        m = re.search(r"\bcalled\s+([A-Za-z_]\w*)\b", low)
+        if m: var = m.group(1)
+
+    # If no var name, we can't generate assignment (force user to provide)
+    if not var:
+        return None
+
+    # step 3: pick constructor value (only if there is exactly 1 param)
+    if len(init_params) == 1:
+        p = init_params[0]
+
+        # Try: "named Suriya" or "for Suriya"
+        val = None
+        m = re.search(r"\bnamed\s+([A-Za-z][\w\-]*)\b", s, flags=re.I)
+        if m: val = m.group(1)
+        if not val:
+            m = re.search(r"\bfor\s+([A-Za-z][\w\-]*)\b", s, flags=re.I)
+            if m: val = m.group(1)
+
+        # If still no value, just construct with default
+        if val:
+            return f'{var} = {class_name}({p}="{val}")'
+        return f"{var} = {class_name}()"
+
+    # multi-param init: only allow if user provided none (use defaults) OR fail
+    # (keep simple for now)
+    return f"{var} = {class_name}()"
 
 # ============================================================
 # Cache
@@ -181,8 +252,7 @@ def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str)
 
     runner_path.write_text(
         f"from {module_name} import {class_name}\n"
-        f"import sys\n\n"
-        f"obj = {class_name}({args_str})\n",
+        f"import sys\n\n",
         encoding="utf-8"
     )
     return runner_path
@@ -229,25 +299,34 @@ def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, com
 # ============================================================
 def _extract_class_and_methods(py_text: str) -> Tuple[Optional[str], List[str]]:
     """
-    Returns (class_name, method_names) using first ClassDef found.
+    Select the main domain class.
+    Heuristic:
+      - Choose class with the MOST non-dunder methods.
     """
     try:
         tree = ast.parse(py_text)
     except Exception:
         return None, []
 
+    best_class = None
+    best_methods = []
+    max_method_count = -1
+
     for node in tree.body:
         if isinstance(node, ast.ClassDef):
-            class_name = node.name
             methods = []
             for item in node.body:
                 if isinstance(item, ast.FunctionDef):
                     if item.name.startswith("__") and item.name.endswith("__"):
                         continue
                     methods.append(item.name)
-            return class_name, methods
 
-    return None, []
+            if len(methods) > max_method_count:
+                best_class = node.name
+                best_methods = methods
+                max_method_count = len(methods)
+
+    return best_class, best_methods
 
 
 # ============================================================
@@ -461,13 +540,57 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
 
     # Ensure constructor config exists
     state = _load_state(session_dir)
+    state.setdefault("active_object", None)
+    state.setdefault("objects", {})
+    state.setdefault("pending", None)
     state.setdefault("constructor_args", [])
     state.setdefault("constructor_kwargs", {})
 
-    if not state.get("constructor_args"):
-        state["constructor_args"] = ["Demo User"]
-
     _save_state(session_dir, state)
+    
+    # constructor intent for NON-turtle apps
+    if not _is_turtle_app(convo):
+        init_params = _extract_init_params(module_path, class_name)
+        exe = _try_build_constructor_executable(command, class_name, init_params)
+
+        if exe:
+            # update state (many objects)
+            m = re.match(r"^([A-Za-z_]\w*)\s*=\s*", exe)
+            if m:
+                obj_name = m.group(1)
+                state = _load_state(session_dir)
+                state["active_object"] = obj_name
+                state.setdefault("objects", {})
+                state["objects"][obj_name] = {"class": class_name}
+                state["pending"] = None
+                _save_state(session_dir, state)
+
+            formatted = {
+                "success": True,
+                "status": "matched",
+                "original_command": command,
+                "suggestion_message": None,
+                "method": "__init__",
+                "parameters": {},
+                "confidence": 100.0,
+                "executable": exe,          # <-- frontend will append this line
+                "intent_type": "constructor",
+                "source": "constructor",
+                "explanation": "Constructor intent matched (create/make/init).",
+                "breakdown": {"init_params": init_params},
+            }
+            
+            runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
+            _append_to_runner(session_dir, runner_path, exe, formatted.get("original_command"))
+
+            return {
+                "success": True,
+                "class_name": class_name,
+                "file_name": convo.file_name,
+                "command_count": 1,
+                "result": formatted,
+                "results": [formatted],
+            }
 
     pending = state.get("pending")
 

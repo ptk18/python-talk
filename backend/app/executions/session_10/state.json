@@ -1,8 +1,4 @@
 {
-  "active_object": "t",
-  "pending": null,
-  "constructor_args": [
-    "Demo User"
-  ],
-  "constructor_kwargs": {}
+  "active_object": null,
+  "pending": null
 }

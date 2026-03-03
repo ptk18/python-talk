@@ -1,0 +1,13 @@
+{
+  "active_object": "acc1",
+  "pending": null,
+  "constructor_args": [],
+  "constructor_kwargs": {},
+  "module_name": "accountant",
+  "class_name": "Accountant",
+  "objects": {
+    "acc1": {
+      "class": "Accountant"
+    }
+  }
+}

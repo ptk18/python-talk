@@ -10,6 +10,7 @@ from app.models.schemas import ConversationCreate, ConversationResponse, Convers
 import ast
 import re
 
+import ast
 from pathlib import Path
 import json
 
@@ -35,18 +36,19 @@ def initialize_turtle_session(conversation_id: int, domain_code: str):
     session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
     session_dir.mkdir(parents=True, exist_ok=True)
 
-    # The domain file must be named exactly convo.file_name (we use turtle_app.py)
     (session_dir / "turtle_app.py").write_text(domain_code, encoding="utf-8")
 
-    # Runner for your codespace/NLP pipeline (obj.<method> prints)
+    # do NOT create obj
     (session_dir / "runner.py").write_text(
-        "from turtle_app import TurtleApp\n\nobj = TurtleApp()\n\n",
+        "import turtle\n\n",
         encoding="utf-8"
     )
 
-    # Pending follow-up state for parser
-    (session_dir / "state.json").write_text(json.dumps({}, indent=2), encoding="utf-8")
-
+    # initialize turtle state
+    (session_dir / "state.json").write_text(
+        json.dumps({"active_object": None, "pending": None}, indent=2),
+        encoding="utf-8"
+    )
 
 @router.post("/{user_id}", response_model=ConversationResponse)
 def create_conversation(user_id: int, convo: ConversationCreate, db: Session = Depends(get_db)):
@@ -83,49 +85,62 @@ def initialize_session(conversation_id: int, file_name: str, code: str):
 
     (session_dir / file_name).write_text(code, encoding="utf-8")
 
+    # -----------------------------
+    # Turtle mode
+    # -----------------------------
     if file_name == "turtle_app.py":
         (session_dir / "runner.py").write_text(
             "import turtle\n\n",
             encoding="utf-8"
         )
         (session_dir / "state.json").write_text(
-            json.dumps({"active_object": None, "pending": None}, indent=2),
+            json.dumps(
+                {
+                    "active_object": None,
+                    "pending": None,
+                },
+                indent=2
+            ),
             encoding="utf-8"
         )
         return
 
-    # normal upload
+    # -----------------------------
+    # Non-turtle mode (NO auto object creation)
+    # -----------------------------
     module_name = file_name.replace(".py", "")
 
-    # find first class name in uploaded code
-    tree = ast.parse(code)
+    # find first class name in uploaded code (for reference only)
+    try:
+        tree = ast.parse(code)
+    except Exception:
+        tree = None
+
     class_name = None
-    for node in tree.body:
-        if isinstance(node, ast.ClassDef):
-            class_name = node.name
-            break
+    if tree:
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                class_name = node.name
+                break
 
-    if not class_name:
-        # fallback (still allow file, but runner won't work)
-        class_name = "None"
-
-    # default constructor args
     state = {
-        "active_object": "obj",
+        "active_object": None,          # professor requirement: user creates objects
         "pending": None,
-        "constructor_args": ["Demo User"],
+        "constructor_args": [],         # keep for later if you want followup for init
         "constructor_kwargs": {},
+        "module_name": module_name,     # helpful for runner/imports
+        "class_name": class_name,       # helpful for prompts / UI (optional)
+        "objects": {},                  # optional: track many objects later
     }
     (session_dir / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
 
-    args_str = ", ".join([repr(x) for x in state["constructor_args"]])  # ["Demo User"] -> 'Demo User'
-
-    (session_dir / "runner.py").write_text(
-        f"from {module_name} import {class_name}\n\n"
-        f"obj = {class_name}({args_str})\n",
-        encoding="utf-8"
-    )
-
+    # runner starts with imports only
+    # (user commands will append object creation lines later)
+    runner_lines = [
+        f"from {module_name} import {class_name}\n" if class_name else f"import {module_name}\n",
+        "\n",
+    ]
+    (session_dir / "runner.py").write_text("".join(runner_lines), encoding="utf-8")
 @router.get("/{user_id}", response_model=List[ConversationResponse])
 def get_conversations(user_id: int, db: Session = Depends(get_db)):
     """Get all conversations for a user"""
