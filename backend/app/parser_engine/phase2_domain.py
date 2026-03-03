@@ -2,6 +2,7 @@
 import ast
 import os
 from typing import Dict, List, Set, Optional, Any, Tuple
+import re
 
 # from lex_alz import get_synonyms
 
@@ -33,6 +34,60 @@ def get_synonyms(word: str, pos: str, limit: int = 10) -> List[str]:
 def normalize(word: str) -> str:
     return word.lower().strip()
 
+def extract_phrases_from_docstring(doc: str) -> List[str]:
+    """
+    Pull phrases from a docstring section like:
+
+        Phrases: back, go back, move back, backward,
+                 reverse, step back, go backwards.
+
+    Returns normalized phrases (lowercase).
+    """
+    if not doc:
+        return []
+
+    # find "Phrases:" block until blank line or "Args:" or end
+    m = re.search(r"(?is)\bphrases?\s*:\s*(.*?)(?:\n\s*\n|\n\s*args\s*:|$)", doc)
+    if not m:
+        return []
+
+    blob = m.group(1)
+
+    # split by commas and newlines
+    raw = re.split(r"[,\n]", blob)
+    phrases = []
+    for x in raw:
+        p = x.strip().lower()
+        if not p:
+            continue
+        # remove trailing punctuation
+        p = re.sub(r"[.\;:]+$", "", p).strip()
+        if p:
+            phrases.append(p)
+
+    # de-dup keep order
+    seen = set()
+    out = []
+    for p in phrases:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+
+    return out
+
+def build_phrase_index(domain: Dict[str, Any]) -> Dict[str, str]:
+    """
+    phrase -> action
+    If multiple actions share a phrase, first one wins (you can later make tie rules).
+    """
+    idx: Dict[str, str] = {}
+    actions = domain.get("ACTIONS") or {}
+    for action, info in actions.items():
+        for p in (info.get("phrases") or []):
+            key = str(p).strip().lower()
+            if key and key not in idx:
+                idx[key] = action
+    return idx
 
 def safe_syns(word: str, pos: str) -> Set[str]:
     try:
@@ -254,6 +309,7 @@ def expand_domain(structure: Dict[str, Any]) -> Dict[str, Any]:
 
         params = action_params.get(action, [])
         doc = action_docstrings.get(action, "")
+        phrases = extract_phrases_from_docstring(doc)
 
         # Build a single text blob for similarity matching.
         # Include method name + params + docstring.
@@ -268,6 +324,7 @@ def expand_domain(structure: Dict[str, Any]) -> Dict[str, Any]:
             "synonyms": set(map(normalize, syns)),
             "params": params,
             "docstring": doc,
+            "phrases": phrases,
             "similarity_text": similarity_text,
         }
 
@@ -304,12 +361,23 @@ def expand_domain(structure: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def load_domain(py_file: str) -> Dict[str, Any]:
+    """
+    Load + cache domain extracted from a python file.
+
+    Caches by absolute path.
+    """
     py_file = os.path.abspath(py_file)
-    if py_file in DOMAIN_CACHE:
-        return DOMAIN_CACHE[py_file]
+
+    cached = DOMAIN_CACHE.get(py_file)
+    if cached is not None:
+        return cached
 
     structure = extract_code_structure(py_file)
     domain = expand_domain(structure)
+
+    # Ensure minimal shape exists (avoid KeyError later)
+    domain.setdefault("ACTIONS", {})
+
     DOMAIN_CACHE[py_file] = domain
     return domain
 
@@ -354,69 +422,51 @@ def pick_best_action(sentence: str,
                      tokens: Optional[List[Dict[str, Any]]] = None
                      ) -> Tuple[Optional[str], List[Tuple[str, float]]]:
     """
-    Choose best action by semantic similarity, then apply light linguistic constraints:
-      1) numeric-arg penalty if sentence has no number
-      2) ON/OFF polarity tie-breaker for actions like *_on vs *_off
+    Pure docstring phrase matching.
+
+    Rule:
+      - If any phrase from docstrings appears in user input, choose that method.
+      - Prefer LONGEST phrase match (e.g., 'go back' > 'back').
+      - If nothing matches, return None.
     """
-    ranked = rank_actions_by_similarity(sentence, domain)
-    if not ranked:
-        return None, []
+    phrase_to_action = build_phrase_index(domain)
 
-    # collect sentence words (for polarity)
-    sent_words = set()
+    # normalize sentence
+    s = " " + (sentence or "").strip().lower() + " "
+
+    # also consider token words (more robust than raw sentence spacing)
+    words = []
     if tokens:
-        sent_words = {str(t.get("word", "")).lower() for t in tokens if t.get("word")}
+        for t in tokens:
+            w = str(t.get("word") or "").strip().lower()
+            if w:
+                words.append(w)
+    token_text = " " + " ".join(words) + " "
 
-    # ---------- constraint helpers ----------
-    def needs_number(action_name: str) -> bool:
-        params = domain["ACTIONS"].get(action_name, {}).get("params", []) or []
-        for p in params:
-            pl = p.lower()
-            if pl in ("steps", "count", "amount", "num", "number", "n", "limit", "degrees", "degree", "temperature"):
-                return True
-        return False
+    # longest phrase wins
+    phrases = sorted(phrase_to_action.keys(), key=len, reverse=True)
 
-    ON_WORDS = {"on", "enable", "start", "activate", "open", "power"}
-    OFF_WORDS = {"off", "disable", "stop", "deactivate", "close", "shutdown"}
+    for ph in phrases:
+        needle = " " + ph + " "
+        if needle in s or needle in token_text:
+            action = phrase_to_action[ph]
+            # ---------------- DEBUG BLOCK ----------------
+            print("\n========== DOCSTRING MATCH DEBUG ==========")
+            print("Sentence:", sentence)
+            print("Matched phrase:", ph)
+            print("Selected action:", action)
+            print("===========================================\n")
+            # ------------------------------------------------
 
-    def polarity_adjust(action_name: str, score: float) -> float:
-        a = action_name.lower()
+            return action, [(action, 1.0)]
 
-        # If user asked "on", prefer *_on over *_off
-        if sent_words & ON_WORDS:
-            if a.endswith("_on") or "_on_" in a:
-                score *= 1.20
-            if a.endswith("_off") or "_off_" in a:
-                score *= 0.80
+    print("\n========== DOCSTRING MATCH DEBUG ==========")
+    print("Sentence:", sentence)
+    print("Matched phrase: None")
+    print("Selected action: None")
+    print("===========================================\n")
 
-        # If user asked "off", prefer *_off over *_on
-        if sent_words & OFF_WORDS:
-            if a.endswith("_off") or "_off_" in a:
-                score *= 1.20
-            if a.endswith("_on") or "_on_" in a:
-                score *= 0.80
-
-        return score
-
-    # ---------- apply constraints ----------
-    has_number = any(t.get("POS") == "NUMBER" for t in tokens) if tokens else False
-
-    reranked: List[Tuple[str, float]] = []
-    for a, s in ranked:
-        # numeric penalty
-        if require_number_if_param_int and tokens and (not has_number) and needs_number(a):
-            s *= 0.60
-
-        # polarity tie-break
-        if tokens:
-            s = polarity_adjust(a, s)
-
-        reranked.append((a, s))
-
-    reranked.sort(key=lambda x: x[1], reverse=True)
-    best = reranked[0][0] if reranked else None
-    return best, reranked
-
+    return None, []
 
 # ============================================================
 # Your existing token semantic tagging (kept for PARAM/NUMBER)
@@ -434,15 +484,31 @@ def match_param(word: str, domain: Dict[str, Any]) -> Optional[str]:
 
 def phase2_map_tokens(tokens: List[Dict[str, Any]], domain: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    We do NOT force ACTION mapping by token synonyms anymore (docstring similarity decides action).
-    But we still tag:
-      - NUMBER
-      - PARAM_*
+    Phase 2 semantic tagging.
+
+    We do NOT force ACTION mapping by synonyms (docstring similarity still decides),
+    but we DO:
+      - tag NUMBER
+      - tag PARAM_* for nouns that match params
+      - docstring-driven "verb promotion":
+          If the sentence has NO VERB, and the first token matches an action phrase
+          from docstrings (e.g., "back 100"), we promote it to VERB so the grammar
+          + downstream action selection works.
     """
-    out = []
+    actions = (domain.get("ACTIONS") or {})
+
+    # Build phrase -> action map from docstrings (generic, no hardcoding per method)
+    phrase_to_action: Dict[str, str] = {}
+    for action, info in actions.items():
+        for p in (info.get("phrases") or []):
+            key = str(p).strip().lower()
+            if key:
+                phrase_to_action[key] = action
+
+    out: List[Dict[str, Any]] = []
     for t in tokens:
-        word = t["word"]
-        pos = t["POS"]
+        word = t.get("word", "")
+        pos = t.get("POS", "")
         semantic = None
 
         if pos == "NUMBER":
@@ -453,6 +519,22 @@ def phase2_map_tokens(tokens: List[Dict[str, Any]], domain: Dict[str, Any]) -> L
                 semantic = f"PARAM_{p}"
 
         out.append({"word": word, "POS": pos, "semantic_type": semantic})
+
+    # -------------------------
+    # Docstring-driven VERB promotion
+    # -------------------------
+    has_verb = any((x.get("POS") == "VERB") for x in out)
+    if (not has_verb) and out:
+        first = out[0]
+        w = str(first.get("word") or "").strip().lower()
+
+        # exact match for single-word phrases like "back", "forward", "left", "right"
+        mapped = phrase_to_action.get(w)
+        if mapped:
+            first["POS"] = "VERB"
+            # keep semantic_type as-is (NUMBER/PARAM tagging still applies elsewhere)
+            first["mapped_action"] = mapped  # optional: downstream can prefer this
+
     return out
 
 
@@ -532,7 +614,7 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
         # add "angle" so right(angle=...) never gets "turn"
         int_hints = {
             "steps", "amount", "limit", "degrees", "degree", "temperature",
-            "count", "num", "number", "n", "angle"
+            "count", "num", "number", "n", "angle", "distance"
         }
         str_hints = {"recipient", "speech", "name", "user", "target", "device", "room"}
         kinds_: Dict[str, str] = {}
@@ -591,6 +673,12 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
     if not explain:
         explain.append("No binding rules matched; args may be incomplete.")
 
+    print("\n========== ARG BIND DEBUG ==========")
+    print("Action:", action)
+    print("Bound args:", args)
+    print("Explanation:", explain)
+    print("====================================\n")
+    
     return {"action": action, "args": args, "bindings_explained": explain}
 
 

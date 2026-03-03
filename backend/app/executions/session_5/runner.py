@@ -1,9 +1,11 @@
 import turtle
 
 
-# create turtle name t1
-t1 = turtle.Turtle()
+# Create turtle called T1.
+T1 = turtle.Turtle()
 # forward 100
-t1.forward(distance=100)
-# left 90
-t1.left(angle=90)
+T1.forward(distance=100)
+# back 100
+T1.backward(distance=100)
+# go back 100
+T1.backward(distance=100)
