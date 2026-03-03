@@ -1,0 +1,21 @@
+{
+  "objects": {
+    "top": {
+      "created_by": "assignment"
+    }
+  },
+  "active_object": "top",
+  "pending": {
+    "method": "goto",
+    "missing": [
+      "x",
+      "y"
+    ],
+    "parameters": {}
+  },
+  "name_counters": {},
+  "constructor_args": [
+    "Demo User"
+  ],
+  "constructor_kwargs": {}
+}

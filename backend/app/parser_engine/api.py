@@ -28,7 +28,6 @@ def _ensure_nltk():
             setup_nltk()
             _nltk_ready = True
 
-
 def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
     """
     Deterministic compile (no AI model):
@@ -153,7 +152,7 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
     # still missing?
     still_missing = [p for p in required if (p not in params) or (params.get(p) in (None, "", []))]
     if still_missing:
-        q = f"Missing {missing} for {action}"
+        q = f"Missing {missing}"
         return {
             "status": "need_clarification",
             "method": method,
