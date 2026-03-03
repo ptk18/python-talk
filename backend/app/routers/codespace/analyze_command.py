@@ -35,6 +35,55 @@ CACHE_TTL_SECONDS = 3600
 # parents[2] = backend/app
 BASE_EXEC_DIR = Path(__file__).resolve().parents[2] / "executions"
 
+def _maybe_set_active_from_assignment(session_dir: Path, executable: str | None) -> None:
+    exe = (executable or "").strip()
+    m = re.match(r"^([A-Za-z_]\w*)\s*=\s*turtle\.Turtle\(\)\s*$", exe)
+    if not m:
+        return
+    st = _load_state(session_dir)
+    st["active_object"] = m.group(1)
+    st["pending"] = None
+    _save_state(session_dir, st)
+    
+def _is_turtle_app(convo) -> bool:
+    v = getattr(convo, "app_type", None)
+    # Enum -> use .value if exists, else compare raw
+    if hasattr(v, "value"):
+        v = v.value
+    return str(v).lower().endswith("turtle")  # works for "turtle" and "AppTypeEnum.turtle"
+
+def _target_turtle_executable(executable: str, active: str | None) -> str:
+    """
+    Return a final python line for turtle playground:
+      - assignment stays raw: t1 = turtle.Turtle()
+      - already-targeted stays (t1.forward(...))
+      - BUT if it is targeted to "t." then rewrite to active (t1.)
+      - if plain call forward(...), prefix active -> t1.forward(...)
+    """
+    s = (executable or "").strip()
+    if not s:
+        return s
+
+    # assignment stays raw: t1 = turtle.Turtle()
+    if re.match(r"^[A-Za-z_]\w*\s*=", s):
+        return s
+
+    # already targeted: X.something(...)
+    m = re.match(r"^([A-Za-z_]\w*)\.(.+)$", s)
+    if m:
+        target = m.group(1)
+        rest = m.group(2)
+        # IMPORTANT FIX: if backend/frontend produced "t.xxx(...)" rewrite to active turtle
+        if target == "t" and active:
+            return f"{active}.{rest}"
+        return s
+
+    # prefix with active if we have it
+    if active:
+        return f"{active}.{s}"
+
+    return s
+
 
 # ============================================================
 # Cache
@@ -146,6 +195,10 @@ def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, com
     state = _load_state(session_dir)
     active = state.get("active_object")  # can be None (turtle before create)
 
+    # IMPORTANT FIX: if somehow "t.xxx(...)" arrives, rewrite to active before writing
+    if active and re.match(r"^t\.", line):
+        line = f"{active}.{line[2:]}"
+
     with runner_path.open("a", encoding="utf-8") as f:
         if comment:
             f.write(f"# {comment.strip()}\n")
@@ -169,6 +222,7 @@ def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, com
 
         # normal call -> prefix active
         f.write(f"{active}.{line}\n")
+
 
 # ============================================================
 # Domain helpers (class/methods)
@@ -264,7 +318,6 @@ def _process_single_command(command: str, module_path: Path) -> Dict[str, Any]:
         missing = meta.get("missing", [])
 
         nice_question = None
-
         if missing:
             param = missing[0].replace("_", " ")
             method_nice = method.replace("_", " ")
@@ -359,14 +412,12 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
     session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
     module_path = session_dir / convo.file_name
     if not module_path.exists():
-        # Auto-heal for turtle conversations (old DB rows without session files)
-        if getattr(convo, "app_type", None) == "turtle":
+        if _is_turtle_app(convo):
             code = load_turtle_domain_code()
             initialize_turtle_session(conversation_id, code)
         else:
             raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
 
-    # re-check after auto-heal
     if not module_path.exists():
         raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
 
@@ -388,18 +439,15 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
     module_path = session_dir / convo.file_name
     if not module_path.exists():
-        # Auto-heal for turtle conversations (old DB rows without session files)
-        if getattr(convo, "app_type", None) == "turtle":
+        if _is_turtle_app(convo):
             code = load_turtle_domain_code()
             initialize_turtle_session(conversation_id, code)
         else:
             raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
 
-    # re-check after auto-heal
     if not module_path.exists():
         raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
 
-    # class/methods cache
     cached = pipeline_cache.get(f"conv_{conversation_id}")
     if cached:
         class_name = cached.get("class_name")
@@ -411,19 +459,11 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     if not class_name:
         raise HTTPException(status_code=400, detail="No class found in session file")
 
-    # ------------------------------------------------------------
-    # Follow-up flow ("turn on" -> "turn on what?" then user says "tv")
-    # ------------------------------------------------------------
-    
     # Ensure constructor config exists
     state = _load_state(session_dir)
+    state.setdefault("constructor_args", [])
+    state.setdefault("constructor_kwargs", {})
 
-    if "constructor_args" not in state:
-        state["constructor_args"] = []
-    if "constructor_kwargs" not in state:
-        state["constructor_kwargs"] = {}
-
-    # Auto-set default constructor args if empty
     if not state.get("constructor_args"):
         state["constructor_args"] = ["Demo User"]
 
@@ -431,6 +471,9 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
 
     pending = state.get("pending")
 
+    # ------------------------------------------------------------
+    # Follow-up flow
+    # ------------------------------------------------------------
     if pending:
         r = apply_followup(pending, command, str(module_path))
 
@@ -494,18 +537,28 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 "explanation": r.get("explanation"),
                 "breakdown": r.get("meta"),
             }
+            
+        # IMPORTANT: if this creates a turtle, set active_object immediately
+        _maybe_set_active_from_assignment(session_dir, formatted.get("executable"))
+
+        # Turtle: if followup created a turtle, set active BEFORE targeting
+        if _is_turtle_app(convo) and formatted.get("executable"):
+            exe = (formatted.get("executable") or "").strip()
+            m = re.match(r"^([A-Za-z_]\w*)\s*=\s*turtle\.Turtle\(\)\s*$", exe)
+            if m:
+                st = _load_state(session_dir)
+                st["active_object"] = m.group(1)
+                st["pending"] = None
+                _save_state(session_dir, st)
+
+            st = _load_state(session_dir)
+            formatted["executable"] = _target_turtle_executable(formatted["executable"], st.get("active_object"))
 
         # append to runner if matched
         if formatted.get("status") == "matched" and formatted.get("executable"):
             runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
             _append_to_runner(session_dir, runner_path, formatted["executable"], formatted.get("original_command"))
 
-            m = re.match(r"^([A-Za-z_]\w*)\s*=\s*turtle\.Turtle\(\)\s*$", formatted["executable"])
-            if m:
-                state = _load_state(session_dir)
-                state["active_object"] = m.group(1)
-                state["pending"] = None
-                _save_state(session_dir, state)
         return {
             "success": True,
             "class_name": class_name,
@@ -516,14 +569,15 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         }
 
     # ------------------------------------------------------------
-    # Normal flow: split into multiple commands using CFG
+    # Normal flow
     # ------------------------------------------------------------
-    if getattr(convo, "app_type", None) == "turtle":
+    if _is_turtle_app(convo):
         command_parts = [command]   # keep raw text so t1 isn't lost
     else:
         command_parts = _split_with_cfg(command, module_path)
-        
+
     print("command_parts:", command_parts)
+    print("[DEBUG] convo.app_type =", getattr(convo, "app_type", None))
 
     results: List[Dict[str, Any]] = []
     for part in command_parts:
@@ -531,18 +585,30 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         if not part:
             continue
         results.append(_process_single_command(part, module_path))
+        print("[DEBUG] raw executables =", [r.get("executable") for r in results])
+        
+    # IMPORTANT: if any command created a turtle, set active_object immediately
+    for rr in results:
+        _maybe_set_active_from_assignment(session_dir, rr.get("executable"))
+        
+    # Turtle: rewrite executables to active turtle (backend sends final line)
+    if _is_turtle_app(convo):
+        st = _load_state(session_dir)
+        active = st.get("active_object")
+        print("[DEBUG] active_object at targeting =", active)
+
+        for rr in results:
+            exe_before = rr.get("executable")
+            if exe_before:
+                exe_after = _target_turtle_executable(exe_before, active)
+                rr["executable"] = exe_after
+                print("[DEBUG] target:", exe_before, "=>", exe_after)
 
     # append matched results to runner
     runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
     for rr in results:
         if rr.get("status") == "matched" and rr.get("executable"):
             _append_to_runner(session_dir, runner_path, rr["executable"], rr.get("original_command"))
-            m = re.match(r"^([A-Za-z_]\w*)\s*=\s*turtle\.Turtle\(\)\s*$", rr["executable"])
-            if m:
-                state = _load_state(session_dir)
-                state["active_object"] = m.group(1)
-                state["pending"] = None
-                _save_state(session_dir, state)
 
     # store pending follow-up if needed
     for rr in results:

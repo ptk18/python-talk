@@ -218,7 +218,6 @@ export default {
     const commandText = ref('');
     const codeContent = ref(`import turtle
 
-t = turtle.Turtle()
 `);
     const isRecording = ref(false);
     const isTranscribing = ref(false);
@@ -499,11 +498,7 @@ t = turtle.Turtle()
           const isAssignment = (s) => /^[a-zA-Z_]\w*\s*=/.test(s);
           const isAlreadyTargeted = (s) => /^[a-zA-Z_]\w*\./.test(s);
 
-          const codeLines = commands.map((x) => {
-            const s = String(x).trim();
-            if (isAssignment(s) || isAlreadyTargeted(s)) return s; // raw
-            return `t.${s}`; // method call
-          });
+          const codeLines = commands.map((x) => String(x).trim());
           appendToCodeEditor(codeLines.join('\n'), originalText || cmd);
 
           showAlertBox(codeLines.join(' | '), 'success');
@@ -554,7 +549,8 @@ t = turtle.Turtle()
         if (isAssignment || isAlreadyTargeted) {
           line = s;              // t1 = ..., t1.forward(...)
         } else {
-          line = `t.${s}`;       // default turtle fallback
+          showAlertBox("Please create/select a turtle first (e.g., 'create turtle call t1') or type a targeted call like t1.forward(100).", "error");
+          return; // default turtle fallback
         }
 
         appendToCodeEditor(line);
