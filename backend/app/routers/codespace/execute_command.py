@@ -89,12 +89,12 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
         if getattr(convo, "app_type", None) == "turtle":
             with open(runner_path, "w", encoding="utf-8") as f:
                 f.write("import turtle\n\n")
-                f.write("t = turtle.Turtle()\n\n")
+
             # state
             state_path = os.path.join(session_dir, "state.json")
             if not os.path.exists(state_path):
                 with open(state_path, "w", encoding="utf-8") as sf:
-                    sf.write('{\n  "active_object": "t",\n  "pending": null\n}\n')
+                    sf.write('{\n  "active_object": null,\n  "pending": null\n}\n')
             return {"output": "Turtle runner initialized"}
         
         # -----------------------------
@@ -159,10 +159,15 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
     if request.executable != "first_time_created":
         executable = request.executable.strip()
         if "\n" in executable or ";" in executable:
-            raise HTTPException(status_code=400, detail="Executable must be a single simple method call like 'pause()'")
+            raise HTTPException(status_code=400, detail="Executable must be a single line (no ';' or newlines).")
 
-        with open(runner_path, "a", encoding="utf-8") as f:
-            f.write(f"print(obj.{executable})\n")
+        # TURTLE MODE: write raw python line (assignment or call), no obj., no print()
+        if getattr(convo, "app_type", None) == "turtle":
+            with open(runner_path, "a", encoding="utf-8") as f:
+                f.write(f"{executable}\n")
+        else:
+            with open(runner_path, "a", encoding="utf-8") as f:
+                f.write(f"print(obj.{executable})\n")
 
     try:
         result = subprocess.run(
@@ -208,11 +213,18 @@ def rerun_command(conversation_id: int = Query(..., description="ID of the conve
     
     
 @router.post("/append_command")
-def append_command(request: ExecuteCommandRequest):
+def append_command(request: ExecuteCommandRequest, db: Session = Depends(get_db)):
     """
-    Append a new command (like play(), pause()) to an existing runner.py
-    without executing it.
+    Append a new command to an existing runner.py without executing it.
+    Turtle: write raw lines (no obj. prefix)
+    Normal: prefix obj.
     """
+    convo = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    is_turtle = getattr(convo, "app_type", None) == "turtle"
+
     session_dir = os.path.join(BASE_EXEC_DIR, f"session_{request.conversation_id}")
     runner_path = os.path.join(session_dir, "runner.py")
 
@@ -222,7 +234,9 @@ def append_command(request: ExecuteCommandRequest):
             detail="runner.py not found for this conversation. Run /execute_command first."
         )
 
-    executable = request.executable.strip()
+    executable = (request.executable or "").strip()
+    if not executable:
+        raise HTTPException(status_code=400, detail="executable is empty")
 
     try:
         with open(runner_path, "a", encoding="utf-8") as f:
@@ -230,12 +244,17 @@ def append_command(request: ExecuteCommandRequest):
                 line = line.strip()
                 if not line:
                     continue
-                if line.startswith("obj."):
+
+                if is_turtle:
+                    # write exactly what backend produced (assignment or call)
                     f.write(f"{line}\n")
                 else:
-                    f.write(f"obj.{line}\n")
+                    if line.startswith("obj."):
+                        f.write(f"{line}\n")
+                    else:
+                        f.write(f"obj.{line}\n")
 
-        return {"message": f"Appended command '{executable}' successfully"}
+        return {"message": f"Appended command successfully", "turtle": is_turtle}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to append command: {str(e)}")
 

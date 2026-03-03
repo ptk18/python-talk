@@ -85,12 +85,11 @@ def initialize_session(conversation_id: int, file_name: str, code: str):
 
     if file_name == "turtle_app.py":
         (session_dir / "runner.py").write_text(
-            "import turtle\n\n"
-            "t = turtle.Turtle()\n\n",
+            "import turtle\n\n",
             encoding="utf-8"
         )
         (session_dir / "state.json").write_text(
-            json.dumps({"active_object": "t", "pending": None}, indent=2),
+            json.dumps({"active_object": None, "pending": None}, indent=2),
             encoding="utf-8"
         )
         return

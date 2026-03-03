@@ -3,7 +3,7 @@ import ast
 import os
 from typing import Dict, List, Set, Optional, Any, Tuple
 
-from app.parser_engine.lex_alz import get_synonyms
+# from lex_alz import get_synonyms
 
 DOMAIN_CACHE: Dict[str, Dict[str, Any]] = {}
 
@@ -12,6 +12,22 @@ DOMAIN_CACHE: Dict[str, Dict[str, Any]] = {}
 # -----------------------------
 def split_snake_case(name: str) -> List[str]:
     return name.lower().split("_")
+
+def get_synonyms(word: str, pos: str, limit: int = 10) -> List[str]:
+    if pos == "NUMBER":
+        return []
+
+    wn_pos = POS_TO_WN.get(pos)
+    synsets = wn.synsets(word, pos=wn_pos) if wn_pos else wn.synsets(word)
+
+    synonyms = set()
+    for syn in synsets:
+        for lemma in syn.lemmas():
+            name = lemma.name().replace("_", " ").lower()
+            if name != word.lower():
+                synonyms.add(name)
+
+    return sorted(synonyms)[:limit]
 
 
 def normalize(word: str) -> str:
@@ -488,7 +504,9 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
         for i, t in enumerate(semantic_tokens):
             if str(t.get("word", "")).lower() in markers:
                 j = i + 1
-                while j < len(semantic_tokens) and semantic_tokens[j].get("POS") in ("determiner", "preposition", "conjunction"):
+                while j < len(semantic_tokens) and semantic_tokens[j].get("POS") in (
+                    "determiner", "preposition", "conjunction"
+                ):
                     j += 1
                 if j < len(semantic_tokens):
                     w = str(semantic_tokens[j].get("word", "")).strip()
@@ -496,7 +514,7 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
         return None
 
     def extract_content_phrase() -> Optional[str]:
-        words = []
+        words: List[str] = []
         for t in semantic_tokens:
             pos = t.get("POS")
             w = str(t.get("word", "")).strip()
@@ -506,24 +524,27 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
                 continue
             if pos in ("punctuation", "determiner", "preposition", "conjunction", "pronoun"):
                 continue
-            # keep NOUN/UNKNOWN/ADJECTIVE as content
             if pos in ("NOUN", "UNKNOWN", "ADJECTIVE"):
                 words.append(w.lower())
         return " ".join(words) if words else None
 
-    def guess_param_kinds(params: List[str]) -> Dict[str, str]:
-        int_hints = {"steps", "amount", "limit", "degrees", "degree", "temperature", "count", "num", "number", "n"}
+    def guess_param_kinds(params_: List[str]) -> Dict[str, str]:
+        # add "angle" so right(angle=...) never gets "turn"
+        int_hints = {
+            "steps", "amount", "limit", "degrees", "degree", "temperature",
+            "count", "num", "number", "n", "angle"
+        }
         str_hints = {"recipient", "speech", "name", "user", "target", "device", "room"}
-        kinds: Dict[str, str] = {}
-        for p in params:
+        kinds_: Dict[str, str] = {}
+        for p in params_:
             pl = p.lower()
             if pl in int_hints:
-                kinds[p] = "int"
+                kinds_[p] = "int"
             elif pl in str_hints:
-                kinds[p] = "str"
+                kinds_[p] = "str"
             else:
-                kinds[p] = "str"
-        return kinds
+                kinds_[p] = "str"
+        return kinds_
 
     kinds = guess_param_kinds(params)
 
@@ -532,15 +553,16 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
     for p, v in strong.items():
         if p in params:
             args[p] = v
-            explain.append(f"Bound {p}={v} from pattern NUMBER + PARAM_{p} (e.g., '{v} {p}').")
+            explain.append(f"Bound {p}={v} from pattern NUMBER + PARAM_{p}.")
 
-    # ---- rule 2: single int param gets the first number ----
+    # ---- rule 2: int-like params: bind numbers only ----
     num = find_first_number()
     if num is not None:
         int_params = [p for p in params if kinds.get(p) == "int"]
+        # your hardcode: if there is a number, put it into the numeric param(s)
         if len(int_params) == 1 and int_params[0] not in args:
             args[int_params[0]] = num
-            explain.append(f"Bound {int_params[0]}={num} because action has one int-like param and sentence contains a number.")
+            explain.append(f"Bound {int_params[0]}={num} (first number in sentence).")
 
     # ---- rule 3: 'to X' binds recipient/target/name-like params ----
     to_value = extract_after_word(["to"])
@@ -553,24 +575,23 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
                 break
         if preferred and preferred not in args:
             args[preferred] = to_value
-            explain.append(f"Bound {preferred}='{to_value}' from pattern 'to {to_value}'.")
+            explain.append(f"Bound {preferred}='{to_value}' from 'to {to_value}'.")
         elif len(str_params) == 1 and str_params[0] not in args:
             args[str_params[0]] = to_value
-            explain.append(f"Bound {str_params[0]}='{to_value}' from pattern 'to {to_value}'.")
+            explain.append(f"Bound {str_params[0]}='{to_value}' from 'to {to_value}'.")
 
-    # ---- rule 4: single str param gets content phrase ----
+    # ---- rule 4: ONLY for str-like params (never for int-like) ----
     str_params = [p for p in params if kinds.get(p) == "str"]
     if len(str_params) == 1 and str_params[0] not in args:
         content = extract_content_phrase()
         if content:
             args[str_params[0]] = content
-            explain.append(f"Bound {str_params[0]}='{content}' from content phrase after removing function words.")
+            explain.append(f"Bound {str_params[0]}='{content}' from content phrase.")
 
     if not explain:
         explain.append("No binding rules matched; args may be incomplete.")
 
     return {"action": action, "args": args, "bindings_explained": explain}
-
 
 
 def bind_number_to_param(semantic_tokens: List[Dict[str, Any]],

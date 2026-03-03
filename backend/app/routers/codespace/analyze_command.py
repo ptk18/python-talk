@@ -6,6 +6,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict, Any
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -142,19 +144,31 @@ def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, com
         return
 
     state = _load_state(session_dir)
-    active = state.get("active_object")  # "t" or "obj"
-    if not active:
-        raise HTTPException(status_code=400, detail="state.json missing active_object")
+    active = state.get("active_object")  # can be None (turtle before create)
 
     with runner_path.open("a", encoding="utf-8") as f:
         if comment:
             f.write(f"# {comment.strip()}\n")
 
+        # raw assignment: t1 = turtle.Turtle()
+        if re.match(r"^[A-Za-z_]\w*\s*=", line):
+            f.write(f"{line}\n")
+            return
+
+        # no active yet: allow explicit target calls only (t1.right(...))
+        if not active:
+            if re.match(r"^[A-Za-z_]\w*\.", line):
+                f.write(f"{line}\n")
+                return
+            raise HTTPException(status_code=400, detail="No active turtle. Create one first (e.g., 'create turtle call t1').")
+
+        # already prefixed
         if line.startswith(f"{active}."):
             f.write(f"{line}\n")
-        else:
-            f.write(f"{active}.{line}\n")
+            return
 
+        # normal call -> prefix active
+        f.write(f"{active}.{line}\n")
 
 # ============================================================
 # Domain helpers (class/methods)
@@ -189,7 +203,7 @@ def _filtered_tokens_for_cfg(lex_tokens: List[Dict[str, Any]]) -> List[Dict[str,
     """
     Must match RDParser filtering (punctuation/UNKNOWN removed).
     """
-    return [t for t in lex_tokens if t.get("POS") not in ("punctuation", "UNKNOWN")]
+    return [t for t in lex_tokens if t.get("POS") not in ("punctuation")]
 
 def _split_with_cfg(full_text: str, module_path: Path) -> List[str]:
     """
@@ -210,8 +224,8 @@ def _split_with_cfg(full_text: str, module_path: Path) -> List[str]:
     if not command_nodes:
         return [full_text.strip()]
 
-    # IMPORTANT: parse tree spans are based on parser's filtered token list
-    toks_for_span = _filtered_tokens_for_cfg(lex_tokens)
+    # keep UNKNOWN so names like t1 are preserved in the extracted command text
+    toks_for_span = [t for t in lex_tokens if t.get("POS") != "punctuation"]
 
     out: List[str] = []
     for n in command_nodes:
@@ -486,6 +500,12 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
             _append_to_runner(session_dir, runner_path, formatted["executable"], formatted.get("original_command"))
 
+            m = re.match(r"^([A-Za-z_]\w*)\s*=\s*turtle\.Turtle\(\)\s*$", formatted["executable"])
+            if m:
+                state = _load_state(session_dir)
+                state["active_object"] = m.group(1)
+                state["pending"] = None
+                _save_state(session_dir, state)
         return {
             "success": True,
             "class_name": class_name,
@@ -498,7 +518,12 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     # Normal flow: split into multiple commands using CFG
     # ------------------------------------------------------------
-    command_parts = _split_with_cfg(command, module_path)
+    if getattr(convo, "app_type", None) == "turtle":
+        command_parts = [command]   # keep raw text so t1 isn't lost
+    else:
+        command_parts = _split_with_cfg(command, module_path)
+        
+    print("command_parts:", command_parts)
 
     results: List[Dict[str, Any]] = []
     for part in command_parts:
@@ -512,6 +537,12 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     for rr in results:
         if rr.get("status") == "matched" and rr.get("executable"):
             _append_to_runner(session_dir, runner_path, rr["executable"], rr.get("original_command"))
+            m = re.match(r"^([A-Za-z_]\w*)\s*=\s*turtle\.Turtle\(\)\s*$", rr["executable"])
+            if m:
+                state = _load_state(session_dir)
+                state["active_object"] = m.group(1)
+                state["pending"] = None
+                _save_state(session_dir, state)
 
     # store pending follow-up if needed
     for rr in results:

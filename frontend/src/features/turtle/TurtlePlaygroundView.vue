@@ -496,10 +496,17 @@ t = turtle.Turtle()
 
         // 3) If we got executables, append to editor + let Pi run it
         if (commands.length > 0) {
-          const codeLines = commands.map((x) => `t.${x}`);
+          const isAssignment = (s) => /^[a-zA-Z_]\w*\s*=/.test(s);
+          const isAlreadyTargeted = (s) => /^[a-zA-Z_]\w*\./.test(s);
+
+          const codeLines = commands.map((x) => {
+            const s = String(x).trim();
+            if (isAssignment(s) || isAlreadyTargeted(s)) return s; // raw
+            return `t.${s}`; // method call
+          });
           appendToCodeEditor(codeLines.join('\n'), originalText || cmd);
 
-          showAlertBox(commands.join(' | '), 'success');
+          showAlertBox(codeLines.join(' | '), 'success');
           voiceService.speak('Command executed');
 
           return { success: true, executables: commands };
@@ -528,32 +535,6 @@ t = turtle.Turtle()
       }
     };
 
-    // const handleRunCommand = async () => {
-    //   if (!commandText.value.trim() || isProcessing.value) return;
-
-    //   const cmd = commandText.value.trim();
-    //   const directResult = executeDirectCommand(cmd);
-
-    //   if (directResult.success) {
-    //     showAlertBox(directResult.result, 'success');
-    //     appendToCodeEditor(`t.${cmd}`);
-    //     voiceService.speak(t.value.turtlePlayground.commandExecuted);
-    //   } else {
-    //     await processNaturalLanguageCommand(cmd, cmd);
-    //   }
-    // };
-
-    // const handleRunCommand = async () => {
-    //   if (!commandText.value.trim() || isProcessing.value) return;
-
-    //   const cmd = commandText.value.trim();
-
-    //   appendToCodeEditor(`t.${cmd}`);
-    //   commandText.value = '';
-
-    //   await runRemoteTurtle();
-    // };
-
     const isMethodCallSyntax = (s) => /^[a-zA-Z_]\w*\s*\(.*\)\s*$/.test(s);
 
     const handleRunCommand = async () => {
@@ -563,7 +544,20 @@ t = turtle.Turtle()
 
       // Case 1: user typed something like forward(100)
       if (isMethodCallSyntax(cmd)) {
-        appendToCodeEditor(`t.${cmd}`);
+        const s = String(cmd).trim();
+
+        const isAssignment = /^[a-zA-Z_]\w*\s*=/.test(s);
+        const isAlreadyTargeted = /^[a-zA-Z_]\w*\./.test(s);
+
+        let line;
+
+        if (isAssignment || isAlreadyTargeted) {
+          line = s;              // t1 = ..., t1.forward(...)
+        } else {
+          line = `t.${s}`;       // default turtle fallback
+        }
+
+        appendToCodeEditor(line);
         commandText.value = '';
         await startRemoteTurtleSession();
         return;
