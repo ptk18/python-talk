@@ -177,6 +177,16 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
     We only apply preset rules.
     """
     _ensure_nltk()
+    
+    # -------------------------
+    # CLEAN PUNCTUATION
+    # -------------------------
+    # if answer_text:
+    #     answer_text = answer_text.strip()
+    #     answer_text = re.sub(r"[^\w\s\-\.]", "", answer_text)   # remove punctuation except dot/space/hyphen
+    #     answer_text = answer_text.strip()
+    
+    answer_text = re.sub(r"[^\w\s\-]", "", answer_text)
 
     method = (pending or {}).get("method")
     missing = list((pending or {}).get("missing") or [])

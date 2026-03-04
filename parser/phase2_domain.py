@@ -2,6 +2,7 @@
 import ast
 import os
 from typing import Dict, List, Set, Optional, Any, Tuple
+import re
 
 from lex_alz import get_synonyms
 
@@ -29,8 +30,17 @@ def _is_number_token(t: Dict[str, Any]) -> bool:
 
 
 def _as_int(s: str) -> Optional[int]:
+    if not s:
+        return None
+
+    # remove punctuation like 100. 100, 100!
+    cleaned = re.sub(r"[^\d\-]", "", s)
+
+    if not cleaned:
+        return None
+
     try:
-        return int(s)
+        return int(cleaned)
     except Exception:
         return None
 
@@ -460,6 +470,16 @@ def bind_args_to_params(semantic_tokens: List[Dict[str, Any]],
         return t.get("POS") == "NUMBER" or t.get("semantic_type") == "NUMBER"
 
     def as_int(x: str) -> Optional[int]:
+        if not x:
+            return None
+
+        # remove punctuation like 100. 100, 100!
+        x = x.strip()
+        x = re.sub(r"[^\d\-]", "", x)
+
+        if not x:
+            return None
+
         try:
             return int(x)
         except Exception:

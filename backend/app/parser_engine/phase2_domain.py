@@ -129,11 +129,19 @@ def _is_number_token(t: Dict[str, Any]) -> bool:
 
 
 def _as_int(s: str) -> Optional[int]:
-    try:
-        return int(s)
-    except Exception:
+    if not s:
         return None
 
+    # remove punctuation like 100. 100, 100!
+    cleaned = re.sub(r"[^\d\-]", "", s)
+
+    if not cleaned:
+        return None
+
+    try:
+        return int(cleaned)
+    except Exception:
+        return None
 
 def _is_stop_word(w: str) -> bool:
     return w.lower() in {"the", "a", "an", "to", "for", "on", "in", "at", "by", "of", "me", "him", "her", "them"}
@@ -614,6 +622,16 @@ def bind_args_to_params(
         return t.get("POS") == "NUMBER" or t.get("semantic_type") == "NUMBER"
 
     def as_int(x: str) -> Optional[int]:
+        if not x:
+            return None
+
+        # remove punctuation like 100. 100, 100!
+        x = x.strip()
+        x = re.sub(r"[^\d\-]", "", x)
+
+        if not x:
+            return None
+
         try:
             return int(x)
         except Exception:
