@@ -1,2 +1,0 @@
-from accountant import Accountant
-

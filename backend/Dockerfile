@@ -37,14 +37,14 @@ COPY --from=builder /usr/local /usr/local
 
 COPY . .
 
-# Create non-root user
-RUN useradd -m appuser
+# # Create non-root user
+# RUN useradd -m appuser
 
-# Give permission to app folder
-RUN chown -R appuser:appuser /app
+# # Give permission to app folder
+# RUN chown -R appuser:appuser /app
 
-# Switch to that user
-USER appuser
+# # Switch to that user
+# USER appuser
 
 EXPOSE 8000
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
