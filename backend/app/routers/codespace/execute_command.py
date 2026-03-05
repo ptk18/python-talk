@@ -565,3 +565,31 @@ def execute_simple(request: SimpleCodeRequest):
             "error": f"Execution error: {str(e)}",
             "success": False
         }
+        
+@router.post("/reset_runner")
+def reset_runner(conversation_id: int = Query(...)):
+    session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
+    runner_path = session_dir / "runner.py"
+    state_path = session_dir / "state.json"
+
+    if not session_dir.exists():
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # reset runner.py
+    runner_path.write_text(
+        "import turtle\n\n",
+        encoding="utf-8"
+    )
+
+    # reset state.json
+    if state_path.exists():
+        state = {
+            "active_object": None,
+            "pending": None
+        }
+        state_path.write_text(
+            json.dumps(state, indent=2),
+            encoding="utf-8"
+        )
+
+    return {"success": True}

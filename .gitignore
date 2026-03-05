@@ -21,3 +21,7 @@ command-variations/
 temp/
 
 .venv
+
+backend/app/executions/session_*
+backend/app/executions/*/state.json
+backend/app/executions/*/.history

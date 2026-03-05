@@ -44,42 +44,6 @@ class TurtleApp:
         self.turtles[name] = turtle.Turtle()
         return f"Created turtle '{name}'"
 
-    def select_turtle(self, name: str):
-        """
-        Select which turtle becomes active.
-
-        Phrases: get turtle, select turtle, choose turtle, use turtle,
-        switch to turtle, pick turtle, set active turtle.
-
-        Args:
-            name: the turtle name to activate.
-        """
-        if name not in self.turtles:
-            raise ValueError(f"Turtle '{name}' does not exist")
-        return self.turtles[name]
-
-    def list_turtles(self):
-        """
-        Show all existing turtle names.
-
-        Phrases: list turtles, show turtles, what turtles exist,
-        display turtles, all turtles.
-        """
-        return sorted(self.turtles.keys())
-
-    def delete_turtle(self, name: str):
-        """
-        Remove a turtle by name.
-
-        Phrases: delete turtle, remove turtle, destroy turtle, drop turtle.
-
-        Args:
-            name: the turtle name to remove.
-        """
-        if name not in self.turtles:
-            raise ValueError(f"Turtle '{name}' does not exist")
-        del self.turtles[name]
-        return f"Deleted turtle '{name}'"
 
     # ------------------------------------------------------------
     # Movement (NO name parameter anymore)

@@ -3,3 +3,7 @@
 **/.vite
 **/.cache
 .git
+__pycache__
+*.pyc
+*.log
+app/executions

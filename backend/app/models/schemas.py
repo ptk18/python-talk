@@ -115,6 +115,9 @@ class AnalyzeCommandRequest(BaseModel):
     conversation_id: int
     command: str
     language: Optional[str] = "en"
+    
+class UndoRequest(BaseModel):
+    conversation_id: int
 
 class ExecuteCommandRequest(BaseModel):
     conversation_id: int

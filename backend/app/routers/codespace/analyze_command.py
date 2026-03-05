@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
 from app.models.models import Conversation
-from app.models.schemas import AnalyzeCommandRequest
+from app.models.schemas import AnalyzeCommandRequest, UndoRequest
 
 from app.parser_engine.api import compile_single, apply_followup
 from app.parser_engine.lex_alz import analyze_sentence
@@ -224,6 +224,78 @@ def _save_state(session_dir: Path, state: dict) -> None:
     p = _state_path(session_dir)
     session_dir.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# ============================================================
+# Undo History (truncate runner by bytes + restore state.json)
+# ============================================================
+def _history_dir(session_dir: Path) -> Path:
+    return session_dir / ".history"
+
+
+def _next_step_id(history_dir: Path) -> int:
+    if not history_dir.exists():
+        return 1
+    files = sorted([p for p in history_dir.glob("*.json") if p.is_file()])
+    if not files:
+        return 1
+    # filenames like 000001.json
+    last = files[-1].stem
+    try:
+        return int(last) + 1
+    except Exception:
+        return len(files) + 1
+
+
+def _write_undo_snapshot(
+    conversation_id: int,
+    session_dir: Path,
+    command: str,
+    app_type: str | None,
+) -> dict:
+    session_dir.mkdir(parents=True, exist_ok=True)
+    hdir = _history_dir(session_dir)
+    hdir.mkdir(parents=True, exist_ok=True)
+
+    runner_path = session_dir / "runner.py"
+    prev_size = runner_path.stat().st_size if runner_path.exists() else 0
+
+    prev_state = _load_state(session_dir)  # snapshot BEFORE changes
+
+    step_id = _next_step_id(hdir)
+    rec = {
+        "step_id": step_id,
+        "conversation_id": conversation_id,
+        "runner_prev_size_bytes": prev_size,
+        "state_prev": prev_state,
+        "command": command,
+        "app_type": app_type,
+    }
+    (hdir / f"{step_id:06d}.json").write_text(
+        json.dumps(rec, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return rec
+
+
+def _pop_last_undo_snapshot(session_dir: Path) -> dict | None:
+    hdir = _history_dir(session_dir)
+    if not hdir.exists():
+        return None
+    files = sorted([p for p in hdir.glob("*.json") if p.is_file()])
+    if not files:
+        return None
+    last_path = files[-1]
+    try:
+        rec = json.loads(last_path.read_text(encoding="utf-8"))
+    except Exception:
+        rec = None
+    # delete snapshot file (no redo for now)
+    try:
+        last_path.unlink()
+    except Exception:
+        pass
+    return rec
 
 
 # ============================================================
@@ -506,6 +578,57 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
     return {"success": True, "message": "Pipeline prewarmed"}
 
 
+@router.post("/undo_last")
+def undo_last(payload: UndoRequest, db: Session = Depends(get_db)):
+    conversation_id = payload.conversation_id
+
+    convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
+    runner_path = session_dir / "runner.py"
+    state_path = session_dir / "state.json"
+
+    rec = _pop_last_undo_snapshot(session_dir)
+    if not rec:
+        return {"success": False, "message": "Nothing to undo"}
+
+    prev_size = int(rec.get("runner_prev_size_bytes", 0))
+    prev_state = rec.get("state_prev", {})
+
+    if not runner_path.exists():
+        # If prev_size is 0 and runner missing, ok. Otherwise corruption.
+        if prev_size != 0:
+            raise HTTPException(
+                status_code=500,
+                detail="runner.py missing but undo expects non-zero size",
+            )
+    else:
+        cur_size = runner_path.stat().st_size
+        if prev_size > cur_size:
+            raise HTTPException(
+                status_code=500,
+                detail="Undo snapshot size is larger than current runner.py size",
+            )
+        # truncate by bytes
+        with runner_path.open("r+b") as f:
+            f.truncate(prev_size)
+
+    # restore state.json
+    session_dir.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        json.dumps(prev_state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    return {
+        "success": True,
+        "message": f"Undid step {rec.get('step_id')}",
+        "undone_step": rec.get("step_id"),
+    }
+
+
 @router.post("/analyze_command")
 def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
     conversation_id = payload.conversation_id
@@ -547,13 +670,35 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     state.setdefault("constructor_kwargs", {})
 
     _save_state(session_dir, state)
-    
+
+    # ------------------------------------------------------------
+    # Undo snapshot: record at most once per request
+    # ------------------------------------------------------------
+    undo_recorded = False
+
+    def _record_undo_once():
+        nonlocal undo_recorded
+        if undo_recorded:
+            return
+        v = getattr(convo, "app_type", None)
+        if hasattr(v, "value"):
+            v = v.value
+        _write_undo_snapshot(
+            conversation_id,
+            session_dir,
+            command,
+            str(v) if v else None,
+        )
+        undo_recorded = True
+
     # constructor intent for NON-turtle apps
     if not _is_turtle_app(convo):
         init_params = _extract_init_params(module_path, class_name)
         exe = _try_build_constructor_executable(command, class_name, init_params)
 
         if exe:
+            _record_undo_once()  # snapshot BEFORE state change + append
+
             # update state (many objects)
             m = re.match(r"^([A-Za-z_]\w*)\s*=\s*", exe)
             if m:
@@ -599,6 +744,10 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     if pending:
         r = apply_followup(pending, command, str(module_path))
+
+        will_append = (r.get("status") == "matched" and r.get("executable"))
+        if will_append:
+            _record_undo_once()  # BEFORE changing state and appending
 
         # update pending state
         if r.get("status") == "matched":
@@ -709,7 +858,15 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             continue
         results.append(_process_single_command(part, module_path))
         print("[DEBUG] raw executables =", [r.get("executable") for r in results])
-        
+
+    # Determine if any command will append; if so, snapshot before state mutation
+    will_append_any = any(
+        rr.get("status") == "matched" and rr.get("executable")
+        for rr in results
+    )
+    if will_append_any:
+        _record_undo_once()
+
     # IMPORTANT: if any command created a turtle, set active_object immediately
     for rr in results:
         _maybe_set_active_from_assignment(session_dir, rr.get("executable"))

@@ -59,6 +59,7 @@ services:
     volumes:
       - hf_cache:/app/hf_cache
       - pytalk_db:/app/data
+      - ./backend/app/executions:/app/app/executions
     restart: unless-stopped
 
   frontend:

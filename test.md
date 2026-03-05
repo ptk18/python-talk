@@ -54,6 +54,7 @@ Object state is managed explicitly (no auto-instantiation)
 
 
 
+## Test
 
 create turtle call t1
 draw circle
@@ -77,3 +78,6 @@ charge 20
 battery status
 rename to Neo
 shutdown
+
+try this:-
+"draw circle radius 9+2"
