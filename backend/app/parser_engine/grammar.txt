@@ -1,4 +1,4 @@
-S -> CommandList
+Statement -> CommandList
 
 CommandList -> Command Separator CommandList
 CommandList -> Command

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
 from app.models.models import Conversation
-from app.models.schemas import AnalyzeCommandRequest
+from app.models.schemas import AnalyzeCommandRequest, UndoRequest
 
 from app.parser_engine.api import compile_single, apply_followup
 from app.parser_engine.lex_alz import analyze_sentence
@@ -579,7 +579,7 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
 
 
 @router.post("/undo_last")
-def undo_last(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
+def undo_last(payload: UndoRequest, db: Session = Depends(get_db)):
     conversation_id = payload.conversation_id
 
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
