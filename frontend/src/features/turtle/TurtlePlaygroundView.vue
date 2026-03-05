@@ -648,7 +648,11 @@ export default {
               if (transcribedText && !transcribedText.includes('[Error')) {
                 commandText.value = transcribedText;
                 isTranscribing.value = false;
-                await processNaturalLanguageCommand(transcribedText, transcribedText);
+                const res = await processNaturalLanguageCommand(transcribedText, transcribedText);
+                if (res?.success) {
+                  await nextTick();
+                  await startRemoteTurtleSession();
+                }
               } else {
                 showAlertBox(language.value === 'th' ? 'แปลงเสียงไม่สำเร็จ กรุณาลองอีกครั้ง' : 'Transcription failed. Please try again.', 'error');
                 voiceService.speak('Transcription failed. Please try again.');
@@ -676,11 +680,37 @@ export default {
     };
 
     const handleClear = async () => {
-      appendToCodeEditor('t.clear()');
-      await startRemoteTurtleSession();
-      const msg = t.value.turtlePlayground.canvasCleared || 'Canvas cleared';
-      showAlertBox(msg, 'success');
-      voiceService.speak('Canvas cleared');
+      if (!appId.value) return;
+
+      try {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+        // Reset backend runner
+        const res = await fetch(
+          `${baseUrl}/api/reset_runner?conversation_id=${Number(appId.value)}`,
+          { method: 'POST' }
+        );
+
+        if (!res.ok) throw new Error("Failed to reset runner");
+
+        // Reload runner code
+        const codeRes = await fetch(
+          `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
+        );
+
+        const codeData = await codeRes.json();
+        codeContent.value = codeData?.code || "import turtle\n\n";
+
+        // Restart turtle on Pi
+        await startRemoteTurtleSession();
+
+        const msg = t.value.turtlePlayground.canvasCleared || 'Canvas cleared';
+        showAlertBox(msg, 'success');
+        voiceService.speak('Canvas cleared');
+
+      } catch (err) {
+        showAlertBox("Failed to clear canvas", "error");
+      }
     };
 
     return {

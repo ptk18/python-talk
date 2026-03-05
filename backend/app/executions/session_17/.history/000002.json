@@ -1,0 +1,20 @@
+{
+  "step_id": 2,
+  "conversation_id": 17,
+  "runner_prev_size_bytes": 60,
+  "state_prev": {
+    "active_object": "t1",
+    "pending": {
+      "method": "circle",
+      "missing": [
+        "radius"
+      ],
+      "parameters": {}
+    },
+    "objects": {},
+    "constructor_args": [],
+    "constructor_kwargs": {}
+  },
+  "command": "50.",
+  "app_type": "turtle"
+}
