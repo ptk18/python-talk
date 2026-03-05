@@ -52,8 +52,12 @@
                 <button class="turtle-playground__canvas-btn" @click="handleClear" :title="t.turtlePlayground.clearCanvas">
                   <img :src="clearIcon" alt="Clear" class="turtle-playground__canvas-icon" />
                 </button>
-                <button class="turtle-playground__canvas-btn" @click="handleReset" :title="t.turtlePlayground.resetTurtle">
-                  <img :src="resetIcon" alt="Reset" class="turtle-playground__canvas-icon" />
+                <button
+                  class="turtle-playground__canvas-btn"
+                  @click="handleUndo"
+                  :title="language === 'th' ? 'ย้อนกลับ' : 'Undo'"
+                >
+                  <img :src="undoIcon" alt="Undo" class="turtle-playground__canvas-icon" />
                 </button>
               </div>
             </div>
@@ -180,7 +184,6 @@ import { parseTurtleCommand } from './lib/turtleCommandParser';
 import undoIcon from '@/assets/R-undo.svg';
 import redoIcon from '@/assets/R-redo.svg';
 import clearIcon from '@/assets/T-clear.svg';
-import resetIcon from '@/assets/T-reset.svg';
 
 export default {
   name: 'TurtlePlayground',
@@ -401,7 +404,54 @@ export default {
     };
 
     // Editor toolbar handlers
-    const handleUndo = () => { monacoEditor.value?.undo(); };
+    const handleUndo = async () => {
+      if (!appId.value) return;
+
+      try {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+        // 1) Request backend undo
+        const undoRes = await fetch(`${baseUrl}/api/undo_last`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversation_id: Number(appId.value) }),
+        });
+
+        const undoData = await undoRes.json();
+
+        if (!undoRes.ok || !undoData?.success) {
+          const msg = undoData?.message || 'Nothing to undo';
+          showAlertBox(msg, 'info');
+          voiceService.speak('Nothing to undo');
+          return;
+        }
+
+        // 2) Fetch updated runner.py
+        const codeRes = await fetch(
+          `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
+        );
+        if (!codeRes.ok) {
+          throw new Error('Failed to load runner after undo');
+        }
+        const codeData = await codeRes.json();
+        const newCode = codeData?.code || '';
+
+        // Set editor code; Monaco will receive via prop
+        codeContent.value = newCode;
+
+        // 3) Re-run remote turtle session so drawing updates
+        await startRemoteTurtleSession();
+
+        const msg = 'Undo success';
+        showAlertBox(msg, 'success');
+        voiceService.speak('Undo');
+      } catch (e) {
+        const msg = e?.message || 'Undo failed';
+        showAlertBox(msg, 'error');
+        voiceService.speak('Undo failed');
+      }
+    };
+
     const handleRedo = () => { monacoEditor.value?.redo(); };
 
     const appendToCodeEditor = (command, comment = null) => {
@@ -633,14 +683,6 @@ export default {
       voiceService.speak('Canvas cleared');
     };
 
-    const handleReset = async () => {
-      appendToCodeEditor('t.reset()');
-      await startRemoteTurtleSession();
-      const msg = t.value.turtlePlayground.turtleReset || 'Turtle reset';
-      showAlertBox(msg, 'success');
-      voiceService.speak('Turtle reset');
-    };
-
     return {
       t,
       language,
@@ -648,7 +690,6 @@ export default {
       undoIcon,
       redoIcon,
       clearIcon,
-      resetIcon,
       turtleCanvas,
       turtleIndicator,
       canvasWrapper,
@@ -672,7 +713,6 @@ export default {
       handleRunCommand,
       handleMicClick,
       handleClear,
-      handleReset,
       handleUndo,
       handleRedo,
       streamFrame,
