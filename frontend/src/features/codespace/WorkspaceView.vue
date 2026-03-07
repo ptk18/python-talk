@@ -67,11 +67,6 @@
         :language="language"
       />
 
-      <SuccessDialog
-        :visible="showSuccessDialog"
-        :message="successDialogMessage"
-        @close="showSuccessDialog = false"
-      />
     </template>
   </UnifiedLayout>
 </template>

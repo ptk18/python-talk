@@ -1,6 +1,7 @@
 class BankAccount:
     def deposit(self, amount):
         """Add money to the account balance.
+        Phrases: deposit, deposit money, add money, top up, put in money.
 
         Args:
             amount: The amount of money to deposit into the account.
@@ -12,6 +13,7 @@ class BankAccount:
     
     def withdraw(self, amount):
         """Remove money from the account balance.
+        Phrases: withdraw, withdraw money, take out money, cash out, remove money.
 
         Args:
             amount: The amount of money to withdraw from the account.
@@ -23,6 +25,7 @@ class BankAccount:
     
     def get_balance(self):
         """Return the current account balance.
+        Phrases: balance, get balance, show balance, check balance.
 
         Returns:
             The current balance as a float.
@@ -31,6 +34,7 @@ class BankAccount:
     
     def transfer(self, recipient, amount):
         """Transfer money to another account.
+        Phrases: transfer, transfer money, send money, pay someone, wire money.
 
         Args:
             recipient: The name or identifier of the account receiving the funds.
