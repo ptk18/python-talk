@@ -93,6 +93,9 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
     print("Raw parser output:", out)
 
     last = out[-1] if isinstance(out, list) else out
+    # Extract POS tokens (all items except the last result dict)
+    pos_tokens = [t for t in (out[:-1] if isinstance(out, list) else [])
+                  if isinstance(t, dict) and "word" in t]
     action = last.get("code_function")
     args = last.get("args", {}) or {}
 
@@ -105,7 +108,7 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
             "status": "no_match",
             "confidence": confidence,
             "explanation": "No action selected",
-            "meta": {"ranked": ranked},
+            "meta": {"ranked": ranked, "pos_tokens": pos_tokens},
         }
 
     print("Selected action:", action)
@@ -136,7 +139,7 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
             "confidence": confidence,
             "question": q,
             "explanation": f"Missing required parameter(s): {missing}",
-            "meta": {"missing": missing, "ranked": ranked},
+            "meta": {"missing": missing, "ranked": ranked, "pos_tokens": pos_tokens},
         }
 
     # ---- build executable (only required params) ----
@@ -165,6 +168,7 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
             "grammar_seq": last.get("grammar_seq"),
             "bindings_explained": last.get("bindings_explained"),
             "ranked": ranked,
+            "pos_tokens": pos_tokens,
         },
     }
 

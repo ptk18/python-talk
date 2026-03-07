@@ -1,111 +1,114 @@
 <template>
-  <div class="app-container">
-    <TopToolbar />
-    <Sidebar />
-    <AppSidebar
-      :app-id="conversationId"
-      :app-name="appName"
-      :app-icon="appIcon"
-      :app-type="appType"
-      :current-file="currentFile"
-      @insert-method="handleInsertMethod"
-      @select-file="handleSelectFile"
-    />
-    <main class="main-content">
-      <div class="workspace">
-        <div class="workspace__container">
-          <ChatPanel
-            :messages="messages"
-            :user-name="user?.username || 'User'"
-            :is-recording="isRecording"
-            :placeholder="t.workspace.typeYourMessage"
-            v-model="message"
-            @send="handleSend"
-            @mic-click="handleMicClick"
-          />
+  <UnifiedLayout
+    :app-id="conversationId"
+    :app-name="appName"
+    :app-icon="appIcon"
+    :app-type="appType"
+    :current-file="currentFile"
+    @insert-method="handleInsertMethod"
+    @select-file="handleSelectFile"
+  >
+    <!-- Editor Column -->
+    <template #editor>
+      <CodeEditorPanel
+        v-if="!isOutputExpanded"
+        ref="editorRef"
+        :code="currentCode"
+        :current-file="currentFile"
+        :editor-key="`${conversationId}-${currentFile}`"
+        :is-saving="isSaving"
+        :is-running="isRunning"
+        :is-refreshing="isRefreshing"
+        :refresh-notification="refreshNotification"
+        :show-file-info="true"
+        @save="handleSave"
+        @undo="handleUndo"
+        @redo="handleRedo"
+        @run="handleRun"
+        @change="handleEditorChange"
+      />
+    </template>
 
-          <section class="workspace__code-panel">
-            <CodeEditorPanel
-              v-if="!isOutputExpanded"
-              ref="editorRef"
-              :code="currentCode"
-              :current-file="currentFile"
-              :editor-key="`${conversationId}-${currentFile}`"
-              :is-saving="isSaving"
-              :is-running="isRunning"
-              :is-refreshing="isRefreshing"
-              :refresh-notification="refreshNotification"
-              @save="handleSave"
-              @undo="handleUndo"
-              @redo="handleRedo"
-              @run="handleRun"
-              @change="handleEditorChange"
-            />
+    <!-- Debug Panel -->
+    <template #debug>
+      <ParserDebugPanel :data="parserDebug" />
+    </template>
 
-            <OutputPanel
-              :output="output"
-              :is-text-mode="isTextMode"
-              :is-expanded="isOutputExpanded"
-              :title="t.workspace.output"
-              :placeholder="t.workspace.outputWillAppear"
-              :graphic-label="t.workspace.turtleGraphicsStream"
-              @clear="clearOutput"
-              @set-mode="setOutputMode"
-              @toggle-expand="toggleOutputExpand"
-            />
-          </section>
-        </div>
+    <!-- Output Column -->
+    <template #output>
+      <EnhancedOutputPanel
+        :output="output"
+        :stream-frame="streamFrame"
+        :command-history="commandHistory"
+        :active-tab="activeTab"
+        :terminal-placeholder="t.workspace.outputWillAppear"
+        :graphic-label="t.workspace.turtleGraphicsStream"
+        @set-tab="activeTab = $event"
+      />
+    </template>
 
-        <StatusBar
-          :is-transcribing="isTranscribing"
-          :is-processing="isProcessingCommand"
-          :language="language"
-        />
+    <!-- Command Input -->
+    <template #command>
+      <CommandInput
+        v-model="commandText"
+        :placeholder="t.workspace.typeYourMessage"
+        :is-recording="isRecording"
+        :is-processing="isProcessingCommand"
+        @submit="handleSend"
+        @mic-click="handleMicClick"
+      />
+    </template>
 
-        <SuccessDialog
-          :visible="showSuccessDialog"
-          :message="successDialogMessage"
-          @close="hideSuccessDialog"
-        />
-      </div>
-    </main>
-  </div>
+    <!-- Overlays -->
+    <template #overlays>
+      <StatusBar
+        :is-transcribing="isTranscribing"
+        :is-processing="isProcessingCommand"
+        :language="language"
+      />
+
+      <SuccessDialog
+        :visible="showSuccessDialog"
+        :message="successDialogMessage"
+        @close="showSuccessDialog = false"
+      />
+    </template>
+  </UnifiedLayout>
 </template>
 
 <script>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import TopToolbar from '@/shared/components/TopToolbar.vue'
-import Sidebar from '@/shared/components/Sidebar.vue'
-import AppSidebar from '@/shared/components/AppSidebar.vue'
+import UnifiedLayout from '@/shared/components/UnifiedLayout.vue'
+import CodeEditorPanel from './components/CodeEditorPanel.vue'
+import EnhancedOutputPanel from '@/shared/components/EnhancedOutputPanel.vue'
+import CommandInput from '@/shared/components/CommandInput.vue'
+import StatusBar from './components/StatusBar.vue'
+import SuccessDialog from './components/SuccessDialog.vue'
+import ParserDebugPanel from '@/shared/components/ParserDebugPanel.vue'
 import { conversationAPI, fileAPI, analyzeAPI, useAuth, useLanguage, useTTS, voiceService } from '@py-talk/shared'
 import { useCode } from './composables/useCode'
 import { useFile } from './composables/useFile'
-import { useOutputMode } from './composables/useOutputMode'
+import { useCodeExecution } from './composables/useCodeExecution'
 import { useVoiceRecording } from './composables/useVoiceRecording'
 import { useWorkspaceSession } from './composables/useWorkspaceSession'
-import { useCodeExecution } from './composables/useCodeExecution'
-import { useCommandProcessor } from './composables/useCommandProcessor'
+import { useUnifiedCommand } from '@/shared/composables/useUnifiedCommand'
+import { useTurtleStream } from '@/shared/composables/useTurtleStream'
 import { useTranslations } from '@/utils/translations'
 import { getGreeting } from '@/shared/utils/formatters'
 import { RUNNER_POLL_INTERVAL, USER_EDIT_DEBOUNCE, USER_EDIT_TIMEOUT, REFRESH_INDICATOR_DURATION, REFRESH_NOTIFICATION_DURATION } from './config/constants'
-import ChatPanel from './components/ChatPanel.vue'
-import CodeEditorPanel from './components/CodeEditorPanel.vue'
-import OutputPanel from './components/OutputPanel.vue'
-import StatusBar from './components/StatusBar.vue'
-import SuccessDialog from './components/SuccessDialog.vue'
+import { SUCCESS_DIALOG_DURATION } from './config/constants'
 
 export default {
   name: 'Workspace',
   components: {
-    TopToolbar,
-    Sidebar,
-    AppSidebar,
-    ChatPanel,
+    UnifiedLayout,
     CodeEditorPanel,
-    OutputPanel,
+    EnhancedOutputPanel,
+    CommandInput,
     StatusBar,
-    SuccessDialog
+    SuccessDialog,
+    ParserDebugPanel
   },
   setup() {
     const route = useRoute()
@@ -116,7 +119,7 @@ export default {
     const t = computed(() => useTranslations(language.value))
 
     const conversationId = computed(() => route.query.conversationId)
-    const message = ref('')
+    const commandText = ref('')
     const editorRef = ref(null)
     const isSaving = ref(false)
     const isRefreshing = ref(false)
@@ -127,29 +130,44 @@ export default {
     const hasGreeted = ref(false)
     let pollIntervalId = null
 
+    // Output state
+    const activeTab = ref('history')
+    const isOutputExpanded = ref(false)
+
+    // Success dialog
+    const showSuccessDialog = ref(false)
+    const successDialogMessage = ref('')
+
+    // Composables
     const { code, setCode, syncCodeFromBackend, setConversationId } = useCode()
     const { currentFile, currentCode, files, setCurrentCode, loadFiles, loadFile, saveFile, clearFileState } = useFile()
-    const { isTextMode, isOutputExpanded, setOutputMode, toggleOutputExpand } = useOutputMode()
     const { isRecording, isTranscribing, handleMicClick: micClick } = useVoiceRecording(language)
-    const { messages, availableMethods, appName, appIcon, appType, initializeSession, fetchMessages, fetchAvailableMethods, updateMessages } = useWorkspaceSession()
+    const { messages, appName, appIcon, appType, initializeSession, fetchMessages, fetchAvailableMethods, updateMessages } = useWorkspaceSession()
     const { output, isRunning, handleRun: runCode, clearOutput } = useCodeExecution()
-    const { isProcessingCommand, showSuccessDialog, successDialogMessage, processCommand, hideSuccessDialog } = useCommandProcessor()
+    const { commandHistory, isProcessingCommand, parserDebug, processCommand, clearHistory } = useUnifiedCommand()
+    const { streamFrame, connectStream, disconnectStream } = useTurtleStream()
 
     const handleMicClick = () => {
       micClick((transcribedText) => {
-        message.value = transcribedText
+        commandText.value = transcribedText
+        // Auto-send after transcription
+        if (transcribedText && !transcribedText.includes('[Error')) {
+          handleSend(transcribedText)
+        }
       })
     }
 
     const handleSend = async (msgText) => {
-      if (!msgText || !conversationId.value) return
-      message.value = ''
+      const text = msgText || commandText.value.trim()
+      if (!text || !conversationId.value) return
+      commandText.value = ''
 
-      await processCommand(
+      const res = await processCommand(
         conversationId.value,
-        msgText,
+        text,
         language.value,
         {
+          mode: 'codespace',
           onMessagesUpdate: updateMessages,
           onCodeSync: syncCodeFromBackend,
           onFileRefresh: async () => {
@@ -161,6 +179,15 @@ export default {
           }
         }
       )
+
+      if (res?.success) {
+        const commandCount = res.executables.length
+        successDialogMessage.value = commandCount > 1
+          ? `${commandCount} commands executed successfully.`
+          : 'Command executed successfully.'
+        showSuccessDialog.value = true
+        setTimeout(() => { showSuccessDialog.value = false }, SUCCESS_DIALOG_DURATION)
+      }
     }
 
     const handleSave = async () => {
@@ -208,7 +235,7 @@ export default {
     const handleRedo = () => editorRef.value?.redo()
 
     const handleRun = async () => {
-      await runCode(conversationId.value, isTextMode.value)
+      await runCode(conversationId.value, activeTab.value === 'terminal')
     }
 
     const handleInsertMethod = (methodCall) => {
@@ -240,6 +267,11 @@ export default {
       }, USER_EDIT_TIMEOUT)
     }
 
+    const handleClearOutput = () => {
+      clearOutput()
+      clearHistory()
+    }
+
     const handleKeyDown = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 's') {
         event.preventDefault()
@@ -266,10 +298,6 @@ export default {
       if (editingTimeoutRef.value) {
         clearTimeout(editingTimeoutRef.value)
       }
-    })
-
-    watch(language, (newLang) => {
-      console.log('Language changed to:', newLang === 'en' ? 'English' : 'Thai')
     })
 
     watch([code, currentFile, conversationId], async () => {
@@ -360,15 +388,14 @@ export default {
         clearInterval(pollIntervalId)
       }
       document.removeEventListener('keydown', handleKeyDown)
+      disconnectStream()
     })
 
     return {
       conversationId,
-      message,
-      messages,
+      commandText,
       output,
       isRunning,
-      isTextMode,
       isRecording,
       isTranscribing,
       isProcessingCommand,
@@ -376,7 +403,6 @@ export default {
       isSaving,
       isRefreshing,
       refreshNotification,
-      user,
       currentFile,
       currentCode,
       isOutputExpanded,
@@ -388,80 +414,25 @@ export default {
       appName,
       appIcon,
       appType,
+      activeTab,
+      streamFrame,
+      commandHistory,
+      parserDebug,
       handleSend,
       handleSave,
       handleUndo,
       handleRedo,
       handleRun,
-      setOutputMode,
-      toggleOutputExpand,
       handleMicClick,
       handleEditorChange,
       handleInsertMethod,
       handleSelectFile,
-      clearOutput,
-      hideSuccessDialog
+      handleClearOutput
     }
   }
 }
 </script>
 
 <style scoped>
-.main-content {
-  margin-left: var(--sidebar-total);
-  margin-top: var(--toolbar-height);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-bg);
-  height: calc(100vh - var(--toolbar-height));
-  max-height: calc(100vh - var(--toolbar-height));
-  overflow: hidden;
-}
-
-.workspace {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-  height: calc(100vh - 80px);
-  max-height: calc(100vh - 80px);
-}
-
-.workspace__container {
-  display: flex;
-  gap: 16px;
-  padding: 20px;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  box-sizing: border-box;
-  background: transparent;
-  flex: 1;
-  min-height: 0;
-}
-
-.workspace__code-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
-}
-
-@media (max-width: 768px) {
-  .main-content {
-    margin-left: 0;
-  }
-
-  .workspace__container {
-    flex-direction: column;
-    padding: 16px;
-    height: calc(100vh - 20px);
-  }
-}
+/* No additional styles needed — UnifiedLayout handles the layout */
 </style>
