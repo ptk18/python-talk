@@ -1,4 +1,0 @@
-- Currently we have different UIs for the two apps (turlte app and user uploaded app)
-- I want to have consistent UI for both apps 
-- we will use turtle app's UI for both app but for the output I want current user uploaded app's output style (we can toggle between text output and graphic output since we need grapic output to stream turtle)
-- It's important to not to affect the backend functionly and preserve the backend the same 
