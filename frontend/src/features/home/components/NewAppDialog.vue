@@ -360,7 +360,7 @@ export default {
 
 .form-input:focus {
   outline: none;
-  border-color: #024A14;
+  border-color: #1C223D;
 }
 
 .form-select {
@@ -375,7 +375,7 @@ export default {
 
 .form-select:focus {
   outline: none;
-  border-color: #024A14;
+  border-color: #1C223D;
 }
 
 .radio-group {
@@ -393,7 +393,7 @@ export default {
 .radio-label input[type="radio"] {
   width: 18px;
   height: 18px;
-  accent-color: #024A14;
+  accent-color: #1C223D;
 }
 
 .radio-text {
@@ -411,8 +411,8 @@ export default {
 }
 
 .file-upload-area:hover {
-  border-color: #024A14;
-  background-color: #f8fdf9;
+  border-color: #1C223D;
+  background-color: #f0f1f5;
 }
 
 .file-input-hidden {
@@ -434,7 +434,7 @@ export default {
 }
 
 .file-selected {
-  color: #024A14;
+  color: #1C223D;
 }
 
 .image-upload-area {
@@ -451,8 +451,8 @@ export default {
 }
 
 .image-upload-area:hover {
-  border-color: #024A14;
-  background-color: #f8fdf9;
+  border-color: #1C223D;
+  background-color: #f0f1f5;
 }
 
 .image-placeholder {
@@ -543,12 +543,12 @@ export default {
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #024A14 0%, #01350e 100%);
+  background: linear-gradient(180deg, #1C223D 0%, #141830 100%);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #035a1a 0%, #024512 100%);
+  background: linear-gradient(180deg, #252c4a 0%, #1C223D 100%);
 }
 
 .btn-primary:disabled {

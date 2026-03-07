@@ -111,7 +111,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #024A14 0%, #01350e 100%);
+  background: linear-gradient(135deg, #1C223D 0%, #141830 100%);
   padding: 20px;
 }
 
@@ -132,7 +132,7 @@ export default {
 .auth-logo {
   font-family: 'Jaro', sans-serif;
   font-size: 36px;
-  color: #024A14;
+  color: #1C223D;
   margin-bottom: 8px;
 }
 
@@ -170,8 +170,8 @@ export default {
 
 .form-input:focus {
   outline: none;
-  border-color: #024A14;
-  box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
+  border-color: #1C223D;
+  box-shadow: 0 0 0 3px rgba(28, 34, 61, 0.1);
 }
 
 .form-options {
@@ -193,7 +193,7 @@ export default {
 }
 
 .forgot-link {
-  color: #024A14;
+  color: #1C223D;
   text-decoration: none;
   font-weight: 500;
 }
@@ -204,7 +204,7 @@ export default {
 
 .auth-button {
   padding: 14px;
-  background: #024A14;
+  background: #1C223D;
   color: white;
   border: none;
   border-radius: 8px;
@@ -217,9 +217,9 @@ export default {
 }
 
 .auth-button:hover {
-  background: #01350e;
+  background: #141830;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(2, 74, 20, 0.3);
+  box-shadow: 0 4px 12px rgba(28, 34, 61, 0.3);
 }
 
 .auth-button:active {
@@ -234,7 +234,7 @@ export default {
 }
 
 .auth-link {
-  color: #024A14;
+  color: #1C223D;
   text-decoration: none;
   font-weight: 600;
 }

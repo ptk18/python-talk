@@ -320,9 +320,9 @@ export class Turtle {
     this.ctx.lineTo(-size / 2, size / 2);
     this.ctx.closePath();
 
-    this.ctx.fillStyle = '#024A14';
+    this.ctx.fillStyle = '#1C223D';
     this.ctx.fill();
-    this.ctx.strokeStyle = '#01350e';
+    this.ctx.strokeStyle = '#141830';
     this.ctx.lineWidth = 1;
     this.ctx.stroke();
     this.ctx.restore();

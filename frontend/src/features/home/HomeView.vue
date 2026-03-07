@@ -145,8 +145,8 @@ export default {
           route: app.app_type === 'turtle'
             ? `/turtle-playground/${app.id}`
             : { name: 'Workspace', query: { conversationId: app.id } },
-          themeColor: '#024A14',
-          themeColorDark: '#01350e',
+          themeColor: '#1C223D',
+          themeColorDark: '#141830',
           isUserApp: true
         }))
       } catch (error) {

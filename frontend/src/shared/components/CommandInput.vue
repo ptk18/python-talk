@@ -112,7 +112,7 @@ export default {
 }
 
 .command-input__mic:hover {
-  background: var(--color-primary-dark, #013a10);
+  background: var(--color-primary-dark, #141830);
   transform: scale(1.05);
 }
 
@@ -135,7 +135,7 @@ export default {
 .command-input__text:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
+  box-shadow: 0 0 0 3px rgba(28, 34, 61, 0.1);
 }
 
 .command-input__text::placeholder {
@@ -165,7 +165,7 @@ export default {
 }
 
 .command-input__run-btn:hover:not(:disabled) {
-  background: var(--color-primary-dark, #013a10);
+  background: var(--color-primary-dark, #141830);
   transform: scale(1.05);
 }
 

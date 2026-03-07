@@ -5,12 +5,12 @@
   --sidebar-width: 70px;
   --app-sidebar-width: 220px;
   --sidebar-total: 280px;
-  --toolbar-height: 48px;
+  --toolbar-height: 56px;
 
   /* Colors - Primary */
-  --color-primary: #024A14;
-  --color-primary-hover: #02571a;
-  --color-primary-dark: #01350e;
+  --color-primary: #1C223D;
+  --color-primary-hover: #252c4a;
+  --color-primary-dark: #141830;
 
   /* Colors - Secondary */
   --color-navy: #001f3f;
