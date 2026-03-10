@@ -16,6 +16,7 @@ import logging
 
 TURTLE_PROCESSES = {}
 TURTLE_STDIN = {}
+STREAM_TASKS = {}
 
 # -------------------- APP SETUP --------------------
 
@@ -48,8 +49,7 @@ async def stream_screen(region, turtle_process, ws_url, cid: int):
     print(f"[STREAM] Connecting to {ws_url}")
 
     ssl_ctx = ssl._create_unverified_context()
-    last_frame = None
-    frame_count = 0
+    last_small_gray = None
 
     async with websockets.connect(ws_url, ssl=ssl_ctx) as ws:
         print("[STREAM] WebSocket connected")
@@ -62,24 +62,25 @@ async def stream_screen(region, turtle_process, ws_url, cid: int):
 
                 img = np.array(sct.grab(region))
                 frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-                _, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
 
-                jpg_text = base64.b64encode(buf).decode("utf-8")
-                last_frame = jpg_text
-                frame_count += 1
+                small = cv2.resize(frame, (120, 120))
+                gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
 
-                if frame_count % 30 == 0:
-                    print(f"[STREAM] Sent frame {frame_count}, size={len(jpg_text)}")
+                changed = False
+                if last_small_gray is None:
+                    changed = True
+                else:
+                    diff = cv2.absdiff(gray, last_small_gray)
+                    changed = float(np.mean(diff)) > 2.0
 
-                await ws.send(jpg_text)
-                await asyncio.sleep(0.03)
+                if changed:
+                    _, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+                    jpg_text = base64.b64encode(buf).decode("utf-8")
+                    await ws.send(jpg_text)
+                    print(f"[STREAM] Sent changed frame for CID={cid}")
+                    last_small_gray = gray
 
-            # FREEZE LAST FRAME
-            if last_frame:
-                print("[STREAM] Freezing last frame (3 seconds)")
-                for _ in range(90):  # ~3 seconds @30fps
-                    await ws.send(last_frame)
-                    await asyncio.sleep(0.03)
+                await asyncio.sleep(0.1)
 
         print("[STREAM] Streaming finished")
 
@@ -91,74 +92,19 @@ def health():
 
 @app.post("/runturtle/{cid}")
 async def run_turtle(cid: int, req: TurtleCodeRequest):
-    print(f"[RUNTURTLE] CID={cid}")
-    print(f"[RUNTURTLE] Files received: {list(req.files.keys())}")
-
-    temp_dir = f"session_{cid}"
-    os.makedirs(temp_dir, exist_ok=True)
-
-    try:
-        for name, content in req.files.items():
-            path = os.path.join(temp_dir, name)
-            
-            if name == "runner.py":
-                # --- FIXED INDENTATION HERE ---
-                setup_code = """import turtle
-try:
-    # width, height, startx, starty
-    turtle.setup(width=600, height=450, startx=0, starty=0)
-except:
-    pass
-"""
-                # Combine: Setup + User Code + Sleep
-                content = setup_code + "\n" + content + "\n\nimport time\ntime.sleep(10)" 
-                # ------------------------------
-                
-            with open(path, "w") as f:
-                f.write(content)
-
-            if name == "runner.py":
-                print("[RUNTURTLE] runner.py preview:")
-                print("--------------------------------")
-                print("\n".join(content.splitlines()[:20]))
-                print("--------------------------------")
-
-        if "runner.py" not in req.files:
-            raise HTTPException(400, "runner.py missing")
-
-        print("[RUNTURTLE] Starting turtle process")
-        proc = subprocess.Popen(["python3", "runner.py"], cwd=temp_dir)
-
-        # Region to capture (Matches the setup(600, 450) + some border room)
-        region = {
-            "left": 0,    # Capture from left edge
-            "top": 50,     # Capture from top edge
-            "width": 600, # Slightly wider than 600 to see borders
-            "height": 450 # Slightly taller than 450 to see borders
-        }
-
-        ws_url = f"wss://161.246.5.67:5050/publish/{cid}"
-        print(f"[RUNTURTLE] Streaming to {ws_url}")
-
-        await stream_screen(region, proc, ws_url, cid)
-
-        proc.wait()
-        print("[RUNTURTLE] Turtle process exited cleanly")
-
-        return {"status": "done", "cid": cid}
-
-    finally:
-        print("[RUNTURTLE] Cleaning up")
-        shutil.rmtree(temp_dir, ignore_errors=True)
+    raise HTTPException(
+        status_code=410,
+        detail="Deprecated. Use /start_turtle/{cid} and /turtle_command/{cid}"
+    )
 
       
 @app.post("/start_turtle/{cid}")
-def start_turtle(cid: int):
+async def start_turtle(cid: int):
     if cid in TURTLE_PROCESSES:
-        return {"status": "already_running"}
+        return {"status": "already_running", "conversation_id": cid}
 
     proc = subprocess.Popen(
-        ["python3", "turtle_runtime.py"],
+        ["python3", "/home/pi/turtle_runtime.py"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -168,41 +114,68 @@ def start_turtle(cid: int):
     )
 
     TURTLE_PROCESSES[cid] = proc
+    TURTLE_STDIN[cid] = proc.stdin
+
+    region = {
+        "left": 0,
+        "top": 50,
+        "width": 800,
+        "height": 800
+    }
+
+    ws_url = f"wss://161.246.5.67:5050/publish/{cid}"
+    STREAM_TASKS[cid] = asyncio.create_task(
+        stream_screen(region, proc, ws_url, cid)
+    )
 
     return {
         "status": "started",
         "conversation_id": cid
     }
-    
+
+
 @app.post("/turtle_command/{cid}")
 def turtle_command(cid: int, command: str):
     proc = TURTLE_PROCESSES.get(cid)
     if not proc:
         raise HTTPException(404, "Turtle not running")
 
+    if proc.poll() is not None:
+        TURTLE_PROCESSES.pop(cid, None)
+        TURTLE_STDIN.pop(cid, None)
+        STREAM_TASKS.pop(cid, None)
+        raise HTTPException(500, "Turtle process already exited")
+
     try:
+        print(f"[API] Sending command to CID={cid}: {command}", flush=True)
         proc.stdin.write(command + "\n")
         proc.stdin.flush()
-    except Exception:
-        raise HTTPException(500, "Failed to send command")
+    except Exception as e:
+        raise HTTPException(500, f"Failed to send command: {e}")
 
     return {"status": "sent", "command": command}
 
 
 @app.post("/kill/{cid}")
 def kill_turtle(cid: int):
-    session_dir = os.path.join(BASE_SESSION_DIR, f"session_{cid}")
-
-    if not os.path.exists(session_dir):
-        raise HTTPException(404, "Session not found")
+    proc = TURTLE_PROCESSES.get(cid)
+    if not proc:
+        raise HTTPException(404, "Turtle not running")
 
     try:
-        for p in os.popen("ps -eo pid,cmd").read().splitlines():
-            if f"session_{cid}" in p:
-                pid = int(p.strip().split()[0])
-                os.killpg(os.getpgid(pid), signal.SIGTERM)
+        if proc.stdin:
+            proc.stdin.write("__EXIT__\n")
+            proc.stdin.flush()
     except Exception:
         pass
 
-    shutil.rmtree(session_dir, ignore_errors=True)
-    return {"status": "killed"}
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except Exception:
+        pass
+
+    TURTLE_PROCESSES.pop(cid, None)
+    TURTLE_STDIN.pop(cid, None)
+    STREAM_TASKS.pop(cid, None)
+
+    return {"status": "killed", "conversation_id": cid}

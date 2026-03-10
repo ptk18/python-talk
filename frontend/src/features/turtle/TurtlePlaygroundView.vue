@@ -300,27 +300,12 @@ export default {
     const startRemoteTurtleSession = async () => {
       if (!appId.value) return;
 
-      const payload = {
-        files: {
-          "runner.py": codeContent.value
-        }
-      };
-
-      const res = await fetch(
-        `${STREAM_DEVICE_BASE_URL}/runturtle/${appId.value}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        }
-      );
-
-      if (!res.ok) {
-        showAlertBox("Failed to start turtle session", "error");
-        return;
+      try {
+        const data = await executeAPI.runTurtleIncremental(appId.value);
+        console.log('[TURTLE] incremental run response:', data);
+      } catch (err) {
+        showAlertBox(`Failed to run turtle incrementally: ${err.message}`, 'error');
       }
-
-      console.log("[TURTLE] Pi turtle started");
     };
 
     // const runRemoteTurtle = async () => {
@@ -506,16 +491,10 @@ export default {
       return;
     }
 
-    // 1️⃣ load saved code + metadata
     await loadAppData();
-
-    // 2️⃣ connect stream FIRST (viewer)
     connectStream(appId.value);
 
-    // 3️⃣ start turtle session on Pi
-    await startRemoteTurtleSession();
-
-    console.log("[MOUNT] turtle session + stream initialized");
+    console.log("[MOUNT] stream connected");
   });
 
     const processNaturalLanguageCommand = async (cmd, originalText = null) => {

@@ -273,6 +273,12 @@ export const executeAPI = {
     });
   },
 
+  runTurtleIncremental: async (conversation_id) => {
+    return apiCall(`/api/run_turtle/${conversation_id}`, {
+      method: "GET",
+    });
+  },
+
   rerunCommand: async (conversation_id) => {
     const params = new URLSearchParams({ conversation_id: conversation_id.toString() });
     return apiCall(`/api/rerun_command?${params}`, {
