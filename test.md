@@ -81,3 +81,13 @@ shutdown
 
 try this:-
 "draw circle radius 9+2"
+
+
+create turtle call t1
+draw circle 50
+turn left 90
+
+
+create a bank account named acc1
+top
+1000

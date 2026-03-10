@@ -21,47 +21,140 @@ BASE_EXEC_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.get("/run_turtle/{conversation_id}")
 async def run_turtle(conversation_id: int):
+    try:
+        start_url = f"http://{STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}/start_turtle/{conversation_id}"
+        command_url = f"http://{STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}/turtle_command/{conversation_id}"
+        get_runner_url = f"{CODE_API_BASE}/get_runner_code"
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            start_resp = await client.post(start_url)
+            if start_resp.status_code != 200:
+                raise HTTPException(
+                    status_code=start_resp.status_code,
+                    detail=f"Failed to start turtle session: {start_resp.text}",
+                )
+
+            runner_resp = await client.get(
+                get_runner_url,
+                params={"conversation_id": conversation_id},
+            )
+            if runner_resp.status_code != 200:
+                raise HTTPException(
+                    status_code=runner_resp.status_code,
+                    detail=f"Failed to fetch runner code: {runner_resp.text}",
+                )
+
+            runner_data = runner_resp.json()
+            runner_code = runner_data.get("code")
+            if not runner_code:
+                raise HTTPException(
+                    status_code=400,
+                    detail="get_runner_code response missing 'code'",
+                )
+
+            command = extract_latest_runner_line(runner_code)
+            if not command:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Could not extract latest executable runner line",
+                )
+
+            print(f"[BACKEND] latest command for cid={conversation_id}: {command}", flush=True)
+
+            send_resp = await client.post(
+                command_url,
+                params={"command": command},
+            )
+            if send_resp.status_code != 200:
+                raise HTTPException(
+                    status_code=send_resp.status_code,
+                    detail=f"Pi turtle command failed: {send_resp.text}",
+                )
+
+            return {
+                "result": "Incremental turtle command sent",
+                "conversation_id": conversation_id,
+                "command": command,
+                "device_response": send_resp.json(),
+            }
+
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not connect to streaming device at {STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}. Error: {str(e)}",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to trigger turtle graphics incrementally: {str(e)}",
+        )
+
+
+def extract_latest_runner_line(code: str) -> str | None:
     """
-    Collect Python files for this conversation (if any) + fetch runner.py via get_runner_code,
-    then send them as { "files": { filename: content } } to the streaming device.
+    Return the last meaningful executable line from runner.py.
+
+    Rules:
+    - ignore empty lines
+    - ignore comments
+    - ignore import lines
+    - ignore common keep-alive lines like time.sleep(...)
+    - ignore turtle.mainloop()/done()/exitonclick()
+    """
+    if not code:
+        return None
+
+    lines = code.splitlines()
+
+    ignored_prefixes = (
+        "import ",
+        "from ",
+        "#",
+    )
+
+    ignored_exact_contains = (
+        "time.sleep(",
+        "turtle.done(",
+        "t.done(",
+        "done(",
+        "exitonclick(",
+        "mainloop(",
+    )
+
+    candidates: list[str] = []
+
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith(ignored_prefixes):
+            continue
+        if any(x in line for x in ignored_exact_contains):
+            continue
+        candidates.append(line)
+
+    if not candidates:
+        return None
+
+    return candidates[-1]
+
+
+@router.get("/get_latest_runner_line")
+async def get_latest_runner_line(conversation_id: int):
+    """
+    Fetch full runner.py using existing get_runner_code endpoint,
+    then return only the latest executable line for incremental turtle execution.
     """
     try:
-        files: dict[str, str] = {}
-        is_turtle_code = False
-
-        # 1️⃣ Optional: collect any extra .py files from session directory
-        session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"
-        if os.path.isdir(session_dir):
-            for filename in os.listdir(session_dir):
-                if filename.endswith(".py"):
-                    file_path = os.path.join(session_dir, filename)
-                    with open(file_path, "r") as f:
-                        content = f.read()
-
-                    # detect turtle usage
-                    if "turtle.Screen()" in content or "import turtle" in content:
-                        is_turtle_code = True
-
-                    # normalize screen.setup for streaming (non-runner files)
-                    if is_turtle_code and filename != "runner.py":
-                        content = re.sub(
-                            r"(self\.screen|screen)\.setup\([^)]*\)",
-                            r"\1.setup(800, 800, 50, 50)",
-                            content,
-                        )
-                        if "screensize" not in content and "self.screen.setup" in content:
-                            content = re.sub(
-                                r"(self\.screen\.setup\(800, 800, 50, 50\))",
-                                r"\1\n        self.screen.screensize(700, 700)",
-                                content,
-                            )
-
-                    files[filename] = content
-
-        # 2️⃣ Always fetch runner.py from get_runner_code
         get_runner_url = f"{CODE_API_BASE}/get_runner_code"
+
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(get_runner_url, params={"conversation_id": conversation_id})
+            resp = await client.get(
+                get_runner_url,
+                params={"conversation_id": conversation_id},
+            )
 
         if resp.status_code != 200:
             raise HTTPException(
@@ -77,66 +170,27 @@ async def run_turtle(conversation_id: int):
                 detail="get_runner_code response missing 'code'",
             )
 
-        # mark that we have turtle code
-        if "turtle" in runner_code:
-            is_turtle_code = True
-
-        # 2.1️⃣ Optionally ensure keep-alive for turtle window
-        if is_turtle_code:
-            if (
-                "exitonclick()" not in runner_code
-                and "done()" not in runner_code
-                and "mainloop()" not in runner_code
-                and "time.sleep" not in runner_code
-            ):
-                if "import time" not in runner_code:
-                    runner_code = "import time\n" + runner_code
-                runner_code = runner_code.rstrip() + "\n" \
-                    "time.sleep(120)  # Keep window open for streaming (2 minutes)\n"
-
-        # put into files dict as runner.py (this is what streaming server expects)
-        files["runner.py"] = runner_code
-
-        # 3️⃣ Validate
-        if "runner.py" not in files:
+        latest_line = extract_latest_runner_line(runner_code)
+        if not latest_line:
             raise HTTPException(
                 status_code=400,
-                detail="runner.py not prepared for streaming device",
+                detail="Could not extract a latest executable runner line",
             )
 
-        # 4️⃣ Send to streaming device
-        stream_device_url = f"http://{STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}/run_turtle/{conversation_id}"
-
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            print(">>> Calling stream device:", stream_device_url, flush=True)
-            response = await client.post(
-                stream_device_url,
-                json={"files": files},  # ✅ matches TurtleCodeRequest on streaming server
-            )
-
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=f"Stream device returned error: {response.text}",
-            )
-
-        result = response.json()
         return {
-            "result": "Turtle execution triggered on streaming device",
             "conversation_id": conversation_id,
-            "device_response": result,
+            "command": latest_line,
         }
 
     except httpx.RequestError as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Could not connect to streaming device at {STREAM_DEVICE_IP}:{STREAM_DEVICE_PORT}. Error: {str(e)}",
+            detail=f"Could not fetch runner code: {str(e)}",
         )
     except HTTPException:
-        # passthrough explicit HTTPExceptions
         raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to trigger turtle graphics: {str(e)}",
+            detail=f"Failed to extract latest runner line: {str(e)}",
         )

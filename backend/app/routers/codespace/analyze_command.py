@@ -84,78 +84,196 @@ def _target_turtle_executable(executable: str, active: str | None) -> str:
 
     return s
 
-def _extract_init_params(module_path: Path, class_name: str) -> List[str]:
+def _extract_init_info(module_path: Path, class_name: str) -> Dict[str, Any]:
     """
-    Return __init__ params excluding self, in order.
-    If no __init__, return [].
+    Return constructor info for class_name:
+    {
+        "params": [...],          # excluding self
+        "required": [...],        # params without defaults
+        "defaults": {...}         # param -> default value if simple literal
+    }
     """
     try:
         tree = ast.parse(module_path.read_text(encoding="utf-8"))
     except Exception:
-        return []
+        return {"params": [], "required": [], "defaults": {}}
 
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and node.name == class_name:
             for item in node.body:
                 if isinstance(item, ast.FunctionDef) and item.name == "__init__":
-                    return [a.arg for a in item.args.args if a.arg != "self"]
-    return []
+                    args = item.args.args[1:]  # skip self
+                    param_names = [a.arg for a in args]
+
+                    defaults = item.args.defaults or []
+                    num_required = len(param_names) - len(defaults)
+
+                    required = param_names[:num_required]
+                    default_map = {}
+
+                    for param, default_node in zip(param_names[num_required:], defaults):
+                        try:
+                            default_map[param] = ast.literal_eval(default_node)
+                        except Exception:
+                            pass
+
+                    return {
+                        "params": param_names,
+                        "required": required,
+                        "defaults": default_map,
+                    }
+
+    return {"params": [], "required": [], "defaults": {}}
 
 
-def _try_build_constructor_executable(command: str, class_name: str, init_params: List[str]) -> Optional[str]:
+def _extract_object_name(command: str) -> Optional[str]:
+    s = command.strip()
+
+    patterns = [
+        r"\bcall\s+it\s+([A-Za-z_]\w*)\b",
+        r"\bnamed\s+([A-Za-z_]\w*)\b",
+        r"\bcalled\s+([A-Za-z_]\w*)\b",
+        r"\bas\s+([A-Za-z_]\w*)\b",
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, s, flags=re.IGNORECASE)
+        if m:
+            return m.group(1)
+
+    return None
+
+def _extract_constructor_args(command: str, init_params: List[str], object_name: Optional[str] = None) -> Dict[str, Any]:
     """
-    Detect create/make/init intent and produce:
-      acc1 = ClassName(param="value")
-    Heuristic:
-      - var name from: 'call it X' | 'named X' | 'called X' | 'as X'
-      - value from: after 'named' or 'for' (owner_name-like)
+    Very simple rule-based binding for constructor params.
+
+    Supports examples like:
+    - create bank account named acc1 for top with balance 1000
+    - create bank account called acc1 with owner preme and balance 500
     """
     s = " ".join(command.strip().split())
     low = s.lower()
 
-    # step 1: detect creation intent words
+    args: Dict[str, Any] = {}
+
+    def first_number_after(keyword: str) -> Optional[int]:
+        m = re.search(rf"\b{re.escape(keyword)}\s+(-?\d+)\b", s, flags=re.IGNORECASE)
+        return int(m.group(1)) if m else None
+
+    def first_word_after(keyword: str) -> Optional[str]:
+        m = re.search(rf"\b{re.escape(keyword)}\s+([A-Za-z_]\w*)\b", s, flags=re.IGNORECASE)
+        return m.group(1) if m else None
+
+    for p in init_params:
+        pl = p.lower()
+
+        # numeric-like params
+        if pl in {"balance", "amount", "temperature", "age", "count", "limit"}:
+            n = first_number_after(pl)
+            if n is not None:
+                args[p] = n
+                continue
+
+        # owner/name-like params
+        if pl in {"owner", "owner_name", "user", "username"}:
+            v = first_word_after("owner")
+            if v:
+                args[p] = v
+                continue
+
+            v = first_word_after("for")
+            if v and v != object_name:
+                args[p] = v
+                continue
+
+        if pl == "name":
+            v = first_word_after("name")
+            if v:
+                args[p] = v
+                continue
+
+        # direct pattern: "<param> value"
+        m = re.search(rf"\b{re.escape(pl)}\s+([A-Za-z_]\w*|-?\d+)\b", s, flags=re.IGNORECASE)
+        if m:
+            raw = m.group(1)
+            if re.fullmatch(r"-?\d+", raw):
+                args[p] = int(raw)
+            else:
+                args[p] = raw
+
+    return args
+
+def _build_constructor_executable(object_name: str, class_name: str, constructor_args: Dict[str, Any]) -> str:
+    if not constructor_args:
+        return f"{object_name} = {class_name}()"
+
+    parts = []
+    for k, v in constructor_args.items():
+        if isinstance(v, str):
+            parts.append(f'{k}="{v}"')
+        else:
+            parts.append(f"{k}={v}")
+
+    return f"{object_name} = {class_name}({', '.join(parts)})"
+
+def _try_build_constructor_executable(command: str, class_name: str, init_info: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Returns:
+    {
+        "matched": bool,
+        "object_name": str | None,
+        "args": {...},
+        "missing": [...],
+        "executable": str | None
+    }
+    """
+    s = " ".join(command.strip().split())
+    low = s.lower()
+
     if not re.search(r"\b(create|make|initialize|init|new|instantiate|build)\b", low):
-        return None
+        return {
+            "matched": False,
+            "object_name": None,
+            "args": {},
+            "missing": [],
+            "executable": None,
+        }
 
-    # step 2: get variable name
-    var = None
-    m = re.search(r"\bcall\s+it\s+([A-Za-z_]\w*)\b", low)
-    if m: var = m.group(1)
-    if not var:
-        m = re.search(r"\bas\s+([A-Za-z_]\w*)\b", low)
-        if m: var = m.group(1)
-    if not var:
-        m = re.search(r"\bnamed\s+([A-Za-z_]\w*)\b", low)
-        if m: var = m.group(1)
-    if not var:
-        m = re.search(r"\bcalled\s+([A-Za-z_]\w*)\b", low)
-        if m: var = m.group(1)
+    object_name = _extract_object_name(s)
+    if not object_name:
+        return {
+            "matched": True,
+            "object_name": None,
+            "args": {},
+            "missing": ["object_name"],
+            "executable": None,
+        }
 
-    # If no var name, we can't generate assignment (force user to provide)
-    if not var:
-        return None
+    params = init_info.get("params", [])
+    required = init_info.get("required", [])
 
-    # step 3: pick constructor value (only if there is exactly 1 param)
-    if len(init_params) == 1:
-        p = init_params[0]
+    bound_args = _extract_constructor_args(s, params, object_name)
+    missing = [p for p in required if p not in bound_args]
 
-        # Try: "named Suriya" or "for Suriya"
-        val = None
-        m = re.search(r"\bnamed\s+([A-Za-z][\w\-]*)\b", s, flags=re.I)
-        if m: val = m.group(1)
-        if not val:
-            m = re.search(r"\bfor\s+([A-Za-z][\w\-]*)\b", s, flags=re.I)
-            if m: val = m.group(1)
+    if missing:
+        return {
+            "matched": True,
+            "object_name": object_name,
+            "args": bound_args,
+            "missing": missing,
+            "executable": None,
+        }
 
-        # If still no value, just construct with default
-        if val:
-            return f'{var} = {class_name}({p}="{val}")'
-        return f"{var} = {class_name}()"
+    executable = _build_constructor_executable(object_name, class_name, bound_args)
 
-    # multi-param init: only allow if user provided none (use defaults) OR fail
-    # (keep simple for now)
-    return f"{var} = {class_name}()"
-
+    return {
+        "matched": True,
+        "object_name": object_name,
+        "args": bound_args,
+        "missing": [],
+        "executable": executable,
+    }
+    
 # ============================================================
 # Cache
 # ============================================================
@@ -335,36 +453,29 @@ def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, com
         return
 
     state = _load_state(session_dir)
-    active = state.get("active_object")  # can be None (turtle before create)
-
-    # IMPORTANT FIX: if somehow "t.xxx(...)" arrives, rewrite to active before writing
-    if active and re.match(r"^t\.", line):
-        line = f"{active}.{line[2:]}"
+    active = state.get("active_object")
 
     with runner_path.open("a", encoding="utf-8") as f:
         if comment:
             f.write(f"# {comment.strip()}\n")
 
-        # raw assignment: t1 = turtle.Turtle()
+        # raw assignment stays raw
         if re.match(r"^[A-Za-z_]\w*\s*=", line):
             f.write(f"{line}\n")
             return
 
-        # no active yet: allow explicit target calls only (t1.right(...))
-        if not active:
-            if re.match(r"^[A-Za-z_]\w*\.", line):
-                f.write(f"{line}\n")
-                return
-            raise HTTPException(status_code=400, detail="No active turtle. Create one first (e.g., 'create turtle call t1').")
-
-        # already prefixed
-        if line.startswith(f"{active}."):
+        # already targeted like acc1.deposit(...) or t1.forward(...)
+        if re.match(r"^[A-Za-z_]\w*\.", line):
             f.write(f"{line}\n")
             return
 
-        # normal call -> prefix active
-        f.write(f"{active}.{line}\n")
+        # plain call like deposit(amount=100) -> prefix active object
+        if active:
+            f.write(f"{active}.{line}\n")
+            return
 
+        raise HTTPException(status_code=400, detail="No active object. Create an object first.")
+    
 
 # ============================================================
 # Domain helpers (class/methods)
@@ -693,50 +804,143 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
 
     # constructor intent for NON-turtle apps
     if not _is_turtle_app(convo):
-        init_params = _extract_init_params(module_path, class_name)
-        exe = _try_build_constructor_executable(command, class_name, init_params)
+        init_info = _extract_init_info(module_path, class_name)
+        constructor_result = _try_build_constructor_executable(command, class_name, init_info)
 
-        if exe:
-            _record_undo_once()  # snapshot BEFORE state change + append
+        if constructor_result.get("matched"):
+            missing = constructor_result.get("missing", [])
+            object_name = constructor_result.get("object_name")
+            bound_args = constructor_result.get("args", {})
+            exe = constructor_result.get("executable")
 
-            # update state (many objects)
-            m = re.match(r"^([A-Za-z_]\w*)\s*=\s*", exe)
-            if m:
-                obj_name = m.group(1)
+            # missing object variable name
+            if "object_name" in missing:
                 state = _load_state(session_dir)
-                state["active_object"] = obj_name
+                state["pending"] = {
+                    "method": "__init__",
+                    "missing": ["object_name"],
+                    "parameters": bound_args,
+                    "class_name": class_name,
+                }
+                _save_state(session_dir, state)
+
+                formatted = {
+                    "success": False,
+                    "status": "no_match",
+                    "original_command": command,
+                    "suggestion_message": "What should I call this object?",
+                    "method": "__init__",
+                    "parameters": bound_args,
+                    "confidence": 100.0,
+                    "executable": None,
+                    "intent_type": "constructor",
+                    "source": "constructor",
+                    "explanation": "Missing object variable name.",
+                    "breakdown": {
+                        "init_params": init_info.get("params", []),
+                        "missing": ["object_name"],
+                    },
+                }
+
+                return {
+                    "success": True,
+                    "class_name": class_name,
+                    "file_name": convo.file_name,
+                    "command_count": 1,
+                    "result": formatted,
+                    "results": [formatted],
+                }
+
+            # missing constructor params
+            if missing:
+                state = _load_state(session_dir)
+                state["pending"] = {
+                    "method": "__init__",
+                    "missing": missing,
+                    "parameters": {
+                        "object_name": object_name,
+                        **bound_args,
+                    },
+                    "class_name": class_name,
+                }
+                _save_state(session_dir, state)
+
+                first_missing = missing[0].replace("_", " ")
+                formatted = {
+                    "success": False,
+                    "status": "no_match",
+                    "original_command": command,
+                    "suggestion_message": f"What is the {first_missing} for this {class_name} object?",
+                    "method": "__init__",
+                    "parameters": {
+                        "object_name": object_name,
+                        **bound_args,
+                    },
+                    "confidence": 100.0,
+                    "executable": None,
+                    "intent_type": "constructor",
+                    "source": "constructor",
+                    "explanation": f"Missing constructor parameter(s): {missing}",
+                    "breakdown": {
+                        "init_params": init_info.get("params", []),
+                        "missing": missing,
+                    },
+                }
+
+                return {
+                    "success": True,
+                    "class_name": class_name,
+                    "file_name": convo.file_name,
+                    "command_count": 1,
+                    "result": formatted,
+                    "results": [formatted],
+                }
+
+            # fully matched constructor
+            if exe:
+                _record_undo_once()
+
+                state = _load_state(session_dir)
+                state["active_object"] = object_name
                 state.setdefault("objects", {})
-                state["objects"][obj_name] = {"class": class_name}
+                state["objects"][object_name] = {
+                    "class": class_name,
+                    "constructor_args": bound_args,
+                }
                 state["pending"] = None
                 _save_state(session_dir, state)
 
-            formatted = {
-                "success": True,
-                "status": "matched",
-                "original_command": command,
-                "suggestion_message": None,
-                "method": "__init__",
-                "parameters": {},
-                "confidence": 100.0,
-                "executable": exe,          # <-- frontend will append this line
-                "intent_type": "constructor",
-                "source": "constructor",
-                "explanation": "Constructor intent matched (create/make/init).",
-                "breakdown": {"init_params": init_params},
-            }
+                formatted = {
+                    "success": True,
+                    "status": "matched",
+                    "original_command": command,
+                    "suggestion_message": None,
+                    "method": "__init__",
+                    "parameters": bound_args,
+                    "confidence": 100.0,
+                    "executable": exe,
+                    "intent_type": "constructor",
+                    "source": "constructor",
+                    "explanation": "Constructor intent matched (create/make/init).",
+                    "breakdown": {
+                        "init_params": init_info.get("params", []),
+                        "required": init_info.get("required", []),
+                    },
+                }
+
+                runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
+                _append_to_runner(session_dir, runner_path, exe, formatted.get("original_command"))
+
+                return {
+                    "success": True,
+                    "class_name": class_name,
+                    "file_name": convo.file_name,
+                    "command_count": 1,
+                    "result": formatted,
+                    "results": [formatted],
+                }
+                
             
-            runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
-            _append_to_runner(session_dir, runner_path, exe, formatted.get("original_command"))
-
-            return {
-                "success": True,
-                "class_name": class_name,
-                "file_name": convo.file_name,
-                "command_count": 1,
-                "result": formatted,
-                "results": [formatted],
-            }
-
     pending = state.get("pending")
 
     # ------------------------------------------------------------
@@ -744,6 +948,8 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     if pending:
         r = apply_followup(pending, command, str(module_path))
+        
+        print("FOLLOWUP RESULT:", r)
 
         will_append = (r.get("status") == "matched" and r.get("executable"))
         if will_append:
@@ -752,16 +958,35 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         # update pending state
         if r.get("status") == "matched":
             state["pending"] = None
+
+            # IMPORTANT: constructor completed through follow-up
+            if r.get("method") == "__init__":
+                meta = r.get("meta") or {}
+                object_name = meta.get("object_name")
+                class_name_from_meta = meta.get("class_name") or class_name
+
+                if object_name:
+                    state["active_object"] = object_name
+                    state["pending"] = None
+                    state.setdefault("objects", {})
+                    state["objects"][object_name] = {
+                        "class": class_name_from_meta,
+                        "constructor_args": r.get("parameters", {}) or {},
+                    }
+
+                    print("FOLLOWUP CONSTRUCTOR SAVE:", state)
+                    _save_state(session_dir, state)
+
         elif r.get("status") == "need_clarification":
+            meta = r.get("meta") or {}
             state["pending"] = {
                 "method": r.get("method"),
-                "missing": (r.get("meta") or {}).get("missing", []),
+                "missing": meta.get("missing", []),
                 "parameters": r.get("parameters", {}) or {},
+                "class_name": meta.get("class_name"),
             }
         else:
             state["pending"] = None
-
-        _save_state(session_dir, state)
 
         # format result
         if r.get("status") == "matched":
@@ -893,11 +1118,13 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # store pending follow-up if needed
     for rr in results:
         if rr.get("suggestion_message") and rr.get("method"):
+            breakdown = rr.get("breakdown") or {}
             state = _load_state(session_dir)
             state["pending"] = {
                 "method": rr.get("method"),
-                "missing": ((rr.get("breakdown") or {}).get("missing")) or ["unknown"],
+                "missing": breakdown.get("missing") or ["unknown"],
                 "parameters": rr.get("parameters", {}) or {},
+                "class_name": breakdown.get("class_name"),
             }
             _save_state(session_dir, state)
             break

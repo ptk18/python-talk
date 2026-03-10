@@ -41,6 +41,19 @@ def _ensure_nltk():
         if not _nltk_ready:
             setup_nltk()
             _nltk_ready = True
+            
+def _build_constructor_executable(object_name: str, class_name: str, constructor_args: Dict[str, Any]) -> str:
+    if not constructor_args:
+        return f"{object_name} = {class_name}()"
+
+    parts = []
+    for k, v in constructor_args.items():
+        if isinstance(v, str):
+            parts.append(f'{k}="{v}"')
+        else:
+            parts.append(f"{k}={v}")
+
+    return f"{object_name} = {class_name}({', '.join(parts)})"
 
 def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
     """
@@ -258,6 +271,66 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
             "executable": executable,
             "explanation": "Filled turtle name from follow-up (hardcoded assignment)",
             "meta": {"filled": "name", "hardcode": "turtle_create_assignment_followup"},
+        }
+        
+    # -------------------------
+    # CONSTRUCTOR follow-up
+    # -------------------------
+    if method == "__init__":
+        class_name = pending.get("class_name")
+        object_name = params.get("object_name")
+
+        if param_name == "object_name":
+            if not re.match(r"^[A-Za-z_]\w*$", raw):
+                return {
+                    "status": "need_clarification",
+                    "method": "__init__",
+                    "parameters": params,
+                    "confidence": 100.0,
+                    "question": "Give a valid object name like acc1, home, or my_account.",
+                    "explanation": "Invalid object name.",
+                    "meta": {"missing": ["object_name"], "class_name": class_name},
+                }
+            params["object_name"] = raw
+        else:
+            if raw.isdigit() or (raw.startswith("-") and raw[1:].isdigit()):
+                params[param_name] = int(raw)
+            else:
+                params[param_name] = raw
+
+        still_missing = [p for p in missing if p not in params or params[p] in (None, "", [])]
+        if still_missing:
+            first_missing = still_missing[0].replace("_", " ")
+            return {
+                "status": "need_clarification",
+                "method": "__init__",
+                "parameters": params,
+                "confidence": 100.0,
+                "question": f"What is the {first_missing} for this {class_name} object?",
+                "explanation": f"Missing constructor parameter(s): {still_missing}",
+                "meta": {"missing": still_missing, "class_name": class_name},
+            }
+
+        object_name = params.pop("object_name")
+        executable = _build_constructor_executable(object_name, class_name, params)
+        
+        print("CONSTRUCTOR FOLLOWUP class_name:", class_name)
+        print("CONSTRUCTOR FOLLOWUP params(after bind):", params)
+        print("CONSTRUCTOR FOLLOWUP still_missing:", still_missing)
+        
+        print("CONSTRUCTOR FOLLOWUP: executable:", executable)
+        print("params(after):", params)
+        print("===================================\n")
+        
+
+        return {
+            "status": "matched",
+            "method": "__init__",
+            "parameters": params,
+            "confidence": 100.0,
+            "executable": executable,
+            "explanation": "Filled missing constructor argument from follow-up",
+            "meta": {"filled": param_name, "class_name": class_name, "object_name": object_name},
         }
 
     # -------------------------

@@ -51,7 +51,6 @@ export function useCodeExecution() {
     output.value = 'Running turtle graphics...\n\n'
 
     const hostname = window.location.hostname
-    const apiBase = ENDPOINTS.TURTLE.API_BASE
     const rawWsBase = ENDPOINTS.TURTLE.WS_BASE
     const wsBase = rawWsBase
       .replace('localhost', hostname)
@@ -81,34 +80,25 @@ export function useCodeExecution() {
         console.log('Turtle WebSocket closed')
       }
 
-      const getRes = await fetch(
-        `${ENDPOINTS.API.BASE_URL}/api/get_session_files?conversation_id=${conversationId}`,
-        { headers: { Accept: 'application/json' } }
+      const res = await fetch(
+        `${ENDPOINTS.API.BASE_URL}/api/run_turtle/${conversationId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        }
       )
-
-      if (!getRes.ok) {
-        const text = await getRes.text()
-        throw new Error(`Failed to fetch session files: ${text}`)
-      }
-
-      const { files } = await getRes.json()
-      const payload = { files }
-
-      const res = await fetch(`${apiBase}/run_turtle/${conversationId}`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      })
 
       if (!res.ok) {
         const errorText = await res.text()
         throw new Error(`Backend returned ${res.status}: ${errorText}`)
       }
 
-      output.value = 'Turtle graphics execution triggered on streaming device.\n'
+      const data = await res.json()
+      console.log('Incremental turtle response:', data)
+
+      output.value = 'Incremental turtle command sent.\n'
       voiceService.speak('Turtle graphics running!')
     } catch (err) {
       console.error('Failed to execute turtle graphics:', err)

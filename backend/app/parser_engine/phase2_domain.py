@@ -252,6 +252,9 @@ class DomainExtractor(ast.NodeVisitor):
 
         # action -> params
         self.action_params: Dict[str, List[str]] = {}
+        
+        # constructor params per class
+        self.class_init_params: Dict[str, List[str]] = {}
 
         # docstrings
         self.class_docstrings: Dict[str, str] = {}
@@ -268,6 +271,9 @@ class DomainExtractor(ast.NodeVisitor):
                 self.methods.add(body_item.name)
                 params = [a.arg for a in body_item.args.args if a.arg != "self"]
                 self.action_params[body_item.name] = params
+
+                if body_item.name == "__init__":
+                    self.class_init_params[node.name] = params
 
                 mds = ast.get_docstring(body_item) or ""
                 if mds.strip():
@@ -314,6 +320,7 @@ def extract_code_structure(py_file: str) -> Dict[str, Any]:
         "methods": ex.methods,
         "action_params": ex.action_params,
         "class_docstrings": ex.class_docstrings,
+        "class_init_params": ex.class_init_params,
         "action_docstrings": ex.action_docstrings,
     }
 
@@ -366,12 +373,14 @@ def expand_domain(structure: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     # objects = classes (use class docstring too)
+    class_init_params: Dict[str, List[str]] = structure.get("class_init_params", {})
     for cls in structure["classes"]:
         cls_word = cls.lower()
         domain["OBJECTS"][cls] = {
             "base_words": {cls_word},
             "synonyms": set(map(normalize, safe_syns(cls_word, "NOUN"))),
             "docstring": class_docstrings.get(cls, ""),
+            "init_params": class_init_params.get(cls, []),
         }
 
     # parameters = union of all params
