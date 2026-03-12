@@ -11,22 +11,22 @@
         <div class="profile-card">
           <div class="profile-header">
             <div class="profile-avatar-large">
-              <span>{{ userInfo.name ? userInfo.name.charAt(0).toUpperCase() : 'U' }}</span>
+              <span>{{ userInfo.username ? userInfo.username.charAt(0).toUpperCase() : 'U' }}</span>
             </div>
-            <h1 class="profile-name">{{ userInfo.name || 'User' }}</h1>
-            <p class="profile-email">{{ userInfo.email || 'user@example.com' }}</p>
+            <h1 class="profile-name">{{ userInfo.username || 'User' }}</h1>
+            <p class="profile-email">{{ userInfo.email || '' }}</p>
           </div>
 
           <div class="profile-details">
             <div class="detail-section">
               <h3 class="section-title">{{ t.profile.personalInformation }}</h3>
               <div class="detail-item">
-                <label>{{ t.profile.fullName }}</label>
+                <label>Username</label>
                 <input
                   type="text"
-                  v-model="profileData.name"
+                  v-model="profileData.username"
                   class="profile-input"
-                  :placeholder="t.profile.enterFullName"
+                  placeholder="Username"
                 />
               </div>
               <div class="detail-item">
@@ -63,8 +63,10 @@
             </div>
 
             <div class="profile-actions">
-              <button class="save-button" @click="saveProfile">{{ t.profile.saveChanges }}</button>
-              <button class="cancel-button" @click="cancelEdit">{{ t.profile.cancel }}</button>
+              <button class="save-button" @click="saveProfile" :disabled="loading">
+                {{ loading ? '...' : t.profile.saveChanges }}
+              </button>
+              <button class="cancel-button" @click="cancelEdit" :disabled="loading">{{ t.profile.cancel }}</button>
             </div>
 
             <div v-if="message" :class="['message', messageType]">
@@ -79,9 +81,8 @@
 
 <script>
 import { computed } from 'vue'
-import { useLanguage, voiceService } from '@py-talk/shared'
+import { useLanguage, useAuth, userAPI, setAuthUser } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
-import { getGreeting } from '@/shared/utils/formatters'
 import TopToolbar from '@/shared/components/TopToolbar.vue'
 import Sidebar from '@/shared/components/Sidebar.vue'
 
@@ -93,82 +94,88 @@ export default {
   },
   setup() {
     const { language } = useLanguage()
+    const { user } = useAuth()
     const t = computed(() => useTranslations(language.value))
-    return { t }
+    return { t, authUser: user }
   },
   data() {
     return {
       userInfo: {},
       profileData: {
-        name: '',
+        username: '',
         email: '',
         password: '',
         confirmPassword: ''
       },
       message: '',
       messageType: 'success',
-      hasGreeted: false
+      loading: false
     }
   },
-  mounted() {
-    this.loadUserInfo()
-
-    const handleFirstInteraction = () => {
-      if (!this.hasGreeted) {
-        this.hasGreeted = true
-        voiceService.enableAudioContext()
-        voiceService.speak('Profile settings ready!')
-      }
-      document.removeEventListener('click', handleFirstInteraction)
-      document.removeEventListener('keydown', handleFirstInteraction)
-    }
-
-    document.addEventListener('click', handleFirstInteraction)
-    document.addEventListener('keydown', handleFirstInteraction)
+  async mounted() {
+    await this.loadUserInfo()
   },
   methods: {
-    loadUserInfo() {
-      const stored = localStorage.getItem('userInfo')
-      if (stored) {
-        this.userInfo = JSON.parse(stored)
-        this.profileData.name = this.userInfo.name || ''
-        this.profileData.email = this.userInfo.email || ''
+    async loadUserInfo() {
+      const currentUser = this.authUser
+      if (!currentUser || !currentUser.id) return
+
+      try {
+        const profile = await userAPI.getProfile(currentUser.id)
+        this.userInfo = profile
+        this.profileData.username = profile.username || ''
+        this.profileData.email = profile.email || ''
+      } catch (error) {
+        // Fallback to auth_user from localStorage
+        this.userInfo = currentUser
+        this.profileData.username = currentUser.username || ''
+        this.profileData.email = currentUser.email || ''
       }
     },
-    saveProfile() {
-      if (!this.profileData.name || !this.profileData.email) {
+    async saveProfile() {
+      if (!this.profileData.username || !this.profileData.email) {
         this.showMessage(this.t.profile.fillAllFields, 'error')
-        voiceService.speak('Please fill in all required fields.')
         return
       }
 
       if (this.profileData.password && this.profileData.password !== this.profileData.confirmPassword) {
         this.showMessage(this.t.profile.passwordsDoNotMatch, 'error')
-        voiceService.speak('Passwords do not match.')
         return
       }
 
-      const updatedUserInfo = {
-        name: this.profileData.name,
-        email: this.profileData.email
+      this.loading = true
+      try {
+        const updateData = {
+          username: this.profileData.username,
+          email: this.profileData.email
+        }
+
+        const updatedUser = await userAPI.updateProfile(this.userInfo.id, updateData)
+        this.userInfo = updatedUser
+
+        // Update auth_user in localStorage so the rest of the app reflects changes
+        const authUpdate = {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          email: updatedUser.email
+        }
+        setAuthUser(authUpdate)
+        this.authUser = authUpdate
+
+        this.showMessage(this.t.profile.profileUpdated, 'success')
+        this.profileData.password = ''
+        this.profileData.confirmPassword = ''
+      } catch (error) {
+        this.showMessage(error.message || 'Failed to update profile', 'error')
+      } finally {
+        this.loading = false
       }
-
-      localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo))
-      this.userInfo = updatedUserInfo
-      window.dispatchEvent(new Event('userInfoUpdated'))
-
-      this.showMessage(this.t.profile.profileUpdated, 'success')
-      voiceService.speak('Profile updated!')
-
-      this.profileData.password = ''
-      this.profileData.confirmPassword = ''
     },
     cancelEdit() {
       this.loadUserInfo()
       this.profileData.password = ''
       this.profileData.confirmPassword = ''
       this.message = ''
-      voiceService.speak('Changes cancelled.')
     },
     showMessage(text, type) {
       this.message = text
@@ -298,7 +305,7 @@ export default {
 .profile-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
+  box-shadow: 0 0 0 3px rgba(28, 34, 61, 0.1);
 }
 
 .profile-actions {
@@ -326,7 +333,7 @@ export default {
 .save-button:hover {
   background: var(--color-primary-dark);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(2, 74, 20, 0.3);
+  box-shadow: 0 4px 12px rgba(28, 34, 61, 0.3);
 }
 
 .cancel-button {

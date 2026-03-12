@@ -1,240 +1,130 @@
 <template>
-  <div class="app-container">
-    <TopToolbar />
-    <Sidebar />
-    <AppSidebar
-      :app-id="appId"
-      :app-name="appName || t.turtlePlayground.pageTitle"
-      :app-icon="appIcon"
-      app-type="turtle"
-      @insert-method="handleInsertMethod"
-    />
-    <main class="main-content">
-      <div class="content-area">
-    <div class="turtle-playground">
-      <div class="turtle-playground__container">
-        <!-- Left Column: Code Editor -->
-        <div class="turtle-playground__left-column">
-          <!-- Code Editor Section -->
-          <section class="turtle-playground__code-panel turtle-playground__code-panel--full">
-            <div class="turtle-playground__code-header">
-              <div class="turtle-playground__code-title">
-                <h3>{{ language === 'th' ? 'โค้ดเอดิเตอร์' : 'Code Editor' }}</h3>
-                <span class="turtle-playground__code-hint">{{ language === 'th' ? 'คำสั่งเสียงจะถูกเพิ่มที่นี่อัตโนมัติ' : 'Voice commands will be appended here automatically' }}</span>
-              </div>
-              <div class="turtle-playground__code-actions">
-                <button class="turtle-playground__icon-btn" @click="handleUndo" :title="language === 'th' ? 'ย้อนกลับ' : 'Undo'">
-                  <img :src="undoIcon" alt="Undo" class="turtle-playground__icon-img" />
-                </button>
-                <button class="turtle-playground__icon-btn" @click="handleRedo" :title="language === 'th' ? 'ทำซ้ำ' : 'Redo'">
-                  <img :src="redoIcon" alt="Redo" class="turtle-playground__icon-img" />
-                </button>
-              </div>
-            </div>
-            <div class="turtle-playground__code-editor">
-              <MonacoEditor
-                ref="monacoEditor"
-                :code="codeContent"
-                language="python"
-                @update:code="handleCodeUpdate"
-              />
-            </div>
-          </section>
-        </div>
+  <UnifiedLayout
+    :app-id="appId"
+    :app-name="appName || t.turtlePlayground.pageTitle"
+    :app-icon="appIcon"
+    app-type="turtle"
+    @insert-method="handleInsertMethod"
+  >
+    <!-- Editor Column -->
+    <template #editor>
+      <CodeEditorPanel
+        ref="editorRef"
+        :code="codeContent"
+        :show-file-info="false"
+        @save="handleSave"
+        @undo="handleUndo"
+        @redo="handleRedo"
+        @run="handleRunCode"
+        @change="handleCodeUpdate"
+      />
+    </template>
 
-        <!-- Right Column: Canvas + Command Input -->
-        <div class="turtle-playground__right-column">
-          <!-- Canvas Section -->
-          <section class="turtle-playground__canvas-panel">
-            <div class="turtle-playground__canvas-header">
-              <h3>{{ t.turtlePlayground.canvas }}</h3>
-              <div class="turtle-playground__canvas-controls">
-                <button class="turtle-playground__canvas-btn" @click="handleClear" :title="t.turtlePlayground.clearCanvas">
-                  <img :src="clearIcon" alt="Clear" class="turtle-playground__canvas-icon" />
-                </button>
-                <button
-                  class="turtle-playground__canvas-btn"
-                  @click="handleUndo"
-                  :title="language === 'th' ? 'ย้อนกลับ' : 'Undo'"
-                >
-                  <img :src="undoIcon" alt="Undo" class="turtle-playground__canvas-icon" />
-                </button>
-              </div>
-            </div>
-            <div class="turtle-playground__canvas-wrapper" ref="canvasWrapper">
-              <!-- <canvas
-                ref="turtleCanvas"
-                width="600"
-                height="450"
-                class="turtle-playground__canvas"
-              ></canvas>
-              <div
-                ref="turtleIndicator"
-                class="turtle-playground__indicator"
-              ></div> -->
-              <!-- STREAM VIEWER -->
-              <div class="turtle-playground__stream-wrapper">
-                <img
-                  v-if="streamFrame"
-                  :src="streamFrame"
-                  class="turtle-playground__stream"
-                />
-                <div v-else class="turtle-playground__stream-placeholder">
-                  Waiting for turtle stream…
-                </div>
-              </div>
-            </div>
-          </section>
+    <!-- Debug Panel -->
+    <template #debug>
+      <ParserDebugPanel :data="parserDebug" />
+    </template>
 
-          <!-- Command Input Section (Simplified) -->
-          <section class="turtle-playground__command-panel">
-            <div class="turtle-playground__command-input-area">
-              <div class="turtle-playground__input-row">
-                <div
-                  :class="['turtle-playground__mic', { 'turtle-playground__mic--recording': isRecording }]"
-                  @click="handleMicClick"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                      d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z"
-                      fill="currentColor"
-                    />
-                    <path
-                      d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.43 11 17.92V21H13V17.92C16.39 17.43 19 14.53 19 11H17Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  class="turtle-playground__command-input"
-                  :placeholder="language === 'th' ? 'เช่น forward(100) หรือ พูดคำสั่ง...' : 'e.g., forward(100) or speak a command...'"
-                  v-model="commandText"
-                  @keydown.enter.prevent="handleRunCommand"
-                />
-                <button
-                  class="turtle-playground__run-btn"
-                  @click="handleRunCommand"
-                  :disabled="isProcessing"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 3l14 9-14 9V3z" fill="currentColor"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
+    <!-- Output Column -->
+    <template #output>
+      <EnhancedOutputPanel
+        :output="textOutput"
+        :stream-frame="streamFrame"
+        :command-history="commandHistory"
+        :active-tab="activeTab"
+        graphic-label="Turtle Graphics Stream"
+        :graphic-placeholder="'Waiting for turtle stream...'"
+        @set-tab="activeTab = $event"
+      />
+    </template>
 
-      <!-- Status Bars (Workspace style - top card) -->
-      <div v-if="isTranscribing" class="turtle-playground__status-bar turtle-playground__status-bar--transcribing">
-        <div class="turtle-playground__status-content">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="turtle-playground__status-spinner">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="60" stroke-dashoffset="0">
-              <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-            </circle>
-          </svg>
-          <span class="turtle-playground__status-text">{{ language === 'th' ? 'กำลังแปลงเสียงของคุณ...' : 'Transcribing your voice...' }}</span>
-          <div class="turtle-playground__status-progress">
-            <div class="turtle-playground__status-progress-bar"></div>
-          </div>
-        </div>
-      </div>
+    <!-- Command Input -->
+    <template #command>
+      <CommandInput
+        v-model="commandText"
+        :placeholder="language === 'th' ? 'เช่น forward(100) หรือ พูดคำสั่ง...' : 'e.g., forward(100) or speak a command...'"
+        :is-recording="isRecording"
+        :is-processing="isProcessingCommand"
+        @submit="handleRunCommand"
+        @mic-click="handleMicClick"
+      />
+    </template>
 
-      <div v-if="isProcessing" class="turtle-playground__status-bar turtle-playground__status-bar--processing">
-        <div class="turtle-playground__status-content">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="turtle-playground__status-spinner">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="60" stroke-dashoffset="0">
-              <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-            </circle>
-          </svg>
-          <span class="turtle-playground__status-text">{{ language === 'th' ? 'กำลังประมวลผลและจับคู่คำสั่ง...' : 'Processing and mapping command...' }}</span>
-          <div class="turtle-playground__status-progress">
-            <div class="turtle-playground__status-progress-bar"></div>
-          </div>
-        </div>
-      </div>
+    <!-- Overlays -->
+    <template #overlays>
+      <StatusBar
+        :is-transcribing="isTranscribing"
+        :is-processing="isProcessingCommand"
+        :language="language"
+      />
 
-      <!-- Alert Box -->
       <transition name="alert-slide">
-        <div v-if="showAlert" :class="['turtle-playground__alert', `turtle-playground__alert--${alertType}`]">
-          <span class="turtle-playground__alert-text">{{ alertMessage }}</span>
-          <button class="turtle-playground__alert-close" @click="showAlert = false">&times;</button>
+        <div v-if="showAlert" :class="['turtle-alert', `turtle-alert--${alertType}`]">
+          <span class="turtle-alert__text">{{ alertMessage }}</span>
+          <button class="turtle-alert__close" @click="showAlert = false">&times;</button>
         </div>
       </transition>
-    </div>
-      </div>
-    </main>
-  </div>
+    </template>
+  </UnifiedLayout>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { useRoute } from 'vue-router';
-import TopToolbar from '@/shared/components/TopToolbar.vue';
-import Sidebar from '@/shared/components/Sidebar.vue';
-import AppSidebar from '@/shared/components/AppSidebar.vue';
-import MonacoEditor from '@/shared/components/MonacoEditor.vue';
-import { useLanguage, useTTS, voiceService, translateAPI, conversationAPI, analyzeAPI, executeAPI } from '@py-talk/shared';
-import { useTranslations } from '@/utils/translations';
-import { getGreeting } from '@/shared/utils/formatters';
-// import { Turtle } from './lib/turtle';
-import { parseTurtleCommand } from './lib/turtleCommandParser';
-import undoIcon from '@/assets/R-undo.svg';
-import redoIcon from '@/assets/R-redo.svg';
-import clearIcon from '@/assets/T-clear.svg';
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import UnifiedLayout from '@/shared/components/UnifiedLayout.vue'
+import CodeEditorPanel from '@/features/codespace/components/CodeEditorPanel.vue'
+import EnhancedOutputPanel from '@/shared/components/EnhancedOutputPanel.vue'
+import CommandInput from '@/shared/components/CommandInput.vue'
+import StatusBar from '@/features/codespace/components/StatusBar.vue'
+import ParserDebugPanel from '@/shared/components/ParserDebugPanel.vue'
+import { useLanguage, useTTS, voiceService, executeAPI } from '@py-talk/shared'
+import { useTranslations } from '@/utils/translations'
+import { useTurtleStream } from '@/shared/composables/useTurtleStream'
+import { useUnifiedCommand } from '@/shared/composables/useUnifiedCommand'
 
 export default {
   name: 'TurtlePlayground',
-  components: { TopToolbar, Sidebar, AppSidebar, MonacoEditor },
+  components: {
+    UnifiedLayout,
+    CodeEditorPanel,
+    EnhancedOutputPanel,
+    CommandInput,
+    StatusBar,
+    ParserDebugPanel
+  },
   setup() {
+    const route = useRoute()
+    const { language } = useLanguage()
+    const { ttsEnabled } = useTTS()
+    const t = computed(() => useTranslations(language.value))
 
-    const STREAM_DEVICE_BASE_URL="https://161.246.5.67:8001"
-    const STREAM_WS_BASE_URL="wss://161.246.5.67:5050"
+    // App state
+    const appId = computed(() => route.params.appId)
+    const appName = ref('')
+    const appIcon = ref(null)
 
-    const streamSocket = ref(null);
-    const streamFrame = ref(null);
-    const isStreaming = ref(false);
+    // Editor state
+    const editorRef = ref(null)
+    const codeContent = ref('import turtle\n\n')
+    const commandText = ref('')
 
-    let reconnectTimer = null;
-    let manuallyClosed = false;
+    // Output state
+    const activeTab = ref('history')
+    const isOutputExpanded = ref(false)
+    const textOutput = ref('')
 
-    const streamOutput = ref("");
-    let ws = null;
+    // Voice state
+    const isRecording = ref(false)
+    const isTranscribing = ref(false)
+    const mediaRecorder = ref(null)
+    const audioChunks = ref([])
 
-    const route = useRoute();
-    const { language } = useLanguage();
-    const { ttsEnabled } = useTTS();
-    const t = computed(() => useTranslations(language.value));
+    // Alert state
+    const alertMessage = ref('')
+    const alertType = ref('success')
+    const showAlert = ref(false)
+    let alertTimeout = null
 
-    // App-specific state
-    const appId = computed(() => route.params.appId);
-    const appName = ref('');
-    const appIcon = ref(null);
-
-    // Refs
-    const turtleCanvas = ref(null);
-    const turtleIndicator = ref(null);
-    const canvasWrapper = ref(null);
-    const monacoEditor = ref(null);
-    const commandText = ref('');
-    const codeContent = ref(`import turtle
-
-`);
-    const isRecording = ref(false);
-    const isTranscribing = ref(false);
-    const isProcessing = ref(false);
-    const hasGreeted = ref(false);
-    const mediaRecorder = ref(null);
-    const audioChunks = ref([]);
-
-    // Alert box state
-    const alertMessage = ref('');
-    const alertType = ref('success');
-    const showAlert = ref(false);
-    let alertTimeout = null;
-    
     // Auto-save state
     let saveTimeout = null;
 
@@ -340,17 +230,16 @@ export default {
 
 
     const showAlertBox = (message, type = 'success', duration = 3500) => {
-      if (alertTimeout) clearTimeout(alertTimeout);
-      alertMessage.value = message;
-      alertType.value = type;
-      showAlert.value = true;
-      alertTimeout = setTimeout(() => { showAlert.value = false; }, duration);
-    };
+      if (alertTimeout) clearTimeout(alertTimeout)
+      alertMessage.value = message
+      alertType.value = type
+      showAlert.value = true
+      alertTimeout = setTimeout(() => { showAlert.value = false }, duration)
+    }
 
-    // --- AUTO SAVE LOGIC START ---
+    // --- Save logic ---
     const saveAppData = async (code) => {
-      if (!appId.value) return;
-
+      if (!appId.value) return
       try {
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/save_runner_code`,
@@ -362,89 +251,81 @@ export default {
               code: code
             }),
           }
-        );
-
+        )
         if (!response.ok) {
-          console.warn('[TurtlePlayground] save_runner_code failed');
+          console.warn('[TurtlePlayground] save_runner_code failed')
         }
       } catch (err) {
-        console.warn('[TurtlePlayground] Failed to auto-save runner:', err);
+        console.warn('[TurtlePlayground] Failed to auto-save runner:', err)
       }
-    };
-    // --- AUTO SAVE LOGIC END ---
+    }
 
     const handleCodeUpdate = (newCode) => {
-      codeContent.value = newCode;
-      
-      // Debounce save: wait 2 seconds after typing stops before saving
-      if (saveTimeout) clearTimeout(saveTimeout);
+      codeContent.value = newCode
+      if (saveTimeout) clearTimeout(saveTimeout)
       saveTimeout = setTimeout(() => {
-        saveAppData(newCode);
-      }, 2000);
-    };
+        saveAppData(newCode)
+      }, 2000)
+    }
 
-    // Handle method insertion from AppSidebar
+    const handleSave = () => {
+      saveAppData(codeContent.value)
+      voiceService.speak('Saved!')
+    }
+
     const handleInsertMethod = (methodCall) => {
-      commandText.value = methodCall;
-    };
+      commandText.value = methodCall
+    }
 
-    // Editor toolbar handlers
+    // --- Editor actions ---
     const handleUndo = async () => {
-      if (!appId.value) return;
-
+      if (!appId.value) return
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-        // 1) Request backend undo
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
         const undoRes = await fetch(`${baseUrl}/api/undo_last`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ conversation_id: Number(appId.value) }),
-        });
-
-        const undoData = await undoRes.json();
+        })
+        const undoData = await undoRes.json()
 
         if (!undoRes.ok || !undoData?.success) {
-          const msg = undoData?.message || 'Nothing to undo';
-          showAlertBox(msg, 'info');
-          voiceService.speak('Nothing to undo');
-          return;
+          const msg = undoData?.message || 'Nothing to undo'
+          showAlertBox(msg, 'info')
+          voiceService.speak('Nothing to undo')
+          return
         }
 
-        // 2) Fetch updated runner.py
-        const codeRes = await fetch(
-          `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
-        );
-        if (!codeRes.ok) {
-          throw new Error('Failed to load runner after undo');
-        }
-        const codeData = await codeRes.json();
-        const newCode = codeData?.code || '';
+        const codeRes = await fetch(`${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`)
+        if (!codeRes.ok) throw new Error('Failed to load runner after undo')
+        const codeData = await codeRes.json()
+        codeContent.value = codeData?.code || ''
 
-        // Set editor code; Monaco will receive via prop
-        codeContent.value = newCode;
-
-        // 3) Re-run remote turtle session so drawing updates
-        await startRemoteTurtleSession();
-
-        const msg = 'Undo success';
-        showAlertBox(msg, 'success');
-        voiceService.speak('Undo');
+        await startRemoteTurtleSession(appId.value, codeContent.value)
+        showAlertBox('Undo success', 'success')
+        voiceService.speak('Undo')
       } catch (e) {
-        const msg = e?.message || 'Undo failed';
-        showAlertBox(msg, 'error');
-        voiceService.speak('Undo failed');
+        showAlertBox(e?.message || 'Undo failed', 'error')
+        voiceService.speak('Undo failed')
       }
-    };
+    }
 
-    const handleRedo = () => { monacoEditor.value?.redo(); };
+    const handleRedo = () => {
+      editorRef.value?.redo()
+    }
+
+    const handleRunCode = async () => {
+      if (!appId.value) return
+      await saveAppData(codeContent.value)
+      await startRemoteTurtleSession(appId.value, codeContent.value)
+      showAlertBox('Code executed', 'success')
+      voiceService.speak('Running turtle code')
+    }
 
     const appendToCodeEditor = (command, comment = null) => {
-      const newLine = comment ? `\n# ${comment}\n${command}` : `\n${command}`;
-      codeContent.value += newLine;
-      
-      // Also trigger save when code is appended via commands
-      if (saveTimeout) clearTimeout(saveTimeout);
+      const newLine = comment ? `\n# ${comment}\n${command}` : `\n${command}`
+      codeContent.value += newLine
+      if (saveTimeout) clearTimeout(saveTimeout)
       saveTimeout = setTimeout(() => {
         saveAppData(codeContent.value);
       }, 2000);
@@ -568,295 +449,278 @@ export default {
 
       // Case 1: user typed something like forward(100)
       if (isMethodCallSyntax(cmd)) {
-        const s = String(cmd).trim();
-
-        const isAssignment = /^[a-zA-Z_]\w*\s*=/.test(s);
-        const isAlreadyTargeted = /^[a-zA-Z_]\w*\./.test(s);
-
-        let line;
+        const s = cmd.trim()
+        const isAssignment = /^[a-zA-Z_]\w*\s*=/.test(s)
+        const isAlreadyTargeted = /^[a-zA-Z_]\w*\./.test(s)
 
         if (isAssignment || isAlreadyTargeted) {
-          line = s;              // t1 = ..., t1.forward(...)
-        } else {
-          showAlertBox("Please create/select a turtle first (e.g., 'create turtle call t1') or type a targeted call like t1.forward(100).", "error");
-          return; // default turtle fallback
+          appendToCodeEditor(s)
+          commandText.value = ''
+          await startRemoteTurtleSession(appId.value, codeContent.value)
+          return
         }
 
-        appendToCodeEditor(line);
-        commandText.value = '';
-        await startRemoteTurtleSession();
-        return;
+        showAlertBox("Please create/select a turtle first (e.g., 'create turtle call t1') or type a targeted call like t1.forward(100).", 'error')
+        return
       }
 
-      // Case 2: natural language -> use your backend parser to get executable(s)
-      const res = await processNaturalLanguageCommand(cmd, cmd);
+      // Natural language command
+      const res = await processCommand(appId.value, cmd, language.value, { mode: 'turtle' })
 
-      // If parser produced executables, send updated code to Pi
       if (res?.success) {
-        commandText.value = '';
-        await startRemoteTurtleSession();
+        const codeLines = res.executables.map(x => String(x).trim())
+        appendToCodeEditor(codeLines.join('\n'), cmd)
+        showAlertBox(codeLines.join(' | '), 'success')
+
+        commandText.value = ''
+        await startRemoteTurtleSession(appId.value, codeContent.value)
+      } else {
+        showAlertBox(res?.error || 'Command failed', 'error')
       }
-    };
+    }
 
-    onUnmounted(() => {
-      disconnectStream();
-    });
-
+    // --- Voice handling ---
     const handleMicClick = async () => {
-      voiceService.enableAudioContext();
+      voiceService.enableAudioContext()
 
       if (!isRecording.value) {
         try {
-          voiceService.speak('Listening');
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const recorder = new MediaRecorder(stream);
-          audioChunks.value = [];
+          voiceService.speak('Listening')
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          const recorder = new MediaRecorder(stream)
+          audioChunks.value = []
 
-          recorder.ondataavailable = (e) => audioChunks.value.push(e.data);
+          recorder.ondataavailable = (e) => audioChunks.value.push(e.data)
 
           recorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' });
-            const audioFile = new File([audioBlob], `recording_${Date.now()}.webm`, { type: 'audio/webm' });
-            stream.getTracks().forEach(track => track.stop());
+            const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
+            const audioFile = new File([audioBlob], `recording_${Date.now()}.webm`, { type: 'audio/webm' })
+            stream.getTracks().forEach(track => track.stop())
 
-            isTranscribing.value = true;
+            isTranscribing.value = true
             try {
-              const result = await voiceService.transcribe(audioFile, language.value);
-              const transcribedText = result.text || '';
+              const result = await voiceService.transcribe(audioFile, language.value)
+              const transcribedText = result.text || ''
 
               if (transcribedText && !transcribedText.includes('[Error')) {
-                commandText.value = transcribedText;
-                isTranscribing.value = false;
-                const res = await processNaturalLanguageCommand(transcribedText, transcribedText);
-                if (res?.success) {
-                  await nextTick();
-                  await startRemoteTurtleSession();
-                }
+                commandText.value = transcribedText
+                isTranscribing.value = false
+                await handleRunCommand(transcribedText)
               } else {
-                showAlertBox(language.value === 'th' ? 'แปลงเสียงไม่สำเร็จ กรุณาลองอีกครั้ง' : 'Transcription failed. Please try again.', 'error');
-                voiceService.speak('Transcription failed. Please try again.');
-                isTranscribing.value = false;
+                showAlertBox(
+                  language.value === 'th'
+                    ? 'แปลงเสียงไม่สำเร็จ กรุณาลองอีกครั้ง'
+                    : 'Transcription failed. Please try again.',
+                  'error'
+                )
+                voiceService.speak('Transcription failed. Please try again.')
+                isTranscribing.value = false
               }
             } catch (err) {
-              showAlertBox(err.message, 'error');
-              voiceService.speak('Transcription error. Please try again.');
-              isTranscribing.value = false;
+              showAlertBox(err.message, 'error')
+              voiceService.speak('Transcription error. Please try again.')
+              isTranscribing.value = false
             }
-          };
+          }
 
-          recorder.start();
-          mediaRecorder.value = recorder;
-          isRecording.value = true;
+          recorder.start()
+          mediaRecorder.value = recorder
+          isRecording.value = true
         } catch (err) {
-          voiceService.speak('Microphone access denied');
+          voiceService.speak('Microphone access denied')
         }
       } else {
         if (mediaRecorder.value && mediaRecorder.value.state !== 'inactive') {
-          mediaRecorder.value.stop();
+          mediaRecorder.value.stop()
         }
-        isRecording.value = false;
+        isRecording.value = false
       }
-    };
+    }
 
+    // --- Clear / Reset ---
     const handleClear = async () => {
-      if (!appId.value) return;
-
+      if (!appId.value) return
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-        // Reset backend runner
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
         const res = await fetch(
           `${baseUrl}/api/reset_runner?conversation_id=${Number(appId.value)}`,
           { method: 'POST' }
-        );
+        )
+        if (!res.ok) throw new Error('Failed to reset runner')
 
-        if (!res.ok) throw new Error("Failed to reset runner");
+        const codeRes = await fetch(`${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`)
+        const codeData = await codeRes.json()
+        codeContent.value = codeData?.code || 'import turtle\n\n'
 
-        // Reload runner code
-        const codeRes = await fetch(
-          `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
-        );
+        await startRemoteTurtleSession(appId.value, codeContent.value)
+        textOutput.value = ''
+        clearHistory()
 
-        const codeData = await codeRes.json();
-        codeContent.value = codeData?.code || "import turtle\n\n";
-
-        // Restart turtle on Pi
-        await startRemoteTurtleSession();
-
-        const msg = t.value.turtlePlayground.canvasCleared || 'Canvas cleared';
-        showAlertBox(msg, 'success');
-        voiceService.speak('Canvas cleared');
-
+        const msg = t.value.turtlePlayground.canvasCleared || 'Canvas cleared'
+        showAlertBox(msg, 'success')
+        voiceService.speak('Canvas cleared')
       } catch (err) {
-        showAlertBox("Failed to clear canvas", "error");
+        showAlertBox('Failed to clear canvas', 'error')
       }
-    };
+    }
+
+    // --- Load app data ---
+    const loadAppData = async () => {
+      if (!appId.value) return
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/conversations/${appId.value}/single`)
+        if (response.ok) {
+          const data = await response.json()
+          appName.value = data.title || ''
+          appIcon.value = data.app_image || null
+
+          try {
+            const runner = await executeAPI.getRunnerCode(appId.value)
+            codeContent.value = runner.code
+          } catch (e) {
+            console.warn('[TurtlePlayground] runner not found, initializing session...')
+            try {
+              await executeAPI.ensureSessionInitialized(appId.value)
+              const runner = await executeAPI.getRunnerCode(appId.value)
+              codeContent.value = runner.code
+            } catch (e2) {
+              console.warn('[TurtlePlayground] Still no runner after init, using default')
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[TurtlePlayground] Failed to load app data:', err)
+      }
+    }
+
+    // --- Lifecycle ---
+    onMounted(async () => {
+      if (!appId.value) {
+        console.error('appId missing')
+        return
+      }
+
+      await loadAppData()
+      connectStream(appId.value)
+      await startRemoteTurtleSession(appId.value, codeContent.value)
+    })
+
+    onUnmounted(() => {
+      disconnectStream()
+      if (saveTimeout) clearTimeout(saveTimeout)
+      if (alertTimeout) clearTimeout(alertTimeout)
+    })
 
     return {
       t,
       language,
       ttsEnabled,
-      undoIcon,
-      redoIcon,
-      clearIcon,
-      turtleCanvas,
-      turtleIndicator,
-      canvasWrapper,
-      monacoEditor,
-      commandText,
-      codeContent,
-      isRecording,
-      isTranscribing,
-      isProcessing,
-      // App-specific
       appId,
       appName,
       appIcon,
-      // Alert box
+      editorRef,
+      codeContent,
+      commandText,
+      activeTab,
+      isOutputExpanded,
+      textOutput,
+      streamFrame,
+      commandHistory,
+      parserDebug,
+      isRecording,
+      isTranscribing,
+      isProcessingCommand,
+      showAlert,
       alertMessage,
       alertType,
-      showAlert,
-      // Handlers
       handleCodeUpdate,
+      handleSave,
       handleInsertMethod,
-      handleRunCommand,
-      handleMicClick,
-      handleClear,
       handleUndo,
       handleRedo,
-      streamFrame,
-    };
+      handleRunCode,
+      handleRunCommand,
+      handleMicClick,
+      handleClear
+    }
   }
-};
+}
 </script>
 
-<style>
-@import './styles/TurtlePlayground.css';
-
-/* Header Styles */
-.main-content {
-  margin-left: var(--sidebar-total);
-  margin-top: var(--toolbar-height);
-  flex: 1;
+<style scoped>
+/* Alert Box */
+.turtle-alert {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 1600;
   display: flex;
-  flex-direction: column;
-  background: var(--color-bg);
-  height: calc(100vh - var(--toolbar-height));
-  overflow: hidden;
-}
-
-.top-header {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e8e8e8;
-  background: white;
-  flex-shrink: 0;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.page-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: #1a1a1a;
-  font-family: 'Jaldi', sans-serif;
-  margin: 0;
-}
-
-.control-buttons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.control-button {
-  width: 40px;
-  height: 40px;
+  gap: 10px;
+  padding: 12px 16px;
   border-radius: 8px;
+  font-family: var(--font-family, 'Jaldi', sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  max-width: 400px;
+}
+
+.turtle-alert--success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.turtle-alert--error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.turtle-alert--info {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.turtle-alert__text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.turtle-alert__close {
   background: transparent;
   border: none;
+  padding: 4px 8px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  padding: 0;
+  opacity: 0.6;
+  font-size: 18px;
+  line-height: 1;
+  color: inherit;
+  transition: opacity 0.2s;
 }
 
-.control-button:hover {
-  background: transparent;
-  transform: translateY(-1px);
-  opacity: 0.7;
+.turtle-alert__close:hover {
+  opacity: 1;
 }
 
-.control-icon {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
+/* Alert animation */
+.alert-slide-enter-active {
+  animation: alertSlideIn 0.3s ease-out;
 }
 
-.content-area {
-  flex: 1;
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+.alert-slide-leave-active {
+  animation: alertSlideOut 0.3s ease-in;
 }
 
-.content-area .turtle-playground {
-  margin-left: 0;
-  height: 100%;
-  min-height: auto;
+@keyframes alertSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
-.content-area .turtle-playground__container {
-  height: 100%;
+@keyframes alertSlideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
 }
-
-.turtle-playground__icon-img {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-}
-
-.turtle-playground__canvas-icon {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-}
-
-/* Full height code panel when methods panel is removed */
-.turtle-playground__code-panel--full {
-  flex: 1;
-  min-height: 0;
-}
-
-.turtle-playground__stream-wrapper {
-  width: 100%;
-  height: 450px;
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.turtle-playground__stream {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.turtle-playground__stream-placeholder {
-  color: #aaa;
-  font-size: 14px;
-}
-
 </style>

@@ -65,7 +65,7 @@
 
     <div class="editor-panel__wrapper">
       <div class="editor-panel__content">
-        <div class="editor-panel__file-info">
+        <div v-if="showFileInfo" class="editor-panel__file-info">
           <span v-if="isRefreshing" class="editor-panel__refresh-indicator" title="Refreshing file content...">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -128,7 +128,11 @@ export default {
     refreshNotification: {
       type: String,
       default: null
-    }
+    },
+    showFileInfo: {
+      type: Boolean,
+      default: true
+    },
   },
   emits: ['save', 'undo', 'redo', 'run', 'change'],
   setup() {
@@ -304,4 +308,6 @@ export default {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+
 </style>

@@ -792,7 +792,7 @@ print(f"10 + 20 = {result}")`,
 
 .chat-input:focus {
   border-color: #1565C0;
-  box-shadow: 0 0 0 3px rgba(2, 74, 20, 0.1);
+  box-shadow: 0 0 0 3px rgba(28, 34, 61, 0.1);
 }
 
 .chat-input:disabled {
@@ -979,7 +979,7 @@ print(f"10 + 20 = {result}")`,
 .run-button:hover:not(:disabled) {
   background: #0D47A1;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(2, 74, 20, 0.3);
+  box-shadow: 0 4px 12px rgba(28, 34, 61, 0.3);
 }
 
 .run-button:disabled {

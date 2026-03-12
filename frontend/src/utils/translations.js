@@ -53,13 +53,13 @@ export const translations = {
     // Settings Page
     settings: {
       pageTitle: 'Settings',
-      languageSelection: 'Language Selection',
+      languageSelection: 'Language',
       languageDescription: 'Choose your preferred language for the application',
       english: 'English',
       thai: 'Thai',
-      textToSpeech: 'Text-to-Speech',
+      textToSpeech: 'Voice',
       ttsDescription: 'Enable or disable voice feedback',
-      enableTTS: 'Enable TTS',
+      enableTTS: 'Enable Voice',
       turnVoiceOnOff: 'Turn voice responses on or off',
       testVoice: 'Test Voice',
       ttsModel: 'Text-to-Speech Model',
@@ -205,13 +205,13 @@ export const translations = {
     // Settings Page
     settings: {
       pageTitle: 'การตั้งค่า',
-      languageSelection: 'เลือกภาษา',
+      languageSelection: 'ภาษา',
       languageDescription: 'เลือกภาษาที่คุณต้องการใช้ในแอปพลิเคชัน',
       english: 'อังกฤษ',
       thai: 'ไทย',
-      textToSpeech: 'การแปลงข้อความเป็นเสียง',
+      textToSpeech: 'เสียง',
       ttsDescription: 'เปิดหรือปิดการตอบกลับด้วยเสียง',
-      enableTTS: 'เปิดใช้งาน TTS',
+      enableTTS: 'เปิดใช้งานเสียง',
       turnVoiceOnOff: 'เปิดหรือปิดการตอบกลับด้วยเสียง',
       testVoice: 'ทดสอบเสียง',
       ttsModel: 'โมเดลแปลงข้อความเป็นเสียง',

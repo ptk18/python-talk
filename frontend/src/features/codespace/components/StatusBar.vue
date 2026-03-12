@@ -1,31 +1,19 @@
 <template>
-  <div v-if="isTranscribing" class="status-bar status-bar--transcribing">
-    <div class="status-bar__content">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="status-bar__spinner">
-        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="60" stroke-dashoffset="0">
-          <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-        </circle>
-      </svg>
-      <span class="status-bar__text">{{ language === 'th' ? 'กำลังแปลงเสียงของคุณ...' : 'Transcribing your voice...' }}</span>
-      <div class="status-bar__progress">
-        <div class="status-bar__progress-bar"></div>
+  <Transition name="status-fade">
+    <div v-if="isTranscribing || isProcessing" class="status-chip">
+      <div class="status-chip__spinner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="50" stroke-dashoffset="15">
+            <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
       </div>
+      <span class="status-chip__text">
+        <template v-if="isTranscribing">{{ language === 'th' ? 'กำลังแปลงเสียง...' : 'Transcribing...' }}</template>
+        <template v-else>{{ language === 'th' ? 'กำลังประมวลผล...' : 'Processing...' }}</template>
+      </span>
     </div>
-  </div>
-
-  <div v-if="isProcessing" class="status-bar status-bar--processing">
-    <div class="status-bar__content">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="status-bar__spinner">
-        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="60" stroke-dashoffset="0">
-          <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-        </circle>
-      </svg>
-      <span class="status-bar__text">{{ language === 'th' ? 'กำลังประมวลผลและจับคู่คำสั่ง...' : 'Processing and mapping command...' }}</span>
-      <div class="status-bar__progress">
-        <div class="status-bar__progress-bar"></div>
-      </div>
-    </div>
-  </div>
+  </Transition>
 </template>
 
 <script>
@@ -49,56 +37,43 @@ export default {
 </script>
 
 <style scoped>
-.status-bar {
+.status-chip {
   position: fixed;
-  top: 80px;
-  left: var(--sidebar-total);
-  right: 0;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  padding: 12px 24px;
-  z-index: var(--z-modal);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.status-bar__content {
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(30, 30, 30, 0.85);
+  color: #fff;
+  border-radius: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  z-index: var(--z-modal);
+  backdrop-filter: blur(8px);
 }
 
-.status-bar__spinner {
-  animation: spin 1s linear infinite;
+.status-chip__spinner {
+  display: flex;
+  align-items: center;
+  color: #fff;
 }
 
-.status-bar__text {
-  font-size: 14px;
+.status-chip__text {
+  font-size: 13px;
   font-family: 'Jaldi', sans-serif;
-  color: #1a1a1a;
+  white-space: nowrap;
 }
 
-.status-bar__progress {
-  flex: 1;
-  height: 4px;
-  background: #e8e8e8;
-  border-radius: 2px;
-  overflow: hidden;
+.status-fade-enter-active,
+.status-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.status-bar__progress-bar {
-  height: 100%;
-  background: var(--color-navy);
-  animation: progress 2s ease-in-out infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes progress {
-  0% { width: 0%; }
-  50% { width: 70%; }
-  100% { width: 100%; }
+.status-fade-enter-from,
+.status-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
 }
 </style>
