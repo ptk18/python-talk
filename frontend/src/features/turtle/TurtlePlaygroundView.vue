@@ -97,6 +97,8 @@ export default {
     const { language } = useLanguage()
     const { ttsEnabled } = useTTS()
     const t = computed(() => useTranslations(language.value))
+    const { streamFrame, isStreaming, connectStream, disconnectStream, startRemoteTurtleSession } = useTurtleStream()
+    const { commandHistory, isProcessingCommand, parserDebug, processCommand, clearHistory } = useUnifiedCommand()
 
     // App state
     const appId = computed(() => route.params.appId)
@@ -127,107 +129,6 @@ export default {
 
     // Auto-save state
     let saveTimeout = null;
-
-    const connectStream = (cid) => {
-      if (!cid) return;
-
-      // prevent duplicate connections
-      if (streamSocket.value && streamSocket.value.readyState === WebSocket.OPEN) {
-        console.log("[STREAM] already connected");
-        return;
-      }
-
-      const wsUrl = `${STREAM_WS_BASE_URL}/subscribe/${cid}`;
-      console.log("[STREAM] connecting to", wsUrl);
-
-      manuallyClosed = false;
-
-      const ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        console.log("[STREAM] connected");
-        isStreaming.value = true;
-        clearTimeout(reconnectTimer);
-      };
-
-      ws.onmessage = (event) => {
-        streamFrame.value = `data:image/jpeg;base64,${event.data}`;
-      };
-
-      ws.onerror = (err) => {
-        console.warn("[STREAM] error", err);
-      };
-
-      ws.onclose = () => {
-        console.warn("[STREAM] closed");
-        isStreaming.value = false;
-        streamSocket.value = null;
-
-        // 🔁 auto-reconnect unless page is leaving
-        if (!manuallyClosed) {
-          reconnectTimer = setTimeout(() => {
-            console.log("[STREAM] reconnecting...");
-            connectStream(cid);
-          }, 2000);
-        }
-      };
-
-      streamSocket.value = ws;
-    };
-
-
-    const disconnectStream = () => {
-      manuallyClosed = true;
-      clearTimeout(reconnectTimer);
-
-      if (streamSocket.value) {
-        console.log("[STREAM] manual close");
-        streamSocket.value.close();
-        streamSocket.value = null;
-      }
-    };
-
-    const startRemoteTurtleSession = async () => {
-      if (!appId.value) return;
-
-      try {
-        const data = await executeAPI.runTurtleIncremental(appId.value);
-        console.log('[TURTLE] incremental run response:', data);
-      } catch (err) {
-        showAlertBox(`Failed to run turtle incrementally: ${err.message}`, 'error');
-      }
-    };
-
-    // const runRemoteTurtle = async () => {
-    //   if (!appId.value) return;
-
-    //   // disconnectStream();
-    //   streamFrame.value = null;
-
-    //   // connect viewer FIRST
-    //   connectStream(appId.value);
-
-    //   // send code to Pi
-    //   const payload = {
-    //     files: {
-    //       "runner.py": codeContent.value
-    //     }
-    //   };
-
-    //   const res = await fetch(
-    //     `${STREAM_DEVICE_BASE_URL}/runturtle/${appId.value}`,
-    //     {
-    //       method: "POST",
-    //       headers: { "Content-Type": "application/json" },
-    //       body: JSON.stringify(payload)
-    //     }
-    //   );
-
-    //   if (!res.ok) {
-    //     showAlertBox("Failed to start turtle stream", "error");
-    //   }
-    // };
-
 
     const showAlertBox = (message, type = 'success', duration = 3500) => {
       if (alertTimeout) clearTimeout(alertTimeout)
@@ -331,119 +232,10 @@ export default {
       }, 2000);
     };
 
-    // Load app data if appId is provided
-    const loadAppData = async () => {
-      if (appId.value) {
-        try {
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/conversations/${appId.value}/single`);
-          if (response.ok) {
-            const data = await response.json();
-            appName.value = data.title || '';
-            appIcon.value = data.app_image || null;
-            // Load saved code if available
-            // Load runner.py into editor (NOT conversation.code)
-            try {
-              const runner = await executeAPI.getRunnerCode(appId.value);
-              codeContent.value = runner.code;
-            } catch (e) {
-              // runner.py not created yet -> initialize session and retry
-              console.warn('[TurtlePlayground] runner not found, initializing session...');
-              try {
-                await executeAPI.ensureSessionInitialized(appId.value);
-                const runner = await executeAPI.getRunnerCode(appId.value);
-                codeContent.value = runner.code;
-              } catch (e2) {
-                console.warn('[TurtlePlayground] Still no runner after init, using default');
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('[TurtlePlayground] Failed to load app data:', err);
-        }
-      }
-    };
-
-  onMounted(async () => {
-    console.log("[MOUNT] appId =", appId.value);
-    console.log("[MOUNT] route params =", route.params);
-
-    if (!appId.value) {
-      console.error("❌ appId missing");
-      return;
-    }
-
-    await loadAppData();
-    connectStream(appId.value);
-
-    console.log("[MOUNT] stream connected");
-  });
-
-    const processNaturalLanguageCommand = async (cmd, originalText = null) => {
-      isProcessing.value = true;
-
-      try {
-        let commandForAnalysis = cmd;
-
-        // 1) Translate Thai -> English for analysis
-        if (language.value === 'th') {
-          const translateResult = await translateAPI.translateToEnglish(cmd);
-          commandForAnalysis = translateResult?.translated_text || cmd;
-        }
-
-        // 2) Call unified parser endpoint (codespace)
-        const apiRes = await analyzeAPI.analyzeCommand(appId.value, commandForAnalysis);
-
-        // Backend returns: { success: true, result: {...}, results: [{...}, ...] }
-        const items = Array.isArray(apiRes?.results)
-          ? apiRes.results
-          : (apiRes?.result ? [apiRes.result] : []);
-
-        // Collect executable strings from matched items
-        const commands = items
-          .map((x) => x?.executable)
-          .filter(Boolean);
-
-        // 3) If we got executables, append to editor + let Pi run it
-        if (commands.length > 0) {
-          const isAssignment = (s) => /^[a-zA-Z_]\w*\s*=/.test(s);
-          const isAlreadyTargeted = (s) => /^[a-zA-Z_]\w*\./.test(s);
-
-          const codeLines = commands.map((x) => String(x).trim());
-          appendToCodeEditor(codeLines.join('\n'), originalText || cmd);
-
-          showAlertBox(codeLines.join(' | '), 'success');
-          voiceService.speak('Command executed');
-
-          return { success: true, executables: commands };
-        }
-
-        // 4) No executable: show clarification / suggestion if available
-        const first = items[0];
-        const msg =
-          first?.suggestion_message ||
-          first?.error ||
-          apiRes?.error ||
-          t.value.turtlePlayground.invalidCommand;
-
-        showAlertBox(msg, 'error');
-        voiceService.speak(msg);
-        return { success: false, error: msg };
-
-      } catch (err) {
-        console.error('[TurtlePlayground] Command error:', err);
-        const msg = err?.message || 'Unknown error';
-        showAlertBox(msg, 'error');
-        voiceService.speak('Invalid command');
-        return { success: false, error: msg };
-      } finally {
-        isProcessing.value = false;
-      }
-    };
-
     const isMethodCallSyntax = (s) => /^[a-zA-Z_]\w*\s*\(.*\)\s*$/.test(s);
 
     const handleRunCommand = async () => {
-      if (!commandText.value.trim() || isProcessing.value) return;
+      if (!commandText.value.trim() || isProcessingCommand.value) return;
 
       const cmd = commandText.value.trim();
 
