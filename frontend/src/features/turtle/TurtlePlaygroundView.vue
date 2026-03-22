@@ -79,8 +79,10 @@ import StatusBar from '@/features/codespace/components/StatusBar.vue'
 import ParserDebugPanel from '@/shared/components/ParserDebugPanel.vue'
 import { useLanguage, useTTS, voiceService, executeAPI } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
-import { useTurtleStream } from '@/shared/composables/useTurtleStream'
 import { useUnifiedCommand } from '@/shared/composables/useUnifiedCommand'
+
+const STREAM_DEVICE_BASE_URL = import.meta.env.VITE_STREAM_DEVICE_BASE_URL || 'https://161.246.5.67:8001'
+const STREAM_WS_BASE_URL = import.meta.env.VITE_STREAM_WS_BASE_URL || 'wss://161.246.5.67:5050'
 
 export default {
   name: 'TurtlePlayground',
@@ -97,8 +99,92 @@ export default {
     const { language } = useLanguage()
     const { ttsEnabled } = useTTS()
     const t = computed(() => useTranslations(language.value))
-    const { streamFrame, isStreaming, connectStream, disconnectStream, startRemoteTurtleSession } = useTurtleStream()
     const { commandHistory, isProcessingCommand, parserDebug, processCommand, clearHistory } = useUnifiedCommand()
+
+    // stream state
+    const streamSocket = ref(null)
+    const streamFrame = ref(null)
+    const isStreaming = ref(false)
+
+    let reconnectTimer = null
+    let manuallyClosed = false
+
+    const connectStream = (channelId) => {
+      if (!channelId) return
+
+      if (streamSocket.value && streamSocket.value.readyState === WebSocket.OPEN) {
+        console.log('[STREAM] already connected')
+        return
+      }
+
+      const wsUrl = `${STREAM_WS_BASE_URL}/subscribe/${channelId}`
+      console.log('[STREAM] connecting to', wsUrl)
+
+      manuallyClosed = false
+      const ws = new WebSocket(wsUrl)
+
+      ws.onopen = () => {
+        console.log('[STREAM] connected')
+        isStreaming.value = true
+        clearTimeout(reconnectTimer)
+      }
+
+      ws.onmessage = (event) => {
+        streamFrame.value = `data:image/jpeg;base64,${event.data}`
+      }
+
+      ws.onerror = (err) => {
+        console.warn('[STREAM] error', err)
+      }
+
+      ws.onclose = () => {
+        console.warn('[STREAM] closed')
+        isStreaming.value = false
+        streamSocket.value = null
+
+        if (!manuallyClosed) {
+          reconnectTimer = setTimeout(() => {
+            console.log('[STREAM] reconnecting...')
+            connectStream(channelId)
+          }, 2000)
+        }
+      }
+
+      streamSocket.value = ws
+    }
+
+    const disconnectStream = () => {
+      manuallyClosed = true
+      clearTimeout(reconnectTimer)
+
+      if (streamSocket.value) {
+        console.log('[STREAM] manual close')
+        streamSocket.value.close()
+        streamSocket.value = null
+      }
+    }
+
+    const startRemoteTurtleSession = async (appId, code) => {
+      if (!appId) return
+
+      const payload = {
+        files: {
+          'runner.py': code
+        }
+      }
+
+      const res = await fetch(`${STREAM_DEVICE_BASE_URL}/runturtle/${appId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to start turtle session')
+      }
+
+      console.log('[TURTLE] Pi turtle started')
+    }
 
     // App state
     const appId = computed(() => route.params.appId)
@@ -128,17 +214,18 @@ export default {
     let alertTimeout = null
 
     // Auto-save state
-    let saveTimeout = null;
+    let saveTimeout = null
 
     const showAlertBox = (message, type = 'success', duration = 3500) => {
       if (alertTimeout) clearTimeout(alertTimeout)
       alertMessage.value = message
       alertType.value = type
       showAlert.value = true
-      alertTimeout = setTimeout(() => { showAlert.value = false }, duration)
+      alertTimeout = setTimeout(() => {
+        showAlert.value = false
+      }, duration)
     }
 
-    // --- Save logic ---
     const saveAppData = async (code) => {
       if (!appId.value) return
       try {
@@ -150,7 +237,7 @@ export default {
             body: JSON.stringify({
               conversation_id: Number(appId.value),
               code: code
-            }),
+            })
           }
         )
         if (!response.ok) {
@@ -178,7 +265,6 @@ export default {
       commandText.value = methodCall
     }
 
-    // --- Editor actions ---
     const handleUndo = async () => {
       if (!appId.value) return
       try {
@@ -186,7 +272,7 @@ export default {
         const undoRes = await fetch(`${baseUrl}/api/undo_last`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversation_id: Number(appId.value) }),
+          body: JSON.stringify({ conversation_id: Number(appId.value) })
         })
         const undoData = await undoRes.json()
 
@@ -197,7 +283,9 @@ export default {
           return
         }
 
-        const codeRes = await fetch(`${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`)
+        const codeRes = await fetch(
+          `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
+        )
         if (!codeRes.ok) throw new Error('Failed to load runner after undo')
         const codeData = await codeRes.json()
         codeContent.value = codeData?.code || ''
@@ -228,18 +316,17 @@ export default {
       codeContent.value += newLine
       if (saveTimeout) clearTimeout(saveTimeout)
       saveTimeout = setTimeout(() => {
-        saveAppData(codeContent.value);
-      }, 2000);
-    };
+        saveAppData(codeContent.value)
+      }, 2000)
+    }
 
-    const isMethodCallSyntax = (s) => /^[a-zA-Z_]\w*\s*\(.*\)\s*$/.test(s);
+    const isMethodCallSyntax = (s) => /^[a-zA-Z_]\w*\s*\(.*\)\s*$/.test(s)
 
     const handleRunCommand = async () => {
-      if (!commandText.value.trim() || isProcessingCommand.value) return;
+      if (!commandText.value.trim() || isProcessingCommand.value) return
 
-      const cmd = commandText.value.trim();
+      const cmd = commandText.value.trim()
 
-      // Case 1: user typed something like forward(100)
       if (isMethodCallSyntax(cmd)) {
         const s = cmd.trim()
         const isAssignment = /^[a-zA-Z_]\w*\s*=/.test(s)
@@ -252,11 +339,13 @@ export default {
           return
         }
 
-        showAlertBox("Please create/select a turtle first (e.g., 'create turtle call t1') or type a targeted call like t1.forward(100).", 'error')
+        showAlertBox(
+          "Please create/select a turtle first (e.g., 'create turtle call t1') or type a targeted call like t1.forward(100).",
+          'error'
+        )
         return
       }
 
-      // Natural language command
       const res = await processCommand(appId.value, cmd, language.value, { mode: 'turtle' })
 
       if (res?.success) {
@@ -271,7 +360,6 @@ export default {
       }
     }
 
-    // --- Voice handling ---
     const handleMicClick = async () => {
       voiceService.enableAudioContext()
 
@@ -286,7 +374,9 @@ export default {
 
           recorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
-            const audioFile = new File([audioBlob], `recording_${Date.now()}.webm`, { type: 'audio/webm' })
+            const audioFile = new File([audioBlob], `recording_${Date.now()}.webm`, {
+              type: 'audio/webm'
+            })
             stream.getTracks().forEach(track => track.stop())
 
             isTranscribing.value = true
@@ -329,7 +419,6 @@ export default {
       }
     }
 
-    // --- Clear / Reset ---
     const handleClear = async () => {
       if (!appId.value) return
       try {
@@ -340,7 +429,9 @@ export default {
         )
         if (!res.ok) throw new Error('Failed to reset runner')
 
-        const codeRes = await fetch(`${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`)
+        const codeRes = await fetch(
+          `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
+        )
         const codeData = await codeRes.json()
         codeContent.value = codeData?.code || 'import turtle\n\n'
 
@@ -356,11 +447,12 @@ export default {
       }
     }
 
-    // --- Load app data ---
     const loadAppData = async () => {
       if (!appId.value) return
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/conversations/${appId.value}/single`)
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/conversations/${appId.value}/single`
+        )
         if (response.ok) {
           const data = await response.json()
           appName.value = data.title || ''
@@ -385,7 +477,6 @@ export default {
       }
     }
 
-    // --- Lifecycle ---
     onMounted(async () => {
       if (!appId.value) {
         console.error('appId missing')
@@ -401,6 +492,7 @@ export default {
       disconnectStream()
       if (saveTimeout) clearTimeout(saveTimeout)
       if (alertTimeout) clearTimeout(alertTimeout)
+      if (reconnectTimer) clearTimeout(reconnectTimer)
     })
 
     return {
@@ -417,6 +509,7 @@ export default {
       isOutputExpanded,
       textOutput,
       streamFrame,
+      isStreaming,
       commandHistory,
       parserDebug,
       isRecording,

@@ -1,3 +1,4 @@
+# code in pi5 : turtle_runtime.py
 import sys
 import turtle
 
@@ -6,13 +7,14 @@ screen.setup(width=800, height=800, startx=50, starty=50)
 screen.screensize(700, 700)
 screen.tracer(0, 0)
 
-t = turtle.Turtle()
+# default turtle
+t1 = turtle.Turtle()
 
 exec_globals = {
     "__name__": "__main__",
     "turtle": turtle,
     "screen": screen,
-    "t": t,
+    "t1": t1,
 }
 
 print("[RUNTIME] Ready", flush=True)
@@ -38,4 +40,3 @@ while True:
 
     except Exception as e:
         print(f"[RUNTIME] ERROR: {e}", flush=True)
-

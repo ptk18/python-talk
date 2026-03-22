@@ -91,3 +91,84 @@ turn left 90
 create a bank account named acc1
 top
 1000
+
+
+
+
+
+
+
+## How turtle Works
+
+How your 6 steps map to this design
+Step 1
+
+When app starts:
+
+backend calls /start_turtle/{cid}
+
+Pi starts runtime
+
+Pi sends startup stream burst for 3 seconds
+
+then stops sending
+
+frontend keeps last frame
+
+Step 2
+
+When new generated code appears:
+
+backend extracts only:
+
+not comment
+
+only last executable line
+
+sends it to /turtle_command/{cid}
+
+Step 3
+
+When executable line is sent:
+
+same turtle process runs it
+
+same screen, same location
+
+Pi starts 3-second burst stream again
+
+Step 4
+
+After burst ends:
+
+frontend keeps last frame
+
+runtime stays alive
+
+wait for next command
+
+Step 5
+
+On refresh:
+
+frontend reconnects websocket
+
+backend calls /start_turtle/{cid}
+
+Pi sees same cid already running
+
+does not restart turtle
+
+just sends 3-second burst again
+
+Step 6
+
+On new app / open another app:
+
+Pi checks CURRENT_CID
+
+if another app is running, kill it first
+
+then start new one
+
+if existing app needs full replay, backend must rebuild the runner and replay all lines into the new runtime
