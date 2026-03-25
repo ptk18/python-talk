@@ -170,8 +170,11 @@ async def start_turtle(cid: int):
         if proc.poll() is None:
             CURRENT_CID = cid
             start_stream_burst(cid, proc)
-            return {"status": "already_running", "conversation_id": cid}
-
+            return {
+                "status": "already_running",
+                "conversation_id": cid,
+                "fresh_runtime": False,
+            }
         TURTLE_PROCESSES.pop(cid, None)
         TURTLE_STDIN.pop(cid, None)
         old_task = STREAM_TASKS.pop(cid, None)
@@ -221,6 +224,7 @@ async def start_turtle(cid: int):
     return {
         "status": "started",
         "conversation_id": cid,
+        "fresh_runtime": True,
     }
 
 
@@ -228,7 +232,7 @@ async def start_turtle(cid: int):
 async def turtle_command(cid: int, command: str):
     proc = TURTLE_PROCESSES.get(cid)
     if not proc:
-        raise HTTPException(404, "Turtle not running")
+        return {"status": "not_running", "conversation_id": cid}
 
     if proc.poll() is not None:
         TURTLE_PROCESSES.pop(cid, None)

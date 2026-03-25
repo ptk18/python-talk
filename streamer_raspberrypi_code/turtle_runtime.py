@@ -5,7 +5,7 @@ import turtle
 screen = turtle.Screen()
 screen.setup(width=800, height=800, startx=50, starty=50)
 screen.screensize(700, 700)
-screen.tracer(0, 0)
+# screen.tracer(0, 0)
 
 # default turtle
 t1 = turtle.Turtle()

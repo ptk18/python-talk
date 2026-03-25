@@ -9,6 +9,8 @@ from app.routers.codespace import analyze_command, execute_command, conversation
 from app.routers.voice import voice, google_speech
 from app.database.connection import engine, Base
 
+from app.routers.turtle import turtle_execute
+
 Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
@@ -48,6 +50,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(turtle_execute.router, prefix="/api")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api")
 app.include_router(posts.router, prefix="/api/v1")

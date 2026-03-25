@@ -6,7 +6,6 @@
     app-type="turtle"
     @insert-method="handleInsertMethod"
   >
-    <!-- Editor Column -->
     <template #editor>
       <CodeEditorPanel
         ref="editorRef"
@@ -20,12 +19,10 @@
       />
     </template>
 
-    <!-- Debug Panel -->
     <template #debug>
       <ParserDebugPanel :data="parserDebug" />
     </template>
 
-    <!-- Output Column -->
     <template #output>
       <EnhancedOutputPanel
         :output="textOutput"
@@ -38,11 +35,12 @@
       />
     </template>
 
-    <!-- Command Input -->
     <template #command>
       <CommandInput
         v-model="commandText"
-        :placeholder="language === 'th' ? 'เช่น forward(100) หรือ พูดคำสั่ง...' : 'e.g., forward(100) or speak a command...'"
+        :placeholder="language === 'th'
+          ? 'เช่น t1.forward(100) หรือ พูดคำสั่ง...'
+          : 'e.g., t1.forward(100) or speak a command...'"
         :is-recording="isRecording"
         :is-processing="isProcessingCommand"
         @submit="handleRunCommand"
@@ -50,7 +48,6 @@
       />
     </template>
 
-    <!-- Overlays -->
     <template #overlays>
       <StatusBar
         :is-transcribing="isTranscribing"
@@ -81,7 +78,7 @@ import { useLanguage, useTTS, voiceService, executeAPI } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
 import { useUnifiedCommand } from '@/shared/composables/useUnifiedCommand'
 
-const STREAM_DEVICE_BASE_URL = import.meta.env.VITE_STREAM_DEVICE_BASE_URL || 'https://161.246.5.67:8001'
+const PI_API_BASE_URL = import.meta.env.VITE_STREAM_DEVICE_BASE_URL || 'https://161.246.5.67:8001'
 const STREAM_WS_BASE_URL = import.meta.env.VITE_STREAM_WS_BASE_URL || 'wss://161.246.5.67:5050'
 
 export default {
@@ -99,21 +96,35 @@ export default {
     const { language } = useLanguage()
     const { ttsEnabled } = useTTS()
     const t = computed(() => useTranslations(language.value))
-    const { commandHistory, isProcessingCommand, parserDebug, processCommand, clearHistory } = useUnifiedCommand()
+    const {
+      commandHistory,
+      isProcessingCommand,
+      parserDebug,
+      processCommand,
+      clearHistory
+    } = useUnifiedCommand()
 
-    // stream state
     const streamSocket = ref(null)
     const streamFrame = ref(null)
     const isStreaming = ref(false)
 
     let reconnectTimer = null
     let manuallyClosed = false
+    let currentChannelId = null
 
     const connectStream = (channelId) => {
       if (!channelId) return
 
-      if (streamSocket.value && streamSocket.value.readyState === WebSocket.OPEN) {
-        console.log('[STREAM] already connected')
+      currentChannelId = channelId
+
+      if (
+        streamSocket.value &&
+        (
+          streamSocket.value.readyState === WebSocket.OPEN ||
+          streamSocket.value.readyState === WebSocket.CONNECTING
+        )
+      ) {
+        console.log('[STREAM] already connected/connecting')
         return
       }
 
@@ -126,7 +137,10 @@ export default {
       ws.onopen = () => {
         console.log('[STREAM] connected')
         isStreaming.value = true
-        clearTimeout(reconnectTimer)
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer)
+          reconnectTimer = null
+        }
       }
 
       ws.onmessage = (event) => {
@@ -142,10 +156,10 @@ export default {
         isStreaming.value = false
         streamSocket.value = null
 
-        if (!manuallyClosed) {
+        if (!manuallyClosed && currentChannelId) {
           reconnectTimer = setTimeout(() => {
             console.log('[STREAM] reconnecting...')
-            connectStream(channelId)
+            connectStream(currentChannelId)
           }, 2000)
         }
       }
@@ -155,65 +169,105 @@ export default {
 
     const disconnectStream = () => {
       manuallyClosed = true
-      clearTimeout(reconnectTimer)
+
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+      }
 
       if (streamSocket.value) {
         console.log('[STREAM] manual close')
         streamSocket.value.close()
         streamSocket.value = null
       }
+
+      isStreaming.value = false
     }
 
-    const startRemoteTurtleSession = async (appId, code) => {
-      if (!appId) return
+    const startPiTurtleSession = async (appId) => {
+      if (!appId) return null
 
-      const payload = {
-        files: {
-          'runner.py': code
-        }
-      }
-
-      const res = await fetch(`${STREAM_DEVICE_BASE_URL}/runturtle/${appId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const res = await fetch(`${PI_API_BASE_URL}/start_turtle/${appId}`, {
+        method: 'POST'
       })
 
       if (!res.ok) {
-        throw new Error('Failed to start turtle session')
+        const errText = await res.text()
+        throw new Error(`Failed to start Pi turtle session: ${errText}`)
       }
 
-      console.log('[TURTLE] Pi turtle started')
+      return await res.json()
     }
 
-    // App state
+    const sendPiTurtleCommand = async (appId, command) => {
+      if (!appId || !command) return null
+
+      const url = new URL(`${PI_API_BASE_URL}/turtle_command/${appId}`)
+      url.searchParams.set('command', command)
+
+      const res = await fetch(url.toString(), {
+        method: 'POST'
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(`Failed to send turtle command: ${errText}`)
+      }
+
+      return await res.json()
+    }
+
+    const refreshPiTurtleSession = async (appId) => {
+      if (!appId) return null
+
+      const res = await fetch(`${PI_API_BASE_URL}/start_turtle/${appId}`, {
+        method: 'POST'
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(`Failed to refresh turtle session: ${errText}`)
+      }
+
+      return await res.json()
+    }
+
+    const killPiTurtleSession = async (appId) => {
+      if (!appId) return null
+
+      const res = await fetch(`${PI_API_BASE_URL}/kill/${appId}`, {
+        method: 'POST'
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(`Failed to kill turtle session: ${errText}`)
+      }
+
+      return await res.json()
+    }
+
     const appId = computed(() => route.params.appId)
     const appName = ref('')
     const appIcon = ref(null)
 
-    // Editor state
     const editorRef = ref(null)
     const codeContent = ref('import turtle\n\n')
     const commandText = ref('')
 
-    // Output state
     const activeTab = ref('history')
-    const isOutputExpanded = ref(false)
     const textOutput = ref('')
 
-    // Voice state
     const isRecording = ref(false)
     const isTranscribing = ref(false)
     const mediaRecorder = ref(null)
     const audioChunks = ref([])
 
-    // Alert state
     const alertMessage = ref('')
     const alertType = ref('success')
     const showAlert = ref(false)
     let alertTimeout = null
 
-    // Auto-save state
     let saveTimeout = null
 
     const showAlertBox = (message, type = 'success', duration = 3500) => {
@@ -228,45 +282,84 @@ export default {
 
     const saveAppData = async (code) => {
       if (!appId.value) return
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/save_runner_code`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              conversation_id: Number(appId.value),
-              code: code
-            })
-          }
-        )
-        if (!response.ok) {
-          console.warn('[TurtlePlayground] save_runner_code failed')
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/save_runner_code`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation_id: Number(appId.value),
+            code
+          })
         }
-      } catch (err) {
-        console.warn('[TurtlePlayground] Failed to auto-save runner:', err)
+      )
+
+      if (!response.ok) {
+        throw new Error('save_runner_code failed')
       }
     }
 
     const handleCodeUpdate = (newCode) => {
       codeContent.value = newCode
+
       if (saveTimeout) clearTimeout(saveTimeout)
-      saveTimeout = setTimeout(() => {
-        saveAppData(newCode)
+      saveTimeout = setTimeout(async () => {
+        try {
+          await saveAppData(newCode)
+        } catch (err) {
+          console.warn('[TurtlePlayground] Failed to auto-save runner:', err)
+        }
       }, 2000)
     }
 
-    const handleSave = () => {
-      saveAppData(codeContent.value)
-      voiceService.speak('Saved!')
+    const handleSave = async () => {
+      try {
+        await saveAppData(codeContent.value)
+        voiceService.speak('Saved!')
+      } catch (err) {
+        showAlertBox('Save failed', 'error')
+      }
     }
 
     const handleInsertMethod = (methodCall) => {
       commandText.value = methodCall
     }
 
+    const extractExecutableLines = (code) => {
+      if (!code) return []
+
+      return code
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => {
+          if (!line) return false
+          if (line.startsWith('#')) return false
+          if (line.startsWith('import ')) return false
+          if (line.startsWith('from ')) return false
+          if (line.includes('time.sleep(')) return false
+          if (line.includes('done(')) return false
+          if (line.includes('mainloop(')) return false
+          if (line.includes('exitonclick(')) return false
+          return true
+        })
+    }
+
+    const getLatestExecutableLine = (code) => {
+      const lines = extractExecutableLines(code)
+      return lines.length ? lines[lines.length - 1] : null
+    }
+
+    const replayWholeRunnerToPi = async () => {
+      const lines = extractExecutableLines(codeContent.value)
+      for (const line of lines) {
+        await sendPiTurtleCommand(appId.value, line)
+      }
+    }
+
     const handleUndo = async () => {
       if (!appId.value) return
+
       try {
         const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
         const undoRes = await fetch(`${baseUrl}/api/undo_last`, {
@@ -274,6 +367,7 @@ export default {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ conversation_id: Number(appId.value) })
         })
+
         const undoData = await undoRes.json()
 
         if (!undoRes.ok || !undoData?.success) {
@@ -286,11 +380,19 @@ export default {
         const codeRes = await fetch(
           `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
         )
-        if (!codeRes.ok) throw new Error('Failed to load runner after undo')
-        const codeData = await codeRes.json()
-        codeContent.value = codeData?.code || ''
 
-        await startRemoteTurtleSession(appId.value, codeContent.value)
+        if (!codeRes.ok) {
+          throw new Error('Failed to load runner after undo')
+        }
+
+        const codeData = await codeRes.json()
+        codeContent.value = codeData?.code || 'import turtle\n\n'
+
+        await saveAppData(codeContent.value)
+
+        await startPiTurtleSession(appId.value)
+        await replayWholeRunnerToPi()
+
         showAlertBox('Undo success', 'success')
         voiceService.speak('Undo')
       } catch (e) {
@@ -305,58 +407,105 @@ export default {
 
     const handleRunCode = async () => {
       if (!appId.value) return
-      await saveAppData(codeContent.value)
-      await startRemoteTurtleSession(appId.value, codeContent.value)
-      showAlertBox('Code executed', 'success')
-      voiceService.speak('Running turtle code')
+
+      try {
+        await saveAppData(codeContent.value)
+
+        await startPiTurtleSession(appId.value)
+        await replayWholeRunnerToPi()
+
+        showAlertBox('Code executed', 'success')
+        voiceService.speak('Running turtle code')
+      } catch (err) {
+        showAlertBox(err?.message || 'Run failed', 'error')
+      }
     }
 
     const appendToCodeEditor = (command, comment = null) => {
       const newLine = comment ? `\n# ${comment}\n${command}` : `\n${command}`
       codeContent.value += newLine
+
       if (saveTimeout) clearTimeout(saveTimeout)
-      saveTimeout = setTimeout(() => {
-        saveAppData(codeContent.value)
+      saveTimeout = setTimeout(async () => {
+        try {
+          await saveAppData(codeContent.value)
+        } catch (err) {
+          console.warn('[TurtlePlayground] Failed to auto-save runner:', err)
+        }
       }, 2000)
     }
 
-    const isMethodCallSyntax = (s) => /^[a-zA-Z_]\w*\s*\(.*\)\s*$/.test(s)
+    const detectDirectPythonCommand = (s) => {
+      const text = s.trim()
+      return {
+        isAssignment: /^[a-zA-Z_]\w*\s*=/.test(text),
+        isTargetedCall: /^[a-zA-Z_]\w*\./.test(text),
+        isBareCall: /^[a-zA-Z_]\w*\s*\(.*\)\s*$/.test(text)
+      }
+    }
 
     const handleRunCommand = async () => {
       if (!commandText.value.trim() || isProcessingCommand.value) return
 
       const cmd = commandText.value.trim()
+      const { isAssignment, isTargetedCall, isBareCall } = detectDirectPythonCommand(cmd)
 
-      if (isMethodCallSyntax(cmd)) {
-        const s = cmd.trim()
-        const isAssignment = /^[a-zA-Z_]\w*\s*=/.test(s)
-        const isAlreadyTargeted = /^[a-zA-Z_]\w*\./.test(s)
-
-        if (isAssignment || isAlreadyTargeted) {
-          appendToCodeEditor(s)
+      try {
+        if (isAssignment || isTargetedCall) {
+          appendToCodeEditor(cmd)
           commandText.value = ''
-          await startRemoteTurtleSession(appId.value, codeContent.value)
+
+          await saveAppData(codeContent.value)
+
+          const startData = await startPiTurtleSession(appId.value)
+          if (startData?.status === 'started') {
+            await replayWholeRunnerToPi()
+          } else {
+            await sendPiTurtleCommand(appId.value, cmd)
+          }
+
           return
         }
 
-        showAlertBox(
-          "Please create/select a turtle first (e.g., 'create turtle call t1') or type a targeted call like t1.forward(100).",
-          'error'
-        )
-        return
-      }
+        if (isBareCall) {
+          showAlertBox(
+            'Please use a targeted call like t1.forward(100), or create/select a turtle first.',
+            'error'
+          )
+          return
+        }
 
-      const res = await processCommand(appId.value, cmd, language.value, { mode: 'turtle' })
+        const res = await processCommand(appId.value, cmd, language.value, { mode: 'turtle' })
 
-      if (res?.success) {
-        const codeLines = res.executables.map(x => String(x).trim())
-        appendToCodeEditor(codeLines.join('\n'), cmd)
-        showAlertBox(codeLines.join(' | '), 'success')
+        if (res?.success) {
+          const codeLines = Array.isArray(res.executables)
+            ? res.executables.map(x => String(x).trim()).filter(Boolean)
+            : []
 
-        commandText.value = ''
-        await startRemoteTurtleSession(appId.value, codeContent.value)
-      } else {
-        showAlertBox(res?.error || 'Command failed', 'error')
+          if (!codeLines.length) {
+            showAlertBox('No executable code generated', 'error')
+            return
+          }
+
+          appendToCodeEditor(codeLines.join('\n'), cmd)
+          showAlertBox(codeLines.join(' | '), 'success')
+          commandText.value = ''
+
+          await saveAppData(codeContent.value)
+
+          const startData = await startPiTurtleSession(appId.value)
+          if (startData?.status === 'started') {
+            await replayWholeRunnerToPi()
+          } else {
+            for (const line of codeLines) {
+              await sendPiTurtleCommand(appId.value, line)
+            }
+          }
+        } else {
+          showAlertBox(res?.error || 'Command failed', 'error')
+        }
+      } catch (err) {
+        showAlertBox(err?.message || 'Command failed', 'error')
       }
     }
 
@@ -370,13 +519,16 @@ export default {
           const recorder = new MediaRecorder(stream)
           audioChunks.value = []
 
-          recorder.ondataavailable = (e) => audioChunks.value.push(e.data)
+          recorder.ondataavailable = (e) => {
+            audioChunks.value.push(e.data)
+          }
 
           recorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
             const audioFile = new File([audioBlob], `recording_${Date.now()}.webm`, {
               type: 'audio/webm'
             })
+
             stream.getTracks().forEach(track => track.stop())
 
             isTranscribing.value = true
@@ -387,7 +539,7 @@ export default {
               if (transcribedText && !transcribedText.includes('[Error')) {
                 commandText.value = transcribedText
                 isTranscribing.value = false
-                await handleRunCommand(transcribedText)
+                await handleRunCommand()
               } else {
                 showAlertBox(
                   language.value === 'th'
@@ -399,7 +551,7 @@ export default {
                 isTranscribing.value = false
               }
             } catch (err) {
-              showAlertBox(err.message, 'error')
+              showAlertBox(err.message || 'Transcription error', 'error')
               voiceService.speak('Transcription error. Please try again.')
               isTranscribing.value = false
             }
@@ -409,6 +561,7 @@ export default {
           mediaRecorder.value = recorder
           isRecording.value = true
         } catch (err) {
+          showAlertBox('Microphone access denied', 'error')
           voiceService.speak('Microphone access denied')
         }
       } else {
@@ -421,13 +574,17 @@ export default {
 
     const handleClear = async () => {
       if (!appId.value) return
+
       try {
         const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
         const res = await fetch(
           `${baseUrl}/api/reset_runner?conversation_id=${Number(appId.value)}`,
           { method: 'POST' }
         )
-        if (!res.ok) throw new Error('Failed to reset runner')
+
+        if (!res.ok) {
+          throw new Error('Failed to reset runner')
+        }
 
         const codeRes = await fetch(
           `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
@@ -435,7 +592,11 @@ export default {
         const codeData = await codeRes.json()
         codeContent.value = codeData?.code || 'import turtle\n\n'
 
-        await startRemoteTurtleSession(appId.value, codeContent.value)
+        await saveAppData(codeContent.value)
+
+        await startPiTurtleSession(appId.value)
+        await replayWholeRunnerToPi()
+
         textOutput.value = ''
         clearHistory()
 
@@ -443,33 +604,36 @@ export default {
         showAlertBox(msg, 'success')
         voiceService.speak('Canvas cleared')
       } catch (err) {
-        showAlertBox('Failed to clear canvas', 'error')
+        showAlertBox(err?.message || 'Failed to clear canvas', 'error')
       }
     }
 
     const loadAppData = async () => {
       if (!appId.value) return
+
       try {
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/conversations/${appId.value}/single`
         )
-        if (response.ok) {
-          const data = await response.json()
-          appName.value = data.title || ''
-          appIcon.value = data.app_image || null
 
+        if (!response.ok) return
+
+        const data = await response.json()
+        appName.value = data.title || ''
+        appIcon.value = data.app_image || null
+
+        try {
+          const runner = await executeAPI.getRunnerCode(appId.value)
+          codeContent.value = runner.code || 'import turtle\n\n'
+        } catch (e) {
+          console.warn('[TurtlePlayground] runner not found, initializing session...')
           try {
+            await executeAPI.ensureSessionInitialized(appId.value)
             const runner = await executeAPI.getRunnerCode(appId.value)
-            codeContent.value = runner.code
-          } catch (e) {
-            console.warn('[TurtlePlayground] runner not found, initializing session...')
-            try {
-              await executeAPI.ensureSessionInitialized(appId.value)
-              const runner = await executeAPI.getRunnerCode(appId.value)
-              codeContent.value = runner.code
-            } catch (e2) {
-              console.warn('[TurtlePlayground] Still no runner after init, using default')
-            }
+            codeContent.value = runner.code || 'import turtle\n\n'
+          } catch (e2) {
+            console.warn('[TurtlePlayground] Still no runner after init, using default')
+            codeContent.value = 'import turtle\n\n'
           }
         }
       } catch (err) {
@@ -485,14 +649,38 @@ export default {
 
       await loadAppData()
       connectStream(appId.value)
-      await startRemoteTurtleSession(appId.value, codeContent.value)
+
+      try {
+        await startPiTurtleSession(appId.value)
+        await replayWholeRunnerToPi()
+      } catch (err) {
+        showAlertBox(err?.message || 'Failed to start turtle session', 'error')
+      }
     })
 
-    onUnmounted(() => {
+    onUnmounted(async () => {
+      try {
+        await killPiTurtleSession(appId.value)
+      } catch (err) {
+        console.warn('[Turtle] kill on leave failed:', err)
+      }
+
       disconnectStream()
-      if (saveTimeout) clearTimeout(saveTimeout)
-      if (alertTimeout) clearTimeout(alertTimeout)
-      if (reconnectTimer) clearTimeout(reconnectTimer)
+
+      if (saveTimeout) {
+        clearTimeout(saveTimeout)
+        saveTimeout = null
+      }
+
+      if (alertTimeout) {
+        clearTimeout(alertTimeout)
+        alertTimeout = null
+      }
+
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+      }
     })
 
     return {
@@ -506,7 +694,6 @@ export default {
       codeContent,
       commandText,
       activeTab,
-      isOutputExpanded,
       textOutput,
       streamFrame,
       isStreaming,
@@ -531,81 +718,3 @@ export default {
   }
 }
 </script>
-
-<style scoped>
-/* Alert Box */
-.turtle-alert {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  z-index: 1600;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-family: var(--font-family, 'Jaldi', sans-serif);
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  max-width: 400px;
-}
-
-.turtle-alert--success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.turtle-alert--error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.turtle-alert--info {
-  background: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
-}
-
-.turtle-alert__text {
-  flex: 1;
-  line-height: 1.4;
-}
-
-.turtle-alert__close {
-  background: transparent;
-  border: none;
-  padding: 4px 8px;
-  cursor: pointer;
-  opacity: 0.6;
-  font-size: 18px;
-  line-height: 1;
-  color: inherit;
-  transition: opacity 0.2s;
-}
-
-.turtle-alert__close:hover {
-  opacity: 1;
-}
-
-/* Alert animation */
-.alert-slide-enter-active {
-  animation: alertSlideIn 0.3s ease-out;
-}
-
-.alert-slide-leave-active {
-  animation: alertSlideOut 0.3s ease-in;
-}
-
-@keyframes alertSlideIn {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes alertSlideOut {
-  from { transform: translateX(0); opacity: 1; }
-  to { transform: translateX(100%); opacity: 0; }
-}
-</style>
