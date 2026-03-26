@@ -6,20 +6,20 @@
         :class="{ 'active': activeTab === 'history' }"
         @click="$emit('set-tab', 'history')"
       >
-        <svg class="output-panel__tab-icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M13 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <path d="M13 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M3 12h2M5.5 5.5l1.5 1.5M5.5 18.5l1.5-1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span>Terminal</span>
+        <img :src="textModeIcon" alt="" class="output-panel__tab-icon" />
+        <span>Text</span>
       </button>
       <button
         class="output-panel__tab"
         :class="{ 'active': activeTab === 'terminal' }"
         @click="$emit('set-tab', 'terminal')"
       >
-        <img :src="textModeIcon" alt="" class="output-panel__tab-icon" />
-        <span>Text</span>
+        <svg class="output-panel__tab-icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M13 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3 12h2M5.5 5.5l1.5 1.5M5.5 18.5l1.5-1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Terminal</span>
       </button>
       <button
         class="output-panel__tab"

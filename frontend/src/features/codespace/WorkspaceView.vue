@@ -93,6 +93,7 @@ import { useTranslations } from '@/utils/translations'
 import { getGreeting } from '@/shared/utils/formatters'
 import { RUNNER_POLL_INTERVAL, USER_EDIT_DEBOUNCE, USER_EDIT_TIMEOUT, REFRESH_INDICATOR_DURATION, REFRESH_NOTIFICATION_DURATION } from './config/constants'
 import { SUCCESS_DIALOG_DURATION } from './config/constants'
+import { nextTick } from 'vue'
 
 export default {
   name: 'Workspace',
@@ -226,8 +227,82 @@ export default {
       }
     }
 
-    const handleUndo = () => editorRef.value?.undo()
-    const handleRedo = () => editorRef.value?.redo()
+    const handleUndo = async () => {
+      if (!editorRef.value || !currentFile.value) return
+
+      try {
+        const beforeCode = codeContent.value
+
+        editorRef.value.undo()
+
+        await nextTick()
+
+        const afterCode = editorRef.value.getValue
+          ? editorRef.value.getValue()
+          : codeContent.value
+
+        codeContent.value = afterCode
+
+        if (afterCode === beforeCode) return
+
+        await saveCurrentFile(false)
+
+        if (currentFile.value === 'runner.py') {
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+
+          const undoRes = await fetch(`${baseUrl}/api/undo_last`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversation_id: Number(appId.value)
+            })
+          })
+
+          const undoData = await undoRes.json()
+
+          if (!undoRes.ok || !undoData?.success) {
+            throw new Error(undoData?.message || 'Undo failed')
+          }
+
+          const codeRes = await fetch(
+            `${baseUrl}/api/get_runner_code?conversation_id=${Number(appId.value)}`
+          )
+
+          if (!codeRes.ok) {
+            throw new Error('Failed to reload runner after undo')
+          }
+
+          const codeData = await codeRes.json()
+          codeContent.value = codeData?.code || ''
+        }
+
+        showAlertBox('Undo success', 'success')
+      } catch (err) {
+        showAlertBox(err?.message || 'Undo failed', 'error')
+      }
+    }
+
+    const handleRedo = async () => {
+      if (!editorRef.value || !currentFile.value) return
+
+      try {
+        editorRef.value.redo()
+
+        await nextTick()
+
+        const afterCode = editorRef.value.getValue
+          ? editorRef.value.getValue()
+          : codeContent.value
+
+        codeContent.value = afterCode
+
+        await saveCurrentFile(false)
+
+        showAlertBox('Redo success', 'success')
+      } catch (err) {
+        showAlertBox(err?.message || 'Redo failed', 'error')
+      }
+    }
 
     const handleRun = async () => {
       await runCode(conversationId.value, activeTab.value === 'terminal')

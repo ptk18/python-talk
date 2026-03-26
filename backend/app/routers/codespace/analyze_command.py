@@ -1,3 +1,4 @@
+# backend/app/routers/codespace/analyze_command.py
 import ast
 import json
 import threading
@@ -230,7 +231,7 @@ def _try_build_constructor_executable(command: str, class_name: str, init_info: 
     s = " ".join(command.strip().split())
     low = s.lower()
 
-    if not re.search(r"\b(create|make|initialize|init|new|instantiate|build)\b", low):
+    if not re.search(r"\b(create|make|initialize|init|new|instantiate|build|open|start)\b", low):
         return {
             "matched": False,
             "object_name": None,
@@ -239,21 +240,20 @@ def _try_build_constructor_executable(command: str, class_name: str, init_info: 
             "executable": None,
         }
 
-    object_name = _extract_object_name(s)
-    if not object_name:
-        return {
-            "matched": True,
-            "object_name": None,
-            "args": {},
-            "missing": ["object_name"],
-            "executable": None,
-        }
-
     params = init_info.get("params", [])
     required = init_info.get("required", [])
 
+    object_name = _extract_object_name(s)
     bound_args = _extract_constructor_args(s, params, object_name)
-    missing = [p for p in required if p not in bound_args]
+
+    missing = []
+
+    if not object_name:
+        missing.append("object_name")
+
+    for p in required:
+        if p not in bound_args:
+            missing.append(p)
 
     if missing:
         return {
@@ -273,7 +273,8 @@ def _try_build_constructor_executable(command: str, class_name: str, init_info: 
         "missing": [],
         "executable": executable,
     }
-    
+
+   
 # ============================================================
 # Cache
 # ============================================================
@@ -813,12 +814,12 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             bound_args = constructor_result.get("args", {})
             exe = constructor_result.get("executable")
 
-            # missing object variable name
+            # missing object variable name (and maybe other constructor params too)
             if "object_name" in missing:
                 state = _load_state(session_dir)
                 state["pending"] = {
                     "method": "__init__",
-                    "missing": ["object_name"],
+                    "missing": missing,
                     "parameters": bound_args,
                     "class_name": class_name,
                 }
@@ -835,10 +836,10 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                     "executable": None,
                     "intent_type": "constructor",
                     "source": "constructor",
-                    "explanation": "Missing object variable name.",
+                    "explanation": f"Missing constructor parameter(s): {missing}",
                     "breakdown": {
                         "init_params": init_info.get("params", []),
-                        "missing": ["object_name"],
+                        "missing": missing,
                     },
                 }
 
@@ -958,6 +959,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         # update pending state
         if r.get("status") == "matched":
             state["pending"] = None
+            _save_state(session_dir, state)
 
             # IMPORTANT: constructor completed through follow-up
             if r.get("method") == "__init__":
@@ -985,8 +987,10 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 "parameters": r.get("parameters", {}) or {},
                 "class_name": meta.get("class_name"),
             }
+            _save_state(session_dir, state)
         else:
             state["pending"] = None
+            _save_state(session_dir, state)
 
         # format result
         if r.get("status") == "matched":
