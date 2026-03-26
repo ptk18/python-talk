@@ -1,3 +1,4 @@
+// frontend/src/features/codespace/composables/useWorkspaceSession.js
 import { ref } from 'vue'
 import { messageAPI, conversationAPI, executeAPI, analyzeAPI } from '@py-talk/shared'
 
@@ -27,12 +28,17 @@ export function useWorkspaceSession() {
     if (!conversationId) return
     try {
       const msgs = await messageAPI.getByConversation(parseInt(conversationId))
+      console.log('[fetchMessages] conversationId =', conversationId)
+      console.log('[fetchMessages] msgs =', msgs)
+
       messages.value = msgs.map(msg => {
         const existing = messages.value.find(m => m.id === msg.id)
         return existing
           ? { ...msg, interpretedCommand: existing.interpretedCommand, paraphrases: existing.paraphrases }
           : msg
       })
+
+      console.log('[fetchMessages] messages.value =', messages.value)
     } catch (err) {
       console.error('Failed to fetch messages:', err)
     }
@@ -73,6 +79,19 @@ export function useWorkspaceSession() {
     messages.value = newMessages
   }
 
+  const saveMessage = async (conversationId, sender, content) => {
+    if (!conversationId || !content?.trim()) return null
+
+    try {
+      const saved = await messageAPI.create(parseInt(conversationId), sender, content.trim())
+      messages.value = [...messages.value, saved]
+      return saved
+    } catch (err) {
+      console.error('Failed to save message:', err)
+      throw err
+    }
+  }
+
   return {
     messages,
     availableMethods,
@@ -83,6 +102,7 @@ export function useWorkspaceSession() {
     fetchMessages,
     fetchAvailableMethods,
     fetchAppDetails,
-    updateMessages
+    updateMessages,
+    saveMessage
   }
 }

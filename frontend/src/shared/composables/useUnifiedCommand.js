@@ -60,8 +60,13 @@ export function useUnifiedCommand() {
 
       // 2) In workspace mode, save user message to chat history
       if (mode === 'codespace') {
-        await messageAPI.create(parseInt(conversationId), 'user', text)
+        console.log('[MSG] saving user:', conversationId, text)
+        const savedUser = await messageAPI.create(parseInt(conversationId), 'user', text)
+        console.log('[MSG] saved user result:', savedUser)
+
         const currentMsgs = await messageAPI.getByConversation(parseInt(conversationId))
+        console.log('[MSG] fetched after user save:', currentMsgs)
+
         if (onMessagesUpdate) onMessagesUpdate(currentMsgs)
       }
 
@@ -105,8 +110,14 @@ export function useUnifiedCommand() {
         }
 
         const summary = summaryLines.length > 0 ? summaryLines.join('\n') : 'No matching commands found'
-        await messageAPI.create(parseInt(conversationId), 'system', summary)
+        console.log('[MSG] saving system:', conversationId, summary)
+
+        const savedSystem = await messageAPI.create(parseInt(conversationId), 'system', summary)
+        console.log('[MSG] saved system result:', savedSystem)
+
         const msgs = await messageAPI.getByConversation(parseInt(conversationId))
+        console.log('[MSG] fetched after system save:', msgs)
+
         if (onMessagesUpdate) onMessagesUpdate(msgs)
       }
 

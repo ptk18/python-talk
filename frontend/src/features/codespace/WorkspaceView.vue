@@ -39,7 +39,7 @@
       <EnhancedOutputPanel
         :output="output"
         :stream-frame="streamFrame"
-        :command-history="commandHistory"
+        :command-history="displayHistory"
         :active-tab="activeTab"
         :terminal-placeholder="t.workspace.outputWillAppear"
         :graphic-label="t.workspace.turtleGraphicsStream"
@@ -142,6 +142,19 @@ export default {
     const { output, isRunning, handleRun: runCode, clearOutput } = useCodeExecution()
     const { commandHistory, isProcessingCommand, parserDebug, processCommand, clearHistory } = useUnifiedCommand()
     const { streamFrame, connectStream, disconnectStream } = useTurtleStream()
+
+    const displayHistory = computed(() =>
+      (messages.value || []).map(msg => ({
+        id: msg.id,
+        text: msg.content || '',
+        translatedText: '',
+        timestamp: msg.timestamp,
+        status: msg.sender === 'system' ? 'success' : 'info',
+        sender: msg.sender,
+        executables: [],
+        error: null
+      }))
+    )
 
     const handleMicClick = () => {
       micClick((transcribedText) => {
@@ -488,6 +501,7 @@ export default {
       streamFrame,
       commandHistory,
       parserDebug,
+      displayHistory,
       handleSend,
       handleSave,
       handleUndo,
