@@ -92,6 +92,7 @@ export default {
     ParserDebugPanel
   },
   setup() {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
     const route = useRoute()
     const { language } = useLanguage()
     const { ttsEnabled } = useTTS()
@@ -103,6 +104,21 @@ export default {
       processCommand,
       clearHistory
     } = useUnifiedCommand()
+
+    const fullRestartAndReplay = async () => {
+      try {
+        await killPiTurtleSession(appId.value)
+      } catch (err) {
+        console.warn('[Turtle] kill before replay failed:', err)
+      }
+
+      await startPiTurtleSession(appId.value)
+      await sleep(300)
+      await replayWholeRunnerToPi()
+
+      // trigger one fresh burst after replay finishes
+      await refreshPiTurtleSession(appId.value)
+    }
 
     const streamSocket = ref(null)
     const streamFrame = ref(null)
@@ -199,11 +215,12 @@ export default {
       return await res.json()
     }
 
-    const sendPiTurtleCommand = async (appId, command) => {
+    const sendPiTurtleCommand = async (appId, command, replay = false) => {
       if (!appId || !command) return null
 
       const url = new URL(`${PI_API_BASE_URL}/turtle_command/${appId}`)
       url.searchParams.set('command', command)
+      if (replay) url.searchParams.set('replay', 'true')
 
       const res = await fetch(url.toString(), {
         method: 'POST'
@@ -214,7 +231,13 @@ export default {
         throw new Error(`Failed to send turtle command: ${errText}`)
       }
 
-      return await res.json()
+        const data = await res.json()
+
+        // frontend workaround: ask Pi to burst stream again
+        await sleep(250)
+        await refreshPiTurtleSession(appId)
+
+        return data
     }
 
     const refreshPiTurtleSession = async (appId) => {
@@ -352,8 +375,10 @@ export default {
 
     const replayWholeRunnerToPi = async () => {
       const lines = extractExecutableLines(codeContent.value)
+
       for (const line of lines) {
-        await sendPiTurtleCommand(appId.value, line)
+        await sendPiTurtleCommand(appId.value, line, true)
+        await sleep(180)
       }
     }
 
@@ -389,9 +414,7 @@ export default {
         codeContent.value = codeData?.code || 'import turtle\n\n'
 
         await saveAppData(codeContent.value)
-
-        await startPiTurtleSession(appId.value)
-        await replayWholeRunnerToPi()
+        await fullRestartAndReplay()
 
         showAlertBox('Undo success', 'success')
         voiceService.speak('Undo')
@@ -410,9 +433,7 @@ export default {
 
       try {
         await saveAppData(codeContent.value)
-
-        await startPiTurtleSession(appId.value)
-        await replayWholeRunnerToPi()
+        await fullRestartAndReplay()
 
         showAlertBox('Code executed', 'success')
         voiceService.speak('Running turtle code')
@@ -462,6 +483,7 @@ export default {
             await replayWholeRunnerToPi()
           } else {
             await sendPiTurtleCommand(appId.value, cmd)
+            await sleep(180)
           }
 
           return
@@ -593,9 +615,7 @@ export default {
         codeContent.value = codeData?.code || 'import turtle\n\n'
 
         await saveAppData(codeContent.value)
-
-        await startPiTurtleSession(appId.value)
-        await replayWholeRunnerToPi()
+        await fullRestartAndReplay()
 
         textOutput.value = ''
         clearHistory()
@@ -651,8 +671,7 @@ export default {
       connectStream(appId.value)
 
       try {
-        await startPiTurtleSession(appId.value)
-        await replayWholeRunnerToPi()
+        await fullRestartAndReplay()
       } catch (err) {
         showAlertBox(err?.message || 'Failed to start turtle session', 'error')
       }

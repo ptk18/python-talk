@@ -53,7 +53,7 @@ def _pipe_reader(prefix: str, pipe):
         print(f"{prefix} reader error: {e}", flush=True)
 
 
-async def stream_screen_burst(region, turtle_process, ws_url, cid: int, duration: float = 3.0):
+async def stream_screen_burst(region, turtle_process, ws_url, cid: int, duration: float = 10.0):
     print(f"[STREAM] BURST CID={cid}", flush=True)
     print(f"[STREAM] Connecting to {ws_url}", flush=True)
 
@@ -120,7 +120,7 @@ def start_stream_burst(cid: int, proc):
         old_task.cancel()
 
     STREAM_TASKS[cid] = asyncio.create_task(
-        stream_screen_burst(region, proc, ws_url, cid, duration=3.0)
+        stream_screen_burst(region, proc, ws_url, cid, duration=10.0)
     )
 
 
@@ -229,10 +229,10 @@ async def start_turtle(cid: int):
 
 
 @app.post("/turtle_command/{cid}")
-async def turtle_command(cid: int, command: str):
+async def turtle_command(cid: int, command: str, replay: bool = False):
     proc = TURTLE_PROCESSES.get(cid)
     if not proc:
-        return {"status": "not_running", "conversation_id": cid}
+        raise HTTPException(404, "Turtle not running")
 
     if proc.poll() is not None:
         TURTLE_PROCESSES.pop(cid, None)
@@ -247,18 +247,23 @@ async def turtle_command(cid: int, command: str):
         return {"status": "ignored", "reason": "comment_or_empty"}
 
     try:
-        print(f"[API] Sending command to CID={cid}: {clean_line}", flush=True)
+        print(f"[API] Sending command to CID={cid}: {clean_line} replay={replay}", flush=True)
         proc.stdin.write(clean_line + "\n")
         proc.stdin.flush()
 
-        # stream again for 3 sec after executing the new line
-        start_stream_burst(cid, proc)
+        # only restart burst for normal single commands
+        # replay mode sends many lines, so don't keep cancelling burst every line
+        if not replay:
+            start_stream_burst(cid, proc)
 
     except Exception as e:
         raise HTTPException(500, f"Failed to send command: {e}")
 
-    return {"status": "sent", "command": clean_line}
-
+    return {
+        "status": "sent",
+        "command": clean_line,
+        "replay": replay,
+    }
 
 @app.post("/kill/{cid}")
 def kill_turtle(cid: int):

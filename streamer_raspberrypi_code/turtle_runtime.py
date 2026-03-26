@@ -8,13 +8,13 @@ screen.screensize(700, 700)
 # screen.tracer(0, 0)
 
 # default turtle
-t1 = turtle.Turtle()
+# t1 = turtle.Turtle()
 
 exec_globals = {
     "__name__": "__main__",
     "turtle": turtle,
     "screen": screen,
-    "t1": t1,
+    # "t1": t1,
 }
 
 print("[RUNTIME] Ready", flush=True)
