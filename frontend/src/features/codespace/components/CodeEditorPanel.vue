@@ -36,14 +36,14 @@
           <img :src="undoIcon" alt="Undo" class="editor-panel__icon" />
         </button>
 
-        <button
+        <!-- <button
           class="editor-panel__icon-btn"
           @click="$emit('redo')"
           aria-label="Redo"
           title="Redo (Ctrl+Y)"
         >
           <img :src="redoIcon" alt="Redo" class="editor-panel__icon" />
-        </button>
+        </button> -->
 
         <button
           class="editor-panel__icon-btn"

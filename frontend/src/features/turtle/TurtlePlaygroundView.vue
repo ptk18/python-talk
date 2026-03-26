@@ -13,7 +13,7 @@
         :show-file-info="false"
         @save="handleSave"
         @undo="handleUndo"
-        @redo="handleRedo"
+
         @run="handleRunCode"
         @change="handleCodeUpdate"
       />
@@ -27,7 +27,7 @@
       <EnhancedOutputPanel
         :output="textOutput"
         :stream-frame="streamFrame"
-        :command-history="commandHistory"
+        :command-history="displayHistory"
         :active-tab="activeTab"
         graphic-label="Turtle Graphics Stream"
         :graphic-placeholder="'Waiting for turtle stream...'"
@@ -74,7 +74,7 @@ import EnhancedOutputPanel from '@/shared/components/EnhancedOutputPanel.vue'
 import CommandInput from '@/shared/components/CommandInput.vue'
 import StatusBar from '@/features/codespace/components/StatusBar.vue'
 import ParserDebugPanel from '@/shared/components/ParserDebugPanel.vue'
-import { useLanguage, useTTS, voiceService, executeAPI } from '@py-talk/shared'
+import { useLanguage, useTTS, voiceService, executeAPI, messageAPI, conversationAPI } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
 import { useUnifiedCommand } from '@/shared/composables/useUnifiedCommand'
 
@@ -92,6 +92,10 @@ export default {
     ParserDebugPanel
   },
   setup() {
+    const messages = ref([])
+    const availableMethods = ref(null)
+    const appName = ref('Turtle Playground')
+    const appIcon = ref(null)
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
     const route = useRoute()
     const { language } = useLanguage()
@@ -104,6 +108,66 @@ export default {
       processCommand,
       clearHistory
     } = useUnifiedCommand()
+
+    const fetchMessages = async (conversationId) => {
+      if (!conversationId) return
+      try {
+        const msgs = await messageAPI.getByConversation(parseInt(conversationId))
+        messages.value = msgs
+        console.log('messages', messages.value)
+        console.log('displayHistory', displayHistory.value)
+      } catch (err) {
+        console.error('Failed to fetch messages:', err)
+      }
+    }
+
+    const fetchAvailableMethods = async (conversationId) => {
+      if (!conversationId) return
+      try {
+        const methods = await conversationAPI.getAvailableMethods(parseInt(conversationId))
+        availableMethods.value = methods
+      } catch (err) {
+        console.error('Failed to fetch available methods:', err)
+      }
+    }
+
+    const fetchAppDetails = async (conversationId) => {
+      if (!conversationId) return
+      try {
+        const appDetails = await conversationAPI.getSingleConversation(parseInt(conversationId))
+        if (appDetails) {
+          appName.value = appDetails.title || 'Turtle Playground'
+          appIcon.value = appDetails.app_image || null
+        }
+      } catch (err) {
+        console.error('Failed to fetch app details:', err)
+      }
+    }
+
+    const initializeSession = async (conversationId) => {
+      if (!conversationId) return
+      try {
+        await executeAPI.ensureSessionInitialized(parseInt(conversationId))
+        await fetchMessages(conversationId)
+        await fetchAvailableMethods(conversationId)
+        await fetchAppDetails(conversationId)
+      } catch (err) {
+        console.error('Failed to initialize session:', err)
+      }
+    }
+
+    const displayHistory = computed(() =>
+      (messages.value || []).map(msg => ({
+        id: msg.id,
+        text: msg.content || '',
+        translatedText: '',
+        timestamp: msg.timestamp,
+        status: msg.sender === 'system' ? 'success' : 'info',
+        sender: msg.sender,
+        executables: [],
+        error: null
+      }))
+    )
 
     const fullRestartAndReplay = async () => {
       try {
@@ -271,8 +335,6 @@ export default {
     }
 
     const appId = computed(() => route.params.appId)
-    const appName = ref('')
-    const appIcon = ref(null)
 
     const editorRef = ref(null)
     const codeContent = ref('import turtle\n\n')
@@ -415,6 +477,7 @@ export default {
 
         await saveAppData(codeContent.value)
         await fullRestartAndReplay()
+        await fetchMessages(appId.value)
 
         showAlertBox('Undo success', 'success')
         voiceService.speak('Undo')
@@ -434,6 +497,7 @@ export default {
       try {
         await saveAppData(codeContent.value)
         await fullRestartAndReplay()
+        await fetchMessages(appId.value)
 
         showAlertBox('Code executed', 'success')
         voiceService.speak('Running turtle code')
@@ -486,6 +550,7 @@ export default {
             await sleep(180)
           }
 
+          await fetchMessages(appId.value)
           return
         }
 
@@ -521,8 +586,11 @@ export default {
           } else {
             for (const line of codeLines) {
               await sendPiTurtleCommand(appId.value, line)
+              await sleep(180)
             }
           }
+
+          await fetchMessages(appId.value)
         } else {
           showAlertBox(res?.error || 'Command failed', 'error')
         }
@@ -616,6 +684,7 @@ export default {
 
         await saveAppData(codeContent.value)
         await fullRestartAndReplay()
+        await fetchMessages(appId.value)
 
         textOutput.value = ''
         clearHistory()
@@ -667,6 +736,7 @@ export default {
         return
       }
 
+      await initializeSession(appId.value)
       await loadAppData()
       connectStream(appId.value)
 
@@ -724,6 +794,11 @@ export default {
       showAlert,
       alertMessage,
       alertType,
+      messages,
+      availableMethods,
+      displayHistory,
+      fetchMessages,
+      initializeSession,
       handleCodeUpdate,
       handleSave,
       handleInsertMethod,

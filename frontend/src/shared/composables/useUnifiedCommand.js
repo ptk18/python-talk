@@ -59,7 +59,7 @@ export function useUnifiedCommand() {
       }
 
       // 2) In workspace mode, save user message to chat history
-      if (mode === 'codespace') {
+      if (mode === 'codespace' || mode === 'turtle') {
         console.log('[MSG] saving user:', conversationId, text)
         const savedUser = await messageAPI.create(parseInt(conversationId), 'user', text)
         console.log('[MSG] saved user result:', savedUser)
@@ -98,7 +98,7 @@ export function useUnifiedCommand() {
       const executables = matched.map(r => r.executable)
 
       // 4) Build summary for workspace message history
-      if (mode === 'codespace') {
+      if (mode === 'codespace' || mode === 'turtle') {
         const summaryLines = []
         for (const r of matched) summaryLines.push(r.executable)
         for (const r of suggestions) {
