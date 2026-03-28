@@ -562,7 +562,10 @@ export default {
           return
         }
 
-        const res = await processCommand(appId.value, cmd, language.value, { mode: 'turtle' })
+        const res = await processCommand(appId.value, cmd, language.value, {
+          mode: 'turtle',
+          onMessagesUpdate: (msgs) => { messages.value = msgs }
+        })
 
         if (res?.success) {
           const codeLines = Array.isArray(res.executables)
