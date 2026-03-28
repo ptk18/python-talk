@@ -5,24 +5,29 @@
       <span class="toolbar-title">AgentTalk</span>
     </div>
     <div class="toolbar-right">
-      <!-- Language Flags -->
-      <div class="lang-flags">
-        <button
-          class="flag-btn"
-          :class="{ active: language === 'en' }"
-          @click="selectLanguage('en')"
-          title="English"
-        >
-          <span class="flag-emoji">🇺🇸</span>
+      <!-- Language Switcher -->
+      <div class="lang-switcher" ref="langSwitcher">
+        <button class="lang-active-btn" @click="toggleDropdown">
+          <span class="lang-label">{{ language === 'en' ? 'ENG' : 'THAI' }}</span>
         </button>
-        <button
-          class="flag-btn"
-          :class="{ active: language === 'th' }"
-          @click="selectLanguage('th')"
-          title="ไทย"
-        >
-          <span class="flag-emoji">🇹🇭</span>
-        </button>
+        <div v-if="dropdownOpen" class="lang-dropdown">
+          <button
+            class="lang-option"
+            :class="{ selected: language === 'en' }"
+            @click="selectLanguage('en')"
+          >
+            <span class="lang-option-code">ENG</span>
+            <span class="lang-option-name">English</span>
+          </button>
+          <button
+            class="lang-option"
+            :class="{ selected: language === 'th' }"
+            @click="selectLanguage('th')"
+          >
+            <span class="lang-option-code">THAI</span>
+            <span class="lang-option-name">ไทย</span>
+          </button>
+        </div>
       </div>
 
       <!-- Sound Toggle -->
@@ -34,6 +39,7 @@
 </template>
 
 <script>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLanguage, useTTS } from '@py-talk/shared'
 import appIcon from '@/assets/app-icon.svg'
@@ -46,18 +52,39 @@ export default {
     const router = useRouter()
     const { language, setLanguage } = useLanguage()
     const { ttsEnabled, setTTSEnabled } = useTTS()
+    const dropdownOpen = ref(false)
+    const langSwitcher = ref(null)
 
     const goToHome = () => {
       router.push('/')
     }
 
+    const toggleDropdown = () => {
+      dropdownOpen.value = !dropdownOpen.value
+    }
+
     const selectLanguage = (lang) => {
       setLanguage(lang)
+      dropdownOpen.value = false
     }
 
     const toggleTTS = () => {
       setTTSEnabled(!ttsEnabled.value)
     }
+
+    const handleClickOutside = (e) => {
+      if (langSwitcher.value && !langSwitcher.value.contains(e.target)) {
+        dropdownOpen.value = false
+      }
+    }
+
+    onMounted(() => {
+      document.addEventListener('click', handleClickOutside)
+    })
+
+    onBeforeUnmount(() => {
+      document.removeEventListener('click', handleClickOutside)
+    })
 
     return {
       appIcon,
@@ -65,7 +92,10 @@ export default {
       nosoundIcon,
       language,
       ttsEnabled,
+      dropdownOpen,
+      langSwitcher,
       goToHome,
+      toggleDropdown,
       selectLanguage,
       toggleTTS
     }
@@ -145,42 +175,76 @@ export default {
   filter: brightness(0) invert(1);
 }
 
-/* Language Flags */
-.lang-flags {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+/* Language Switcher */
+.lang-switcher {
+  position: relative;
 }
 
-.flag-btn {
-  width: 34px;
+.lang-active-btn {
   height: 34px;
+  padding: 0 10px;
   border: none;
   border-radius: 6px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.2s ease;
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 0;
-  opacity: 0.45;
 }
 
-.flag-btn.active {
-  opacity: 1;
+.lang-active-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
-.flag-btn:hover {
-  opacity: 0.85;
-}
-
-.flag-btn.active:hover {
-  opacity: 1;
-}
-
-.flag-emoji {
-  font-size: 22px;
+.lang-label {
   line-height: 1;
+}
+
+.lang-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  min-width: 160px;
+  z-index: 100;
+}
+
+.lang-option {
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.15s ease;
+}
+
+.lang-option:hover {
+  background: #f0f0f0;
+}
+
+.lang-option.selected {
+  background: #e8f0fe;
+}
+
+.lang-option-code {
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+  min-width: 38px;
+}
+
+.lang-option-name {
+  font-size: 13px;
+  color: #555;
 }
 </style>
