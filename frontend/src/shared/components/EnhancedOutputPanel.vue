@@ -44,8 +44,15 @@
               class="output-panel__history-entry"
             >
               <div class="output-panel__history-line">
-                <span :class="['output-panel__history-prompt', `output-panel__history-prompt--${entry.status}`]">&gt;&gt;&gt;</span>
-                <span class="output-panel__history-text">{{ entry.text }}</span>
+                <span class="output-panel__history-prompt">
+                  <!-- Error icon for error system messages -->
+                  <svg v-if="entry.sender === 'system' && isErrorMessage(entry.text)" class="prompt-icon prompt-icon--error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                  <!-- Python icon for system/interpreted commands -->
+                  <svg v-else-if="entry.sender === 'system'" class="prompt-icon prompt-icon--python" viewBox="0 0 24 24"><path d="M9.585 11.692h4.328s2.432.039 2.432-2.35V5.391S16.714 3 11.936 3C7.362 3 7.647 4.983 7.647 4.983l.006 2.055h4.363v.617H5.92S3 7.283 3 11.75s2.532 4.303 2.532 4.303h1.51v-2.07s-.082-2.53 2.49-2.53l.053.24zm-.29-4.09a.81.81 0 1 1 .001-1.622.81.81 0 0 1 0 1.621z" fill="#3776AB"/><path d="M14.415 12.308h-4.328s-2.432-.039-2.432 2.35v3.951S7.286 21 12.064 21c4.574 0 4.289-1.983 4.289-1.983l-.006-2.055h-4.363v-.617h6.096S21 16.717 21 12.25s-2.532-4.303-2.532-4.303h-1.51v2.07s.082 2.53-2.49 2.53l-.053-.24zm.29 4.09a.81.81 0 1 1-.001 1.622.81.81 0 0 1 0-1.621z" fill="#FFD43B"/></svg>
+                  <!-- Human icon for user commands -->
+                  <svg v-else class="prompt-icon prompt-icon--user" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                </span>
+                <span :class="entry.sender === 'system' && isErrorMessage(entry.text) ? 'output-panel__history-error' : (entry.sender === 'system' ? 'output-panel__history-exec' : 'output-panel__history-text')">{{ entry.text }}</span>
                 <span class="output-panel__history-time">{{ formatTime(entry.timestamp) }}</span>
               </div>
               <div v-if="entry.translatedText" class="output-panel__history-line">
@@ -53,11 +60,15 @@
                 <span class="output-panel__history-translated">{{ entry.translatedText }}</span>
               </div>
               <div v-if="entry.executables && entry.executables.length" v-for="(exec, i) in entry.executables" :key="i" class="output-panel__history-line">
-                <span :class="['output-panel__history-prompt', `output-panel__history-prompt--${entry.status}`]">&gt;&gt;&gt;</span>
+                <span class="output-panel__history-prompt">
+                  <svg v-if="i === 0" class="prompt-icon prompt-icon--python" viewBox="0 0 24 24"><path d="M9.585 11.692h4.328s2.432.039 2.432-2.35V5.391S16.714 3 11.936 3C7.362 3 7.647 4.983 7.647 4.983l.006 2.055h4.363v.617H5.92S3 7.283 3 11.75s2.532 4.303 2.532 4.303h1.51v-2.07s-.082-2.53 2.49-2.53l.053.24zm-.29-4.09a.81.81 0 1 1 .001-1.622.81.81 0 0 1 0 1.621z" fill="#3776AB"/><path d="M14.415 12.308h-4.328s-2.432-.039-2.432 2.35v3.951S7.286 21 12.064 21c4.574 0 4.289-1.983 4.289-1.983l-.006-2.055h-4.363v-.617h6.096S21 16.717 21 12.25s-2.532-4.303-2.532-4.303h-1.51v2.07s.082 2.53-2.49 2.53l-.053-.24zm.29 4.09a.81.81 0 1 1-.001 1.622.81.81 0 0 1 0-1.621z" fill="#FFD43B"/></svg>
+                </span>
                 <code class="output-panel__history-exec">{{ exec }}</code>
               </div>
               <div v-if="entry.error && entry.status !== 'success'" class="output-panel__history-line">
-                <span class="output-panel__history-prompt output-panel__history-prompt--error">&gt;&gt;&gt;</span>
+                <span class="output-panel__history-prompt">
+                  <svg class="prompt-icon prompt-icon--error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                </span>
                 <span class="output-panel__history-error">{{ entry.error }}</span>
               </div>
             </div>
@@ -145,6 +156,12 @@ export default {
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     }
 
+    const isErrorMessage = (text) => {
+      if (!text) return false
+      const lower = text.toLowerCase()
+      return lower.startsWith('could not understand') || lower.startsWith('error') || lower.startsWith('failed')
+    }
+
     watch(() => props.commandHistory.length, () => {
       nextTick(() => {
         if (historyRef.value) {
@@ -158,7 +175,8 @@ export default {
       graphicModeIcon,
       orderedHistory,
       historyRef,
-      formatTime
+      formatTime,
+      isErrorMessage
     }
   }
 }
@@ -360,23 +378,28 @@ export default {
 .output-panel__history-prompt {
   width: 48px;
   flex-shrink: 0;
-  text-align: right;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   padding: 0 6px 0 8px;
   font-weight: 700;
   font-size: 14px;
   font-family: 'Consolas', 'Menlo', 'Monaco', 'Courier New', monospace;
 }
 
-.output-panel__history-prompt--success {
-  color: #4caf50;
+.prompt-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 3px;
 }
 
-.output-panel__history-prompt--error {
+.prompt-icon--user {
+  color: #ccc;
+}
+
+.prompt-icon--error {
   color: #f44336;
-}
-
-.output-panel__history-prompt--suggestion {
-  color: #ff9800;
 }
 
 .output-panel__history-prompt--sub {
@@ -406,14 +429,16 @@ export default {
 
 .output-panel__history-exec {
   font-size: 14px;
-  color: #9cdcfe;
-  padding: 0 8px;
+  color: #4caf50;
+  padding: 0 12px;
+  flex: 1;
 }
 
 .output-panel__history-error {
   font-size: 14px;
   color: #f44336;
-  padding: 0 8px;
+  padding: 0 12px;
+  flex: 1;
 }
 
 /* Scrollbar */
