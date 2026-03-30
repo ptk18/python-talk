@@ -58,15 +58,20 @@ def _target_turtle_executable(executable: str, active: str | None) -> str:
     Return a final python line for turtle playground:
       - assignment stays raw: t1 = turtle.Turtle()
       - already-targeted stays (t1.forward(...))
-      - BUT if it is targeted to "t." then rewrite to active (t1.)
-      - if plain call forward(...), prefix active -> t1.forward(...)
+      - if targeted to "t." rewrite to active
+      - screen-level turtle calls stay global: bgcolor(...), title(...), ...
+      - plain turtle movement/drawing calls prefix active -> t1.forward(...)
     """
     s = (executable or "").strip()
     if not s:
         return s
 
-    # assignment stays raw: t1 = turtle.Turtle()
+    # assignment stays raw
     if re.match(r"^[A-Za-z_]\w*\s*=", s):
+        return s
+
+    # screen-level call stays global
+    if _is_turtle_screen_method_call(s):
         return s
 
     # already targeted: X.something(...)
@@ -74,16 +79,41 @@ def _target_turtle_executable(executable: str, active: str | None) -> str:
     if m:
         target = m.group(1)
         rest = m.group(2)
-        # IMPORTANT FIX: if backend/frontend produced "t.xxx(...)" rewrite to active turtle
+
         if target == "t" and active:
             return f"{active}.{rest}"
         return s
 
-    # prefix with active if we have it
+    # plain call like forward(...), write(...), color(...)
     if active:
         return f"{active}.{s}"
 
     return s
+
+def _is_turtle_screen_method_call(executable: str) -> bool:
+    """
+    These are turtle-module / screen-level calls in turtle mode.
+    They should NOT be prefixed with active turtle object.
+    """
+    s = (executable or "").strip()
+    if not s:
+        return False
+
+    screen_methods = {
+        "bgcolor",
+        "title",
+        "setup",
+        "screensize",
+        "clearscreen",
+        "resetscreen",
+    }
+
+    m = re.match(r"^([A-Za-z_]\w*)\s*\(", s)
+    if not m:
+        return False
+
+    method_name = m.group(1)
+    return method_name in screen_methods
 
 def _extract_init_info(module_path: Path, class_name: str) -> Dict[str, Any]:
     """
@@ -420,6 +450,35 @@ def _pop_last_undo_snapshot(session_dir: Path) -> dict | None:
 # ============================================================
 # Runner (session runner)
 # ============================================================
+def _is_value_returning_turtle_call(executable: str) -> bool:
+    s = (executable or "").strip()
+    if not s:
+        return False
+
+    value_methods = {
+        "heading",
+        "position",
+        "pos",
+        "xcor",
+        "ycor",
+        "isdown",
+        "isvisible",
+        "distance",
+        "towards",
+    }
+
+    # targeted call: t1.heading(...)
+    m1 = re.match(r"^[A-Za-z_]\w*\.(\w+)\s*\(", s)
+    if m1 and m1.group(1) in value_methods:
+        return True
+
+    # plain call: heading(...)
+    m2 = re.match(r"^(\w+)\s*\(", s)
+    if m2 and m2.group(1) in value_methods:
+        return True
+
+    return False
+
 def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str) -> Path:
     session_dir.mkdir(parents=True, exist_ok=True)
     runner_path = session_dir / "runner.py"
@@ -465,14 +524,26 @@ def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, com
             f.write(f"{line}\n")
             return
 
-        # already targeted like acc1.deposit(...) or t1.forward(...)
-        if re.match(r"^[A-Za-z_]\w*\.", line):
+        # screen-level turtle call stays global
+        if _is_turtle_screen_method_call(line):
             f.write(f"{line}\n")
             return
 
-        # plain call like deposit(amount=100) -> prefix active object
+        # already targeted like acc1.deposit(...) or t1.forward(...)
+        if re.match(r"^[A-Za-z_]\w*\.", line):
+            if _is_value_returning_turtle_call(line):
+                f.write(f"print({line})\n")
+            else:
+                f.write(f"{line}\n")
+            return
+
+        # plain call like write(...), forward(...), color(...)
         if active:
-            f.write(f"{active}.{line}\n")
+            final_line = f"{active}.{line}"
+            if _is_value_returning_turtle_call(final_line):
+                f.write(f"print({final_line})\n")
+            else:
+                f.write(f"{final_line}\n")
             return
 
         raise HTTPException(status_code=400, detail="No active object. Create an object first.")

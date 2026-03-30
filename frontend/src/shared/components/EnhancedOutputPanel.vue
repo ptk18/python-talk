@@ -1,3 +1,4 @@
+<!-- frontend/src/shared/components/EnhancedOutputPanel.vue -->
 <template>
   <div class="output-panel">
     <div class="output-panel__tabs">
@@ -31,7 +32,7 @@
       </button>
     </div>
     <div class="output-panel__body">
-      <div class="output-panel__content">
+      <div ref="contentRef" class="output-panel__content">
         <!-- Terminal Tab (Command History — IDLE style) -->
         <div v-if="activeTab === 'history'" ref="historyRef" class="output-panel__history">
           <div v-if="commandHistory.length === 0" class="output-panel__history-empty">
@@ -102,7 +103,7 @@
 </template>
 
 <script>
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onMounted } from 'vue'
 import textModeIcon from '@/assets/R-textmode.svg'
 import graphicModeIcon from '@/assets/R-graphicmode.svg'
 
@@ -145,6 +146,7 @@ export default {
   emits: ['set-tab'],
   setup(props) {
     const historyRef = ref(null)
+    const contentRef = ref(null)
 
     const orderedHistory = computed(() => {
       return [...props.commandHistory]
@@ -153,13 +155,24 @@ export default {
     const formatTime = (timestamp) => {
       if (!timestamp) return ''
       const d = new Date(timestamp)
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      return d.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
     }
 
-    const isErrorMessage = (text) => {
-      if (!text) return false
-      const lower = text.toLowerCase()
-      return lower.startsWith('could not understand') || lower.startsWith('error') || lower.startsWith('failed')
+    const scrollHistoryToBottom = async () => {
+      await nextTick()
+      if (historyRef.value) {
+        historyRef.value.scrollTop = historyRef.value.scrollHeight
+      }
+    }
+
+    const isErrorMessage = (entry) => {
+      if (!entry) return false
+      const text = typeof entry === 'string' ? entry : (entry.text || entry.command || '')
+      return /error|failed|exception/i.test(text)
     }
 
     watch(() => props.commandHistory.length, () => {
@@ -170,12 +183,20 @@ export default {
       })
     })
 
+    onMounted(async () => {
+      if (props.activeTab === 'history') {
+        await scrollHistoryToBottom()
+      }
+    })
+
     return {
       textModeIcon,
       graphicModeIcon,
       orderedHistory,
       historyRef,
+      contentRef,
       formatTime,
+      scrollHistoryToBottom,
       isErrorMessage
     }
   }
@@ -256,7 +277,7 @@ export default {
 
 .output-panel__content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   background: #1e1e1e;
   color: #d4d4d4;
   font-family: 'Consolas', 'Menlo', 'Monaco', 'Courier New', monospace;
@@ -334,7 +355,8 @@ export default {
 /* History tab — Python IDLE style with left gutter */
 .output-panel__history {
   position: relative;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
 }
 

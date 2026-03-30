@@ -1,3 +1,4 @@
+<!-- frontend/src/features/codespace/WorkspaceView.vue -->
 <template>
   <UnifiedLayout
     :app-id="conversationId"

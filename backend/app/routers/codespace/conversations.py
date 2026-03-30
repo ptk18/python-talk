@@ -26,12 +26,21 @@ APP_DIR = Path(__file__).resolve().parents[2]  # backend/app
 print("APP_DIR ", APP_DIR)
 TURTLE_DOMAIN_PATH = APP_DIR / "domains" / "turtle_app.py"
 
+# backend/app/domains/smart_home_group.py
+APP_DIR = Path(__file__).resolve().parents[2]  # backend/app
+print("APP_DIR ", APP_DIR)
+SMARTHOME_DOMAIN_PATH = APP_DIR / "domains" / "smart_home_group.py"
+
 
 def load_turtle_domain_code() -> str:
     if not TURTLE_DOMAIN_PATH.exists():
         raise FileNotFoundError(f"Turtle domain file not found at {TURTLE_DOMAIN_PATH}")
     return TURTLE_DOMAIN_PATH.read_text(encoding="utf-8")
 
+def load_smarthome_domain_code() -> str:
+    if not SMARTHOME_DOMAIN_PATH.exists():
+        raise FileNotFoundError(f"Turtle domain file not found at {SMARTHOME_DOMAIN_PATH}")
+    return SMARTHOME_DOMAIN_PATH.read_text(encoding="utf-8")
 
 def initialize_turtle_session(conversation_id: int, domain_code: str):
     session_dir = BASE_EXEC_DIR / f"session_{conversation_id}"

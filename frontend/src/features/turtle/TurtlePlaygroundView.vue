@@ -1,3 +1,4 @@
+<!-- frontend/src/features/turtle/TurtlePlaygroundView.vue -->
 <template>
   <UnifiedLayout
     :app-id="appId"
@@ -96,7 +97,9 @@ export default {
     const availableMethods = ref(null)
     const appName = ref('Turtle Playground')
     const appIcon = ref(null)
+
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
     const route = useRoute()
     const { language } = useLanguage()
     const { ttsEnabled } = useTTS()
@@ -108,6 +111,18 @@ export default {
       processCommand,
       clearHistory
     } = useUnifiedCommand()
+
+    const streamCommandWindow = async (fn) => {
+      disconnectStream()
+      await sleep(100)
+      connectStream(appId.value)
+      await sleep(1000)
+
+      await fn()
+
+      await sleep(4000)
+      disconnectStream()
+    }
 
     const fetchMessages = async (conversationId) => {
       if (!conversationId) return
@@ -177,11 +192,13 @@ export default {
       }
 
       await startPiTurtleSession(appId.value)
-      await sleep(300)
-      await replayWholeRunnerToPi()
 
-      // trigger one fresh burst after replay finishes
-      await refreshPiTurtleSession(appId.value)
+      await streamCommandWindow(async () => {
+        const lines = extractExecutableLines(codeContent.value)
+        for (const line of lines) {
+          await sendPiTurtleCommand(appId.value, line)
+        }
+      })
     }
 
     const streamSocket = ref(null)
@@ -279,12 +296,11 @@ export default {
       return await res.json()
     }
 
-    const sendPiTurtleCommand = async (appId, command, replay = false) => {
+    const sendPiTurtleCommand = async (appId, command) => {
       if (!appId || !command) return null
 
       const url = new URL(`${PI_API_BASE_URL}/turtle_command/${appId}`)
       url.searchParams.set('command', command)
-      if (replay) url.searchParams.set('replay', 'true')
 
       const res = await fetch(url.toString(), {
         method: 'POST'
@@ -295,13 +311,7 @@ export default {
         throw new Error(`Failed to send turtle command: ${errText}`)
       }
 
-        const data = await res.json()
-
-        // frontend workaround: ask Pi to burst stream again
-        await sleep(250)
-        await refreshPiTurtleSession(appId)
-
-        return data
+      return await res.json()
     }
 
     const refreshPiTurtleSession = async (appId) => {
@@ -546,11 +556,11 @@ export default {
           if (startData?.status === 'started') {
             await replayWholeRunnerToPi()
           } else {
-            await sendPiTurtleCommand(appId.value, cmd)
-            await sleep(180)
+            await streamCommandWindow(async () => {
+              await sendPiTurtleCommand(appId.value, cmd)
+            })
           }
 
-          await fetchMessages(appId.value)
           return
         }
 
@@ -573,7 +583,7 @@ export default {
             : []
 
           if (!codeLines.length) {
-            showAlertBox('No executable code generated', 'error')
+            showAlertBox(res?.message || res?.suggestion_message || 'No executable code generated', 'info')
             return
           }
 
@@ -587,18 +597,19 @@ export default {
           if (startData?.status === 'started') {
             await replayWholeRunnerToPi()
           } else {
-            for (const line of codeLines) {
-              await sendPiTurtleCommand(appId.value, line)
-              await sleep(180)
-            }
+            await streamCommandWindow(async () => {
+              for (const line of codeLines) {
+                await sendPiTurtleCommand(appId.value, line)
+              }
+            })
           }
-
-          await fetchMessages(appId.value)
         } else {
-          showAlertBox(res?.error || 'Command failed', 'error')
+          showAlertBox(res?.error || res?.suggestion_message || 'Command failed', 'error')
         }
       } catch (err) {
         showAlertBox(err?.message || 'Command failed', 'error')
+      } finally {
+        await fetchMessages(appId.value)
       }
     }
 

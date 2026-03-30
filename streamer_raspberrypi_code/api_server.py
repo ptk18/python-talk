@@ -38,20 +38,28 @@ os.makedirs(BASE_SESSION_DIR, exist_ok=True)
 WS_PUBLISH_BASE = "wss://161.246.5.67:5050/publish"
 RUNTIME_PATH = "/home/pi/turtle_runtime.py"
 
+DONE_EVENTS = {}
 
 class TurtleCodeRequest(BaseModel):
     files: dict[str, str]
 
 
-def _pipe_reader(prefix: str, pipe):
+def _pipe_reader(prefix: str, pipe, cid: int):
     try:
         for line in iter(pipe.readline, ""):
             if not line:
                 break
-            print(f"{prefix} {line.rstrip()}", flush=True)
+
+            line = line.rstrip()
+            print(f"{prefix} {line}", flush=True)
+
+            if line == "[RUNTIME] OK":
+                evt = DONE_EVENTS.get(cid)
+                if evt:
+                    evt.set()
+
     except Exception as e:
         print(f"{prefix} reader error: {e}", flush=True)
-
 
 async def stream_screen_burst(region, turtle_process, ws_url, cid: int, duration: float = 10.0):
     print(f"[STREAM] BURST CID={cid}", flush=True)
@@ -199,15 +207,17 @@ async def start_turtle(cid: int):
     TURTLE_STDIN[cid] = proc.stdin
     CURRENT_CID = cid
 
+    DONE_EVENTS[cid] = threading.Event()
+
     threading.Thread(
         target=_pipe_reader,
-        args=(f"[RUNTIME STDOUT cid={cid}]", proc.stdout),
+        args=(f"[RUNTIME STDOUT cid={cid}]", proc.stdout, cid),
         daemon=True,
     ).start()
 
     threading.Thread(
         target=_pipe_reader,
-        args=(f"[RUNTIME STDERR cid={cid}]", proc.stderr),
+        args=(f"[RUNTIME STDERR cid={cid}]", proc.stderr, cid),
         daemon=True,
     ).start()
 
@@ -227,9 +237,8 @@ async def start_turtle(cid: int):
         "fresh_runtime": True,
     }
 
-
 @app.post("/turtle_command/{cid}")
-async def turtle_command(cid: int, command: str, replay: bool = False):
+async def turtle_command(cid: int, command: str):
     proc = TURTLE_PROCESSES.get(cid)
     if not proc:
         raise HTTPException(404, "Turtle not running")
@@ -237,9 +246,12 @@ async def turtle_command(cid: int, command: str, replay: bool = False):
     if proc.poll() is not None:
         TURTLE_PROCESSES.pop(cid, None)
         TURTLE_STDIN.pop(cid, None)
+        DONE_EVENTS.pop(cid, None)
+
         old_task = STREAM_TASKS.pop(cid, None)
         if old_task and not old_task.done():
             old_task.cancel()
+
         raise HTTPException(500, "Turtle process already exited")
 
     clean_line = command.strip()
@@ -247,23 +259,39 @@ async def turtle_command(cid: int, command: str, replay: bool = False):
         return {"status": "ignored", "reason": "comment_or_empty"}
 
     try:
-        print(f"[API] Sending command to CID={cid}: {clean_line} replay={replay}", flush=True)
+        evt = DONE_EVENTS.setdefault(cid, threading.Event())
+        evt.clear()
+
+        # 1) start streaming first
+        start_stream_burst(cid, proc)
+
+        # 2) wait a bit so frontend receives stream first
+        await asyncio.sleep(1.0)
+
+        # 3) run turtle command
+        print(f"[API] Sending command to CID={cid}: {clean_line}", flush=True)
         proc.stdin.write(clean_line + "\n")
         proc.stdin.flush()
 
-        # only restart burst for normal single commands
-        # replay mode sends many lines, so don't keep cancelling burst every line
-        if not replay:
-            start_stream_burst(cid, proc)
+        # 4) wait until runtime says command finished
+        done = await asyncio.to_thread(evt.wait, 15.0)
+        if not done:
+            raise HTTPException(504, f"Turtle command timed out: {clean_line}")
 
+        # 5) keep streaming 3 more seconds
+        await asyncio.sleep(3.0)
+
+        # 6) stop publish stream task
+        task = STREAM_TASKS.pop(cid, None)
+        if task and not task.done():
+            task.cancel()
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"Failed to send command: {e}")
 
-    return {
-        "status": "sent",
-        "command": clean_line,
-        "replay": replay,
-    }
+    return {"status": "sent", "command": clean_line}
 
 @app.post("/kill/{cid}")
 def kill_turtle(cid: int):
@@ -287,6 +315,7 @@ def kill_turtle(cid: int):
 
     TURTLE_PROCESSES.pop(cid, None)
     TURTLE_STDIN.pop(cid, None)
+    DONE_EVENTS.pop(cid, None)
 
     task = STREAM_TASKS.pop(cid, None)
     if task and not task.done():
@@ -294,5 +323,6 @@ def kill_turtle(cid: int):
 
     if CURRENT_CID == cid:
         CURRENT_CID = None
+    
 
     return {"status": "killed", "conversation_id": cid}

@@ -19,6 +19,11 @@ exec_globals = {
 
 print("[RUNTIME] Ready", flush=True)
 
+print(f"[RUNTIME] EXEC: {line}", flush=True)
+exec(line, exec_globals, exec_globals)
+screen.update()
+print("[RUNTIME] OK", flush=True)
+
 while True:
     try:
         raw = sys.stdin.readline()

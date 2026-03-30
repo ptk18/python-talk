@@ -75,6 +75,100 @@ def extract_phrases_from_docstring(doc: str) -> List[str]:
 
     return out
 
+def _remove_leading_action_words(words: List[str], action: str) -> List[str]:
+    action_words = action.replace("_", " ").lower().split()
+    i = 0
+    while i < len(words) and i < len(action_words) and words[i] == action_words[i]:
+        i += 1
+    return words[i:]
+
+
+def _trim_string_fillers(words: List[str], param_name: str) -> List[str]:
+    """
+    Remove filler endings like:
+      hello as text  -> hello
+      hello in text  -> hello
+      text hello     -> hello   (if user says 'write text hello')
+    """
+    if not words:
+        return words
+
+    p = param_name.lower()
+
+    # remove leading param-name word: "text hello" -> "hello"
+    if words and words[0] == p:
+        words = words[1:]
+
+    # remove trailing "... as text" / "... in text" / "... for text"
+    if len(words) >= 2 and words[-2] in {"as", "in", "for"} and words[-1] == p:
+        words = words[:-2]
+
+    # remove trailing lone param-name if user says weird filler
+    if words and words[-1] == p:
+        words = words[:-1]
+
+    return words
+
+def _remove_leading_phrase(words: List[str], phrase: str) -> List[str]:
+    parts = _norm_text(phrase).split()
+    if not parts:
+        return words
+    if words[:len(parts)] == parts:
+        return words[len(parts):]
+    return words
+
+def _extract_free_string_value(
+    semantic_tokens: List[Dict[str, Any]],
+    action: str,
+    param_name: str,
+    domain: Dict[str, Any]
+) -> Optional[str]:
+    words: List[str] = []
+
+    for t in semantic_tokens:
+        w = _norm_text(str(t.get("word") or ""))
+        pos = t.get("POS")
+
+        if not w:
+            continue
+        if t.get("semantic_type") == "NUMBER":
+            continue
+        if pos in ("punctuation", "conjunction"):
+            continue
+
+        words.append(w)
+
+    if not words:
+        return None
+
+    # 1) remove the longest matching docstring phrase for this action FIRST
+    action_phrases = (domain.get("ACTIONS", {}).get(action, {}) or {}).get("phrases", []) or []
+    action_phrases = sorted(
+        action_phrases,
+        key=lambda x: len(_norm_text(x).split()),
+        reverse=True
+    )
+
+    for ph in action_phrases:
+        new_words = _remove_leading_phrase(words, ph)
+        if new_words != words:
+            words = new_words
+            break
+
+    # 2) then remove leftover generic command verbs
+    while words and words[0] in {"set", "change", "make", "use"}:
+        words = words[1:]
+
+    # 3) remove linking words before actual value
+    while words and words[0] in {"to", "as", "in", "with", "into", "for"}:
+        words = words[1:]
+
+    # 4) trim param filler patterns
+    words = _trim_string_fillers(words, param_name)
+
+    text = " ".join(words).strip()
+    return text or None
+
 # -----------------------------
 # Normalization helpers
 # -----------------------------
@@ -99,6 +193,130 @@ def _token_words(tokens: Optional[List[Dict[str, Any]]]) -> List[str]:
             out.append(_norm_text(w))
     return [w for w in out if w]
 
+def _phrase_words(phrase: str) -> List[str]:
+    return [w for w in _norm_text(phrase).split() if w]
+
+
+def _sentence_words(sentence: str, tokens: Optional[List[Dict[str, Any]]] = None) -> List[str]:
+    if tokens:
+        return [w for w in _token_words(tokens) if w]
+    return [w for w in _norm_text(sentence).split() if w]
+
+
+def _ordered_match_score(phrase_words: List[str], sent_words: List[str]) -> Optional[float]:
+    """
+    Exact ordered match with gaps allowed.
+    Example:
+      phrase = ["face", "angle"]
+      sent   = ["face", "to", "90", "degree", "angle"]
+      => match
+
+    Score:
+      - more words matched is better
+      - fewer gaps is better
+    """
+    if not phrase_words or not sent_words:
+        return None
+
+    positions = []
+    j = 0
+
+    for pw in phrase_words:
+        found = False
+        while j < len(sent_words):
+            if sent_words[j] == pw:
+                positions.append(j)
+                j += 1
+                found = True
+                break
+            j += 1
+        if not found:
+            return None
+
+    gaps = 0
+    for i in range(1, len(positions)):
+        gaps += positions[i] - positions[i - 1] - 1
+
+    # exact ordered, lower gaps better
+    return 70.0 + (len(phrase_words) * 5.0) - (gaps * 1.0)
+
+
+def _word_matches_with_synonyms(phrase_word: str, sent_word: str) -> bool:
+    if phrase_word == sent_word:
+        return True
+
+    phrase_syns = set()
+    sent_syns = set()
+
+    try:
+        phrase_syns |= safe_syns(phrase_word, "VERB")
+        phrase_syns |= safe_syns(phrase_word, "NOUN")
+        phrase_syns |= safe_syns(phrase_word, "ADJECTIVE")
+        phrase_syns |= safe_syns(phrase_word, "ADVERB")
+    except Exception:
+        pass
+
+    try:
+        sent_syns |= safe_syns(sent_word, "VERB")
+        sent_syns |= safe_syns(sent_word, "NOUN")
+        sent_syns |= safe_syns(sent_word, "ADJECTIVE")
+        sent_syns |= safe_syns(sent_word, "ADVERB")
+    except Exception:
+        pass
+
+    phrase_syns = {_norm_text(x) for x in phrase_syns}
+    sent_syns = {_norm_text(x) for x in sent_syns}
+
+    if sent_word in phrase_syns:
+        return True
+    if phrase_word in sent_syns:
+        return True
+
+    if phrase_syns & sent_syns:
+        return True
+
+    return False
+
+
+def _ordered_synonym_match_score(phrase_words: List[str], sent_words: List[str]) -> Optional[float]:
+    """
+    Ordered match with gaps allowed, but each phrase word may match
+    by exact word OR synonym.
+    """
+    if not phrase_words or not sent_words:
+        return None
+
+    positions = []
+    exact_count = 0
+    synonym_count = 0
+    j = 0
+
+    for pw in phrase_words:
+        found = False
+        while j < len(sent_words):
+            sw = sent_words[j]
+            if sw == pw:
+                positions.append(j)
+                exact_count += 1
+                j += 1
+                found = True
+                break
+            elif _word_matches_with_synonyms(pw, sw):
+                positions.append(j)
+                synonym_count += 1
+                j += 1
+                found = True
+                break
+            j += 1
+        if not found:
+            return None
+
+    gaps = 0
+    for i in range(1, len(positions)):
+        gaps += positions[i] - positions[i - 1] - 1
+
+    # synonym match weaker than exact
+    return 50.0 + (exact_count * 5.0) + (synonym_count * 2.0) - (gaps * 1.0)
 
 def build_phrase_index(domain: Dict[str, Any]) -> Dict[str, str]:
     """
@@ -237,6 +455,36 @@ def _guess_param_kinds(params: List[str]) -> Dict[str, str]:
             kinds[p] = "str"
     return kinds
 
+def _annotation_to_name(node) -> Optional[str]:
+    if node is None:
+        return None
+
+    # int / str / float / bool
+    if isinstance(node, ast.Name):
+        return node.id
+
+    # Optional[int], list[str], typing.Optional[int], etc.
+    if isinstance(node, ast.Subscript):
+        base = _annotation_to_name(node.value)
+        if base:
+            return base
+
+    # typing.Optional / module.Type
+    if isinstance(node, ast.Attribute):
+        parts = []
+        cur = node
+        while isinstance(cur, ast.Attribute):
+            parts.append(cur.attr)
+            cur = cur.value
+        if isinstance(cur, ast.Name):
+            parts.append(cur.id)
+        return ".".join(reversed(parts))
+
+    # "int" as string annotation
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+
+    return None
 
 # ============================================================
 # AST extraction: classes, actions, params, docstrings
@@ -252,6 +500,8 @@ class DomainExtractor(ast.NodeVisitor):
 
         # action -> params
         self.action_params: Dict[str, List[str]] = {}
+        self.action_param_types: Dict[str, Dict[str, str]] = {}
+        self.class_init_param_types: Dict[str, Dict[str, str]] = {}
         
         # constructor params per class
         self.class_init_params: Dict[str, List[str]] = {}
@@ -269,11 +519,24 @@ class DomainExtractor(ast.NodeVisitor):
         for body_item in node.body:
             if isinstance(body_item, ast.FunctionDef):
                 self.methods.add(body_item.name)
-                params = [a.arg for a in body_item.args.args if a.arg != "self"]
+                params = []
+                param_types: Dict[str, str] = {}
+
+                for a in body_item.args.args:
+                    if a.arg == "self":
+                        continue
+                    params.append(a.arg)
+
+                    ann = _annotation_to_name(a.annotation)
+                    if ann:
+                        param_types[a.arg] = ann
+
                 self.action_params[body_item.name] = params
+                self.action_param_types[body_item.name] = param_types
 
                 if body_item.name == "__init__":
                     self.class_init_params[node.name] = params
+                    self.class_init_param_types[node.name] = param_types
 
                 mds = ast.get_docstring(body_item) or ""
                 if mds.strip():
@@ -284,8 +547,20 @@ class DomainExtractor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef):
         # module-level function
         self.functions.add(node.name)
-        params = [a.arg for a in node.args.args if a.arg != "self"]
+        params = []
+        param_types: Dict[str, str] = {}
+
+        for a in node.args.args:
+            if a.arg == "self":
+                continue
+            params.append(a.arg)
+
+            ann = _annotation_to_name(a.annotation)
+            if ann:
+                param_types[a.arg] = ann
+
         self.action_params[node.name] = params
+        self.action_param_types[node.name] = param_types
 
         ds = ast.get_docstring(node) or ""
         if ds.strip():
@@ -322,6 +597,8 @@ def extract_code_structure(py_file: str) -> Dict[str, Any]:
         "class_docstrings": ex.class_docstrings,
         "class_init_params": ex.class_init_params,
         "action_docstrings": ex.action_docstrings,
+        "action_param_types": ex.action_param_types,
+        "class_init_param_types": ex.class_init_param_types,
     }
 
 
@@ -340,6 +617,7 @@ def expand_domain(structure: Dict[str, Any]) -> Dict[str, Any]:
 
     all_actions = set(structure["functions"]) | set(structure["methods"])
     action_params: Dict[str, List[str]] = structure.get("action_params", {})
+    action_param_types: Dict[str, Dict[str, str]] = structure.get("action_param_types", {})
     action_docstrings: Dict[str, str] = structure.get("action_docstrings", {})
     class_docstrings: Dict[str, str] = structure.get("class_docstrings", {})
 
@@ -347,6 +625,7 @@ def expand_domain(structure: Dict[str, Any]) -> Dict[str, Any]:
     for action in all_actions:
         base_words = split_snake_case(action)
         syns: Set[str] = set()
+        param_types = action_param_types.get(action, {})
         for w in base_words:
             syns |= safe_syns(w, "VERB")
             syns |= safe_syns(w, "NOUN")
@@ -367,6 +646,7 @@ def expand_domain(structure: Dict[str, Any]) -> Dict[str, Any]:
             "base_words": set(base_words),
             "synonyms": set(map(normalize, syns)),
             "params": params,
+            "param_types": param_types,
             "docstring": doc,
             "phrases": phrases,
             "similarity_text": similarity_text,
@@ -470,33 +750,71 @@ def match_action_by_phrases(
     tokens: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[Optional[str], Optional[str], List[Tuple[str, float]]]:
     """
+    Match priority:
+      1. exact phrase match
+      2. ordered phrase match
+      3. ordered synonym phrase match
+      4. else none
+
     Returns:
       (best_action, matched_phrase, ranked)
-
-    ranked is a lightweight list like [(action, 1.0)] for compatibility
     """
-    phrase_to_action = build_phrase_index(domain)
-
+    actions = domain.get("ACTIONS") or {}
     sent_norm = _norm_text(sentence)
-    token_norm = " ".join(_token_words(tokens))
-    # use both representations for robustness
-    hay = f" {sent_norm} "
-    hay2 = f" {token_norm} "
+    sent_words = _sentence_words(sentence, tokens)
 
-    if not phrase_to_action:
-        # no phrases extracted => impossible to match
+    if not actions:
         return None, None, []
 
-    # longest phrase wins
-    phrases_sorted = sorted(phrase_to_action.keys(), key=lambda x: len(x), reverse=True)
+    scored: List[Tuple[str, str, float, str]] = []
+    # (action, phrase, score, match_type)
 
-    for ph in phrases_sorted:
-        needle = f" {ph} "
-        if needle in hay or needle in hay2:
-            action = phrase_to_action[ph]
-            return action, ph, [(action, 1.0)]
+    for action, info in actions.items():
+        for raw_phrase in (info.get("phrases") or []):
+            phrase = _norm_text(str(raw_phrase))
+            if not phrase:
+                continue
 
-    return None, None, []
+            pwords = _phrase_words(phrase)
+
+            # -------------------------
+            # 1) exact contiguous phrase match
+            # -------------------------
+            needle = f" {phrase} "
+            hay1 = f" {sent_norm} "
+            hay2 = f" {' '.join(sent_words)} "
+
+            if needle in hay1 or needle in hay2:
+                score = 100.0 + len(pwords)
+                scored.append((action, phrase, score, "exact"))
+                continue
+
+            # -------------------------
+            # 2) ordered exact word match
+            # -------------------------
+            ordered_score = _ordered_match_score(pwords, sent_words)
+            if ordered_score is not None:
+                scored.append((action, phrase, ordered_score, "ordered"))
+                continue
+
+            # -------------------------
+            # 3) ordered synonym match
+            # -------------------------
+            synonym_score = _ordered_synonym_match_score(pwords, sent_words)
+            if synonym_score is not None:
+                scored.append((action, phrase, synonym_score, "ordered_synonym"))
+                continue
+
+    if not scored:
+        return None, None, []
+
+    # sort by score desc, then longer phrase desc
+    scored.sort(key=lambda x: (x[2], len(_phrase_words(x[1]))), reverse=True)
+
+    best_action, best_phrase, best_score, best_type = scored[0]
+
+    ranked = [(action, score) for action, phrase, score, match_type in scored]
+    return best_action, best_phrase, ranked
 
 # ============================================================
 # 2) pick_best_action (pure phrase match)
@@ -504,17 +822,9 @@ def match_action_by_phrases(
 def pick_best_action(
     sentence: str,
     domain: Dict[str, Any],
-    require_number_if_param_int: bool = False,  # kept for signature compatibility
+    require_number_if_param_int: bool = False,
     tokens: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[Optional[str], List[Tuple[str, float]]]:
-    """
-    Pure docstring phrase matching.
-
-    Rule:
-      - If any phrase from docstrings appears in user input, choose that method.
-      - Prefer LONGEST phrase match (e.g., 'set monthly limit' > 'set').
-      - If nothing matches, return None.
-    """
     action, matched_phrase, ranked = match_action_by_phrases(sentence, domain, tokens=tokens)
 
     print("\n========== DOCSTRING MATCH DEBUG ==========")
@@ -523,7 +833,7 @@ def pick_best_action(
     print("Tokens(norm):", " ".join(_token_words(tokens)))
     print("Matched phrase:", matched_phrase)
     print("Selected action:", action)
-    # helpful: show how many phrases exist
+    print("Top ranked:", ranked[:5])
     print("Phrase count:", sum(len((info.get("phrases") or [])) for info in (domain.get("ACTIONS") or {}).values()))
     print("===========================================\n")
 
@@ -651,6 +961,17 @@ def bind_args_to_params(
             if is_number_token(t):
                 return as_int(str(t.get("word", "")).strip())
         return None
+    
+    def first_n_numbers(n: int) -> List[int]:
+        vals = []
+        for t in semantic_tokens:
+            if is_number_token(t):
+                v = as_int(str(t.get("word", "")).strip())
+                if v is not None:
+                    vals.append(v)
+                    if len(vals) == n:
+                        break
+        return vals
 
     def all_words_norm() -> List[str]:
         out = []
@@ -689,19 +1010,36 @@ def bind_args_to_params(
 
     # ---------- param kind guess ----------
     INT_HINTS = {
-        "amount", "limit", "budget", "days", "day", "count", "num", "number", "n", "distance", "steps", "degrees", "degree"
+        "amount", "limit", "budget", "days", "day", "count", "num", "number", "n",
+        "distance", "steps", "degrees", "degree",
+        "x", "y", "width", "height", "startx", "starty", "radius", "size",
+        "angle", "fullcircle", "stamp_id", "stretch_wid", "stretch_len", "outline"
     }
     STR_HINTS = {
         "category", "note", "recipient", "name", "owner", "owner_name", "target", "device", "room"
     }
 
     def kind_of(p: str) -> str:
+        declared = (
+            domain.get("ACTIONS", {})
+            .get(action, {})
+            .get("param_types", {})
+            .get(p)
+        )
+
+        if declared:
+            declared_l = declared.lower()
+            if declared_l in {"int", "float"}:
+                return "int"
+            if declared_l in {"str", "string"}:
+                return "str"
+
         pl = p.lower()
         if pl in INT_HINTS:
             return "int"
         if pl in STR_HINTS:
             return "str"
-        # default
+
         return "str"
 
     int_params = [p for p in params if kind_of(p) == "int"]
@@ -731,10 +1069,22 @@ def bind_args_to_params(
                 explain.append(f"Bound {note_param}='{rest2}' from remaining words (fallback).")
 
     # ---------- INT binding ----------
-    num = first_number()
-    if num is not None and len(int_params) == 1 and int_params[0] not in args:
-        args[int_params[0]] = num
-        explain.append(f"Bound {int_params[0]}={num} (first number in sentence).")
+    if len(int_params) == 1:
+        num = first_number()
+        if num is not None and int_params[0] not in args:
+            args[int_params[0]] = num
+            explain.append(f"Bound {int_params[0]}={num} (first number in sentence).")
+
+    elif len(int_params) == 2:
+        nums = first_n_numbers(2)
+        if len(nums) == 2:
+            if int_params[0] not in args:
+                args[int_params[0]] = nums[0]
+            if int_params[1] not in args:
+                args[int_params[1]] = nums[1]
+            explain.append(
+                f"Bound {int_params[0]}={nums[0]}, {int_params[1]}={nums[1]} (first two numbers in sentence)."
+            )
 
     # ---------- CATEGORY binding ----------
     # Works for:
@@ -785,6 +1135,16 @@ def bind_args_to_params(
 
     if not explain:
         explain.append("No binding rules matched; args may be incomplete.")
+        
+    # ---------- GENERIC SINGLE STRING PARAM ----------
+    unbound_str_params = [p for p in str_params if p not in args]
+
+    if len(unbound_str_params) == 1:
+        p = unbound_str_params[0]
+        free_text = _extract_free_string_value(semantic_tokens, action, p, domain)
+        if free_text:
+            args[p] = free_text
+            explain.append(f"Bound {p}='{free_text}' from free text content.")
 
     print("\n========== ARG BIND DEBUG ==========")
     print("Action:", action)
