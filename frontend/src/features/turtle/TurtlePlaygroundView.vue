@@ -501,6 +501,37 @@ export default {
       editorRef.value?.redo()
     }
 
+    const isValueReturningTurtleCall = (line) => {
+      const s = String(line || '').trim()
+      const valueMethods = [
+        'heading',
+        'position',
+        'pos',
+        'xcor',
+        'ycor',
+        'isdown',
+        'isvisible',
+        'distance',
+        'towards'
+      ]
+
+      const m1 = s.match(/^[A-Za-z_]\w*\.(\w+)\s*\(/)
+      if (m1 && valueMethods.includes(m1[1])) return true
+
+      const m2 = s.match(/^(\w+)\s*\(/)
+      if (m2 && valueMethods.includes(m2[1])) return true
+
+      return false
+    }
+
+    const normalizeTurtleLineForEditor = (line) => {
+      const s = String(line || '').trim()
+      if (!s) return s
+      if (s.startsWith('print(')) return s
+      if (isValueReturningTurtleCall(s)) return `print(${s})`
+      return s
+    }
+
     const handleRunCode = async () => {
       if (!appId.value) return
 
@@ -547,7 +578,7 @@ export default {
 
       try {
         if (isAssignment || isTargetedCall) {
-          appendToCodeEditor(cmd)
+          appendToCodeEditor(normalizeTurtleLineForEditor(cmd))
           commandText.value = ''
 
           await saveAppData(codeContent.value)
@@ -587,7 +618,8 @@ export default {
             return
           }
 
-          appendToCodeEditor(codeLines.join('\n'), cmd)
+          const normalizedLines = codeLines.map(normalizeTurtleLineForEditor)
+          appendToCodeEditor(normalizedLines.join('\n'), cmd)
           showAlertBox(codeLines.join(' | '), 'success')
           commandText.value = ''
 
