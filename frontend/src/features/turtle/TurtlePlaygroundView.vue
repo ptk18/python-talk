@@ -112,18 +112,6 @@ export default {
       clearHistory
     } = useUnifiedCommand()
 
-    const streamCommandWindow = async (fn) => {
-      disconnectStream()
-      await sleep(100)
-      connectStream(appId.value)
-      await sleep(1000)
-
-      await fn()
-
-      await sleep(4000)
-      disconnectStream()
-    }
-
     const fetchMessages = async (conversationId) => {
       if (!conversationId) return
       try {
@@ -193,12 +181,11 @@ export default {
 
       await startPiTurtleSession(appId.value)
 
-      await streamCommandWindow(async () => {
-        const lines = extractExecutableLines(codeContent.value)
-        for (const line of lines) {
-          await sendPiTurtleCommand(appId.value, line)
-        }
-      })
+      const lines = extractExecutableLines(codeContent.value)
+      for (const line of lines) {
+        await sendPiTurtleCommand(appId.value, line)
+        await sleep(80)
+      }
     }
 
     const streamSocket = ref(null)
@@ -335,6 +322,10 @@ export default {
       const res = await fetch(`${PI_API_BASE_URL}/kill/${appId}`, {
         method: 'POST'
       })
+
+      if (res.status === 404) {
+        return { status: 'not_running' }
+      }
 
       if (!res.ok) {
         const errText = await res.text()
@@ -578,7 +569,8 @@ export default {
 
       try {
         if (isAssignment || isTargetedCall) {
-          appendToCodeEditor(normalizeTurtleLineForEditor(cmd))
+          const normalizedCmd = normalizeTurtleLineForEditor(cmd)
+          appendToCodeEditor(normalizedCmd)
           commandText.value = ''
 
           await saveAppData(codeContent.value)
@@ -587,9 +579,7 @@ export default {
           if (startData?.status === 'started') {
             await replayWholeRunnerToPi()
           } else {
-            await streamCommandWindow(async () => {
-              await sendPiTurtleCommand(appId.value, cmd)
-            })
+            await sendPiTurtleCommand(appId.value, normalizedCmd)
           }
 
           return
@@ -629,11 +619,9 @@ export default {
           if (startData?.status === 'started') {
             await replayWholeRunnerToPi()
           } else {
-            await streamCommandWindow(async () => {
-              for (const line of codeLines) {
-                await sendPiTurtleCommand(appId.value, line)
-              }
-            })
+            for (const line of normalizedLines) {
+              await sendPiTurtleCommand(appId.value, line)
+            }
           }
         } else {
           showAlertBox(res?.error || res?.suggestion_message || 'Command failed', 'error')

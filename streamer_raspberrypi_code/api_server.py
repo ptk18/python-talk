@@ -1,7 +1,6 @@
 # code in pi5 : api_server.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import subprocess
 import os
 import asyncio
@@ -19,6 +18,7 @@ TURTLE_PROCESSES = {}
 TURTLE_STDIN = {}
 STREAM_TASKS = {}
 CURRENT_CID = None
+DONE_EVENTS = {}
 
 app = FastAPI(title="Pi Turtle Streaming Server")
 
@@ -38,11 +38,6 @@ os.makedirs(BASE_SESSION_DIR, exist_ok=True)
 WS_PUBLISH_BASE = "wss://161.246.5.67:5050/publish"
 RUNTIME_PATH = "/home/pi/turtle_runtime.py"
 
-DONE_EVENTS = {}
-
-class TurtleCodeRequest(BaseModel):
-    files: dict[str, str]
-
 
 def _pipe_reader(prefix: str, pipe, cid: int):
     try:
@@ -61,23 +56,28 @@ def _pipe_reader(prefix: str, pipe, cid: int):
     except Exception as e:
         print(f"{prefix} reader error: {e}", flush=True)
 
-async def stream_screen_burst(region, turtle_process, ws_url, cid: int, duration: float = 10.0):
-    print(f"[STREAM] BURST CID={cid}", flush=True)
+
+async def stream_screen_loop(region, turtle_process, ws_url, cid: int):
+    print(f"[STREAM] LOOP START CID={cid}", flush=True)
     print(f"[STREAM] Connecting to {ws_url}", flush=True)
 
     ssl_ctx = ssl._create_unverified_context()
     last_small_gray = None
-    loop = asyncio.get_running_loop()
-    end_time = loop.time() + duration
 
     try:
-        async with websockets.connect(ws_url, ssl=ssl_ctx) as ws:
-            print("[STREAM] WebSocket connected", flush=True)
+        async with websockets.connect(
+            ws_url,
+            ssl=ssl_ctx,
+            ping_interval=20,
+            ping_timeout=20,
+            max_size=None,
+        ) as ws:
+            print(f"[STREAM] WebSocket connected for CID={cid}", flush=True)
 
             with mss.mss() as sct:
-                while loop.time() < end_time:
+                while True:
                     if turtle_process.poll() is not None:
-                        print("[STREAM] Turtle process finished", flush=True)
+                        print(f"[STREAM] Turtle process finished for CID={cid}", flush=True)
                         break
 
                     img = np.array(sct.grab(region))
@@ -91,29 +91,30 @@ async def stream_screen_burst(region, turtle_process, ws_url, cid: int, duration
                         changed = True
                     else:
                         diff = cv2.absdiff(gray, last_small_gray)
-                        changed = float(np.mean(diff)) > 2.0
+                        changed = float(np.mean(diff)) > 1.5
 
                     if changed:
                         _, buf = cv2.imencode(
-                            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50]
+                            ".jpg",
+                            frame,
+                            [int(cv2.IMWRITE_JPEG_QUALITY), 65],
                         )
                         jpg_text = base64.b64encode(buf).decode("utf-8")
                         await ws.send(jpg_text)
                         last_small_gray = gray
-                        print(f"[STREAM] Sent changed frame for CID={cid}", flush=True)
 
-                    await asyncio.sleep(0.05)
-
-        print(f"[STREAM] Burst finished for CID={cid}", flush=True)
+                    await asyncio.sleep(0.03)
 
     except asyncio.CancelledError:
-        print(f"[STREAM] Burst cancelled for CID={cid}", flush=True)
+        print(f"[STREAM] LOOP CANCELLED CID={cid}", flush=True)
         raise
     except Exception as e:
-        print(f"[STREAM] ERROR for CID={cid}: {e}", flush=True)
+        print(f"[STREAM] LOOP ERROR CID={cid}: {e}", flush=True)
+    finally:
+        print(f"[STREAM] LOOP END CID={cid}", flush=True)
 
 
-def start_stream_burst(cid: int, proc):
+def start_stream_loop(cid: int, proc):
     region = {
         "left": 0,
         "top": 0,
@@ -121,15 +122,55 @@ def start_stream_burst(cid: int, proc):
         "height": 1000,
     }
 
-    ws_url = f"{WS_PUBLISH_BASE}/{cid}"
-
     old_task = STREAM_TASKS.get(cid)
     if old_task and not old_task.done():
-        old_task.cancel()
+        return
 
+    ws_url = f"{WS_PUBLISH_BASE}/{cid}"
     STREAM_TASKS[cid] = asyncio.create_task(
-        stream_screen_burst(region, proc, ws_url, cid, duration=10.0)
+        stream_screen_loop(region, proc, ws_url, cid)
     )
+
+
+async def stop_stream_loop(cid: int):
+    task = STREAM_TASKS.pop(cid, None)
+    if task and not task.done():
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
+async def stop_turtle_session(cid: int):
+    global CURRENT_CID
+
+    proc = TURTLE_PROCESSES.get(cid)
+
+    if proc:
+        try:
+            if proc.stdin:
+                proc.stdin.write("__EXIT__\n")
+                proc.stdin.flush()
+        except Exception:
+            pass
+
+        await asyncio.sleep(0.2)
+
+        try:
+            if proc.poll() is None:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        except Exception:
+            pass
+
+    TURTLE_PROCESSES.pop(cid, None)
+    TURTLE_STDIN.pop(cid, None)
+    DONE_EVENTS.pop(cid, None)
+
+    await stop_stream_loop(cid)
+
+    if CURRENT_CID == cid:
+        CURRENT_CID = None
 
 
 @app.get("/")
@@ -137,60 +178,29 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/runturtle/{cid}")
-async def run_turtle_deprecated(cid: int, req: TurtleCodeRequest):
-    raise HTTPException(
-        status_code=410,
-        detail="Deprecated. Use /start_turtle/{cid} and /turtle_command/{cid}",
-    )
-
-
 @app.post("/start_turtle/{cid}")
 async def start_turtle(cid: int):
     global CURRENT_CID
 
-    # kill previous app if opening another one
     if CURRENT_CID is not None and CURRENT_CID != cid:
-        old_proc = TURTLE_PROCESSES.get(CURRENT_CID)
-        if old_proc:
-            try:
-                if old_proc.stdin:
-                    old_proc.stdin.write("__EXIT__\n")
-                    old_proc.stdin.flush()
-            except Exception:
-                pass
+        await stop_turtle_session(CURRENT_CID)
 
-            try:
-                os.killpg(os.getpgid(old_proc.pid), signal.SIGTERM)
-            except Exception:
-                pass
-
-        TURTLE_PROCESSES.pop(CURRENT_CID, None)
-        TURTLE_STDIN.pop(CURRENT_CID, None)
-
-        old_task = STREAM_TASKS.pop(CURRENT_CID, None)
-        if old_task and not old_task.done():
-            old_task.cancel()
-
-    # same app already running -> do not reset turtle, just burst stream again
     if cid in TURTLE_PROCESSES:
         proc = TURTLE_PROCESSES[cid]
         if proc.poll() is None:
             CURRENT_CID = cid
-            start_stream_burst(cid, proc)
+            start_stream_loop(cid, proc)
             return {
                 "status": "already_running",
                 "conversation_id": cid,
                 "fresh_runtime": False,
             }
-        TURTLE_PROCESSES.pop(cid, None)
-        TURTLE_STDIN.pop(cid, None)
-        old_task = STREAM_TASKS.pop(cid, None)
-        if old_task and not old_task.done():
-            old_task.cancel()
+        else:
+            await stop_turtle_session(cid)
 
     env = os.environ.copy()
-    env["DISPLAY"] = env.get("DISPLAY", ":0")
+    env["DISPLAY"] = ":0"
+    env["XAUTHORITY"] = "/home/pi/.Xauthority"
 
     proc = subprocess.Popen(
         ["python3", RUNTIME_PATH],
@@ -205,9 +215,8 @@ async def start_turtle(cid: int):
 
     TURTLE_PROCESSES[cid] = proc
     TURTLE_STDIN[cid] = proc.stdin
-    CURRENT_CID = cid
-
     DONE_EVENTS[cid] = threading.Event()
+    CURRENT_CID = cid
 
     threading.Thread(
         target=_pipe_reader,
@@ -224,18 +233,42 @@ async def start_turtle(cid: int):
     await asyncio.sleep(1.0)
 
     if proc.poll() is not None:
+        stdout_text = ""
+        stderr_text = ""
+
+        try:
+            if proc.stdout:
+                stdout_text = proc.stdout.read()
+        except Exception:
+            pass
+
+        try:
+            if proc.stderr:
+                stderr_text = proc.stderr.read()
+        except Exception:
+            pass
+
+        await stop_turtle_session(cid)
         raise HTTPException(
             status_code=500,
-            detail=f"turtle_runtime.py exited immediately with code {proc.returncode}",
+            detail={
+                "message": "turtle_runtime.py exited immediately",
+                "returncode": proc.returncode,
+                "stdout": stdout_text,
+                "stderr": stderr_text,
+                "display": env.get("DISPLAY"),
+                "runtime_path": RUNTIME_PATH,
+            },
         )
 
-    start_stream_burst(cid, proc)
+    start_stream_loop(cid, proc)
 
     return {
         "status": "started",
         "conversation_id": cid,
         "fresh_runtime": True,
     }
+
 
 @app.post("/turtle_command/{cid}")
 async def turtle_command(cid: int, command: str):
@@ -244,14 +277,7 @@ async def turtle_command(cid: int, command: str):
         raise HTTPException(404, "Turtle not running")
 
     if proc.poll() is not None:
-        TURTLE_PROCESSES.pop(cid, None)
-        TURTLE_STDIN.pop(cid, None)
-        DONE_EVENTS.pop(cid, None)
-
-        old_task = STREAM_TASKS.pop(cid, None)
-        if old_task and not old_task.done():
-            old_task.cancel()
-
+        await stop_turtle_session(cid)
         raise HTTPException(500, "Turtle process already exited")
 
     clean_line = command.strip()
@@ -262,29 +288,13 @@ async def turtle_command(cid: int, command: str):
         evt = DONE_EVENTS.setdefault(cid, threading.Event())
         evt.clear()
 
-        # 1) start streaming first
-        start_stream_burst(cid, proc)
-
-        # 2) wait a bit so frontend receives stream first
-        await asyncio.sleep(1.0)
-
-        # 3) run turtle command
         print(f"[API] Sending command to CID={cid}: {clean_line}", flush=True)
         proc.stdin.write(clean_line + "\n")
         proc.stdin.flush()
 
-        # 4) wait until runtime says command finished
         done = await asyncio.to_thread(evt.wait, 15.0)
         if not done:
             raise HTTPException(504, f"Turtle command timed out: {clean_line}")
-
-        # 5) keep streaming 3 more seconds
-        await asyncio.sleep(3.0)
-
-        # 6) stop publish stream task
-        task = STREAM_TASKS.pop(cid, None)
-        if task and not task.done():
-            task.cancel()
 
     except HTTPException:
         raise
@@ -293,36 +303,12 @@ async def turtle_command(cid: int, command: str):
 
     return {"status": "sent", "command": clean_line}
 
-@app.post("/kill/{cid}")
-def kill_turtle(cid: int):
-    global CURRENT_CID
 
+@app.post("/kill/{cid}")
+async def kill_turtle(cid: int):
     proc = TURTLE_PROCESSES.get(cid)
     if not proc:
         raise HTTPException(404, "Turtle not running")
 
-    try:
-        if proc.stdin:
-            proc.stdin.write("__EXIT__\n")
-            proc.stdin.flush()
-    except Exception:
-        pass
-
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-    except Exception:
-        pass
-
-    TURTLE_PROCESSES.pop(cid, None)
-    TURTLE_STDIN.pop(cid, None)
-    DONE_EVENTS.pop(cid, None)
-
-    task = STREAM_TASKS.pop(cid, None)
-    if task and not task.done():
-        task.cancel()
-
-    if CURRENT_CID == cid:
-        CURRENT_CID = None
-    
-
+    await stop_turtle_session(cid)
     return {"status": "killed", "conversation_id": cid}
