@@ -19,7 +19,9 @@ while True:
     try:
         raw = sys.stdin.readline()
         if raw == "":
-            continue
+            # EOF — pipe broken, exit to avoid infinite CPU spin
+            print("[RUNTIME] EOF on stdin, exiting", flush=True)
+            break
 
         line = raw.strip()
         if not line:
@@ -36,3 +38,5 @@ while True:
 
     except Exception as e:
         print(f"[RUNTIME] ERROR: {e}", flush=True)
+        # signal OK even on error so api_server doesn't wait 15s
+        print("[RUNTIME] OK", flush=True)

@@ -36,7 +36,7 @@ BASE_SESSION_DIR = "/home/pi/Desktop/GUI_Stream/turtle_sessions"
 os.makedirs(BASE_SESSION_DIR, exist_ok=True)
 
 WS_PUBLISH_BASE = "wss://161.246.5.67:443/publish"
-RUNTIME_PATH = "/home/pi//Desktop/GUI_Stream/turtle_runtime.py"
+RUNTIME_PATH = "/home/pi/Desktop/GUI_Stream/turtle_runtime.py"
 
 
 def _pipe_reader(prefix: str, pipe, cid: int):
@@ -58,46 +58,59 @@ def _pipe_reader(prefix: str, pipe, cid: int):
 
 async def stream_screen_loop(region, turtle_process, ws_url, cid: int):
     print(f"[STREAM] LOOP START CID={cid}", flush=True)
-    print(f"[STREAM] Connecting to {ws_url}", flush=True)
 
     ssl_ctx = ssl._create_unverified_context()
+    max_retries = 5
 
-    try:
-        async with websockets.connect(
-            ws_url,
-            ssl=ssl_ctx,
-            ping_interval=20,
-            ping_timeout=20,
-            max_size=None,
-        ) as ws:
-            print(f"[STREAM] WebSocket connected for CID={cid}", flush=True)
+    for attempt in range(max_retries):
+        if turtle_process.poll() is not None:
+            print(f"[STREAM] Turtle process already dead, stopping CID={cid}", flush=True)
+            break
 
-            with mss.mss() as sct:
-                while True:
-                    if turtle_process.poll() is not None:
-                        print(f"[STREAM] Turtle process finished for CID={cid}", flush=True)
-                        break
+        print(f"[STREAM] Connecting to {ws_url} (attempt {attempt + 1}/{max_retries})", flush=True)
 
-                    img = np.array(sct.grab(region))
-                    frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        try:
+            async with websockets.connect(
+                ws_url,
+                ssl=ssl_ctx,
+                ping_interval=20,
+                ping_timeout=20,
+                max_size=None,
+            ) as ws:
+                print(f"[STREAM] WebSocket connected for CID={cid}", flush=True)
 
-                    _, buf = cv2.imencode(
-                        ".jpg",
-                        frame,
-                        [int(cv2.IMWRITE_JPEG_QUALITY), 65],
-                    )
-                    jpg_text = base64.b64encode(buf).decode("utf-8")
-                    await ws.send(jpg_text)
+                with mss.mss() as sct:
+                    while True:
+                        if turtle_process.poll() is not None:
+                            print(f"[STREAM] Turtle process finished for CID={cid}", flush=True)
+                            return  # process done, exit completely
 
-                    await asyncio.sleep(0.05)   # around 20 FPS
+                        img = np.array(sct.grab(region))
+                        frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-    except asyncio.CancelledError:
-        print(f"[STREAM] LOOP CANCELLED CID={cid}", flush=True)
-        raise
-    except Exception as e:
-        print(f"[STREAM] LOOP ERROR CID={cid}: {e}", flush=True)
-    finally:
-        print(f"[STREAM] LOOP END CID={cid}", flush=True)
+                        _, buf = cv2.imencode(
+                            ".jpg",
+                            frame,
+                            [int(cv2.IMWRITE_JPEG_QUALITY), 65],
+                        )
+                        jpg_text = base64.b64encode(buf).decode("utf-8")
+                        await ws.send(jpg_text)
+
+                        await asyncio.sleep(0.05)   # around 20 FPS
+
+        except asyncio.CancelledError:
+            print(f"[STREAM] LOOP CANCELLED CID={cid}", flush=True)
+            raise
+        except Exception as e:
+            print(f"[STREAM] LOOP ERROR CID={cid} (attempt {attempt + 1}): {e}", flush=True)
+            if attempt < max_retries - 1:
+                backoff = min(2 ** attempt, 10)
+                print(f"[STREAM] Retrying in {backoff}s...", flush=True)
+                await asyncio.sleep(backoff)
+            else:
+                print(f"[STREAM] Max retries reached for CID={cid}, giving up", flush=True)
+
+    print(f"[STREAM] LOOP END CID={cid}", flush=True)
 
 
 def start_stream_loop(cid: int, proc):

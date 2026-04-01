@@ -14,12 +14,17 @@ async def publish(websocket, channel):
     publishers.add(websocket)
     try:
         async for message in websocket:
-            print("FRAME IN")
-            if channel in subscribers:
-                await asyncio.gather(
-                    *[ws.send(message) for ws in subscribers[channel]],
+            if channel in subscribers and subscribers[channel]:
+                subs = list(subscribers[channel])
+                results = await asyncio.gather(
+                    *[ws.send(message) for ws in subs],
                     return_exceptions=True
                 )
+                # clean up dead subscribers
+                for ws, result in zip(subs, results):
+                    if isinstance(result, Exception):
+                        print(f"[PUBLISH] removing dead subscriber from {channel}")
+                        subscribers[channel].discard(ws)
             await asyncio.sleep(0.01)
     except Exception as e:
         print("Publish error:", e)
@@ -57,7 +62,8 @@ async def main():
         "0.0.0.0",
         443,
         ssl=ssl_context,
-        ping_interval=None,
+        ping_interval=20,
+        ping_timeout=20,
     ):
         print("WSS stream server running on :443")
         await asyncio.Future()
