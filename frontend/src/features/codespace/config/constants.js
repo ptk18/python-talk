@@ -1,5 +1,5 @@
 export const TURTLE_API_BASE = 'http://192.168.4.228:8001'
-export const TURTLE_WS_BASE = 'ws://192.168.4.228:5050'
+export const TURTLE_WS_BASE = 'ws://192.168.4.228:443'
 
 export const RUNNER_POLL_INTERVAL = 10000
 export const USER_EDIT_TIMEOUT = 3000

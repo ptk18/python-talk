@@ -1,4 +1,5 @@
 # code in pi5 : turtle_run.py
+# not used
 import turtle as t
 
 screen = t.Screen()

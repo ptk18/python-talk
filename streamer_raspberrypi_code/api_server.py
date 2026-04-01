@@ -32,11 +32,11 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 
-BASE_SESSION_DIR = "/home/pi/turtle_sessions"
+BASE_SESSION_DIR = "/home/pi/Desktop/GUI_Stream/turtle_sessions"
 os.makedirs(BASE_SESSION_DIR, exist_ok=True)
 
-WS_PUBLISH_BASE = "wss://161.246.5.67:5050/publish"
-RUNTIME_PATH = "/home/pi/turtle_runtime.py"
+WS_PUBLISH_BASE = "wss://161.246.5.67:443/publish"
+RUNTIME_PATH = "/home/pi//Desktop/GUI_Stream/turtle_runtime.py"
 
 
 def _pipe_reader(prefix: str, pipe, cid: int):
@@ -56,13 +56,11 @@ def _pipe_reader(prefix: str, pipe, cid: int):
     except Exception as e:
         print(f"{prefix} reader error: {e}", flush=True)
 
-
 async def stream_screen_loop(region, turtle_process, ws_url, cid: int):
     print(f"[STREAM] LOOP START CID={cid}", flush=True)
     print(f"[STREAM] Connecting to {ws_url}", flush=True)
 
     ssl_ctx = ssl._create_unverified_context()
-    last_small_gray = None
 
     try:
         async with websockets.connect(
@@ -83,27 +81,15 @@ async def stream_screen_loop(region, turtle_process, ws_url, cid: int):
                     img = np.array(sct.grab(region))
                     frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-                    small = cv2.resize(frame, (120, 120))
-                    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+                    _, buf = cv2.imencode(
+                        ".jpg",
+                        frame,
+                        [int(cv2.IMWRITE_JPEG_QUALITY), 65],
+                    )
+                    jpg_text = base64.b64encode(buf).decode("utf-8")
+                    await ws.send(jpg_text)
 
-                    changed = False
-                    if last_small_gray is None:
-                        changed = True
-                    else:
-                        diff = cv2.absdiff(gray, last_small_gray)
-                        changed = float(np.mean(diff)) > 1.5
-
-                    if changed:
-                        _, buf = cv2.imencode(
-                            ".jpg",
-                            frame,
-                            [int(cv2.IMWRITE_JPEG_QUALITY), 65],
-                        )
-                        jpg_text = base64.b64encode(buf).decode("utf-8")
-                        await ws.send(jpg_text)
-                        last_small_gray = gray
-
-                    await asyncio.sleep(0.03)
+                    await asyncio.sleep(0.05)   # around 20 FPS
 
     except asyncio.CancelledError:
         print(f"[STREAM] LOOP CANCELLED CID={cid}", flush=True)
@@ -199,8 +185,7 @@ async def start_turtle(cid: int):
             await stop_turtle_session(cid)
 
     env = os.environ.copy()
-    env["DISPLAY"] = ":0"
-    env["XAUTHORITY"] = "/home/pi/.Xauthority"
+    env["DISPLAY"] = env.get("DISPLAY", ":0")
 
     proc = subprocess.Popen(
         ["python3", RUNTIME_PATH],
@@ -233,32 +218,10 @@ async def start_turtle(cid: int):
     await asyncio.sleep(1.0)
 
     if proc.poll() is not None:
-        stdout_text = ""
-        stderr_text = ""
-
-        try:
-            if proc.stdout:
-                stdout_text = proc.stdout.read()
-        except Exception:
-            pass
-
-        try:
-            if proc.stderr:
-                stderr_text = proc.stderr.read()
-        except Exception:
-            pass
-
         await stop_turtle_session(cid)
         raise HTTPException(
             status_code=500,
-            detail={
-                "message": "turtle_runtime.py exited immediately",
-                "returncode": proc.returncode,
-                "stdout": stdout_text,
-                "stderr": stderr_text,
-                "display": env.get("DISPLAY"),
-                "runtime_path": RUNTIME_PATH,
-            },
+            detail=f"turtle_runtime.py exited immediately with code {proc.returncode}",
         )
 
     start_stream_loop(cid, proc)

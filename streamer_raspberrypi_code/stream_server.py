@@ -20,6 +20,7 @@ async def publish(websocket, channel):
                     *[ws.send(message) for ws in subscribers[channel]],
                     return_exceptions=True
                 )
+            await asyncio.sleep(0.01)
     except Exception as e:
         print("Publish error:", e)
     finally:
@@ -36,7 +37,7 @@ async def subscribe(websocket, channel):
         print(f"[SUBSCRIBE CLOSED] {channel}")
 
 async def handler(websocket):
-    path = websocket.request.path 
+    path = websocket.path 
     parts = path.split("/")
 
     if len(parts) < 3:
@@ -54,10 +55,11 @@ async def main():
     async with websockets.serve(
         handler,
         "0.0.0.0",
-        5050,
-        ssl=ssl_context
+        443,
+        ssl=ssl_context,
+        ping_interval=None,
     ):
-        print("WSS stream server running on :5050")
+        print("WSS stream server running on :443")
         await asyncio.Future()
 
 asyncio.run(main())

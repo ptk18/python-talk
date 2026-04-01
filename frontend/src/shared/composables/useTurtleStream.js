@@ -1,7 +1,8 @@
+// not used
 import { ref } from 'vue'
 
 const STREAM_DEVICE_BASE_URL = import.meta.env.VITE_STREAM_DEVICE_BASE_URL || 'https://161.246.5.67:8001'
-const STREAM_WS_BASE_URL = import.meta.env.VITE_STREAM_WS_BASE_URL || 'wss://161.246.5.67:5050'
+const STREAM_WS_BASE_URL = import.meta.env.VITE_STREAM_WS_BASE_URL || 'wss://161.246.5.67:443'
 
 export function useTurtleStream() {
   const streamSocket = ref(null)
@@ -20,7 +21,7 @@ export function useTurtleStream() {
       return
     }
 
-    const wsUrl = `${STREAM_WS_BASE_URL}/subscribe/${channelId}`
+    const wsUrl = `wss://161.246.5.67:443/subscribe/${channelId}`
     console.log('[STREAM] connecting to', wsUrl)
 
     manuallyClosed = false
