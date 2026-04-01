@@ -341,7 +341,7 @@ export default {
     const codeContent = ref('import turtle\n\n')
     const commandText = ref('')
 
-    const activeTab = ref('history')
+    const activeTab = ref('graphic')
     const textOutput = ref('')
 
     const isRecording = ref(false)
