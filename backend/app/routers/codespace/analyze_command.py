@@ -1158,10 +1158,10 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     # Normal flow
     # ------------------------------------------------------------
-    if _is_turtle_app(convo):
+    # Try CFG split first, fall back to simple regex split if CFG returns only 1 part
+    command_parts = _split_with_cfg(command, module_path)
+    if len(command_parts) <= 1:
         command_parts = _split_compound_simple(command)
-    else:
-        command_parts = _split_with_cfg(command, module_path)
 
     print("command_parts:", command_parts)
     print("[DEBUG] convo.app_type =", getattr(convo, "app_type", None))
