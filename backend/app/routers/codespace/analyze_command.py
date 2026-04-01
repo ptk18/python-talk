@@ -1143,10 +1143,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     # Normal flow
     # ------------------------------------------------------------
-    if _is_turtle_app(convo):
-        command_parts = [command]   # keep raw text so t1 isn't lost
-    else:
-        command_parts = _split_with_cfg(command, module_path)
+    command_parts = _split_with_cfg(command, module_path)
 
     print("command_parts:", command_parts)
     print("[DEBUG] convo.app_type =", getattr(convo, "app_type", None))
