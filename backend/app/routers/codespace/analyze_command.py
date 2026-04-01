@@ -593,6 +593,21 @@ def _filtered_tokens_for_cfg(lex_tokens: List[Dict[str, Any]]) -> List[Dict[str,
     """
     return [t for t in lex_tokens if t.get("POS") not in ("punctuation")]
 
+_COMPOUND_SEP = re.compile(
+    r'\b(?:and\s+then|and\s+also|and|then|next|afterwards?|after\s+that)\b',
+    re.IGNORECASE,
+)
+
+def _split_compound_simple(full_text: str) -> List[str]:
+    """
+    Simple regex-based compound command splitting for turtle apps.
+    'turn left 90 and move forward 50' -> ['turn left 90', 'move forward 50']
+    """
+    parts = _COMPOUND_SEP.split(full_text)
+    parts = [p.strip() for p in parts if p.strip()]
+    return parts if parts else [full_text.strip()]
+
+
 def _split_with_cfg(full_text: str, module_path: Path) -> List[str]:
     """
     CFG-based command splitting:
@@ -1143,7 +1158,10 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     # Normal flow
     # ------------------------------------------------------------
-    command_parts = _split_with_cfg(command, module_path)
+    if _is_turtle_app(convo):
+        command_parts = _split_compound_simple(command)
+    else:
+        command_parts = _split_with_cfg(command, module_path)
 
     print("command_parts:", command_parts)
     print("[DEBUG] convo.app_type =", getattr(convo, "app_type", None))
