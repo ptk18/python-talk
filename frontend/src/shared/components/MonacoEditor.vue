@@ -29,13 +29,15 @@ export default {
 
       if (!editorContainer.value) return;
 
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+
       editor = monaco.editor.create(editorContainer.value, {
         value: props.code,
         language: props.language,
         theme: 'vs-dark',
         automaticLayout: true,
-        fontSize: 14,
-        minimap: { enabled: true },
+        fontSize: isMobile ? 11 : 14,
+        minimap: { enabled: !isMobile },
         scrollBeyondLastLine: false,
         wordWrap: 'on',
         tabSize: 4,

@@ -182,13 +182,24 @@ export default {
 
 @media (max-width: 768px) {
   .command-input__row {
-    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .command-input__mic,
+  .command-input__run-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .command-input__mic svg {
+    width: 18px;
+    height: 18px;
   }
 
   .command-input__text {
-    width: 100%;
-    order: -1;
-    flex-basis: 100%;
+    padding: 10px 12px;
+    font-size: 13px;
   }
 }
 </style>

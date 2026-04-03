@@ -309,5 +309,32 @@ export default {
   to { transform: rotate(360deg); }
 }
 
+/* Mobile */
+@media (max-width: 768px) {
+  .editor-panel {
+    border-radius: 12px;
+  }
 
+  .editor-panel__header {
+    padding: 6px 12px;
+  }
+
+  .editor-panel__title {
+    font-size: 13px;
+  }
+
+  .editor-panel__actions {
+    gap: 4px;
+  }
+
+  .editor-panel__icon-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  .editor-panel__file-info {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
 </style>

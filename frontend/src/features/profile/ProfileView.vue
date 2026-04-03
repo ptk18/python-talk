@@ -370,14 +370,27 @@ export default {
   color: var(--color-text);
 }
 
-/* Responsive Design */
+/* Tablet */
+@media (max-width: 1024px) {
+  .profile-card {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+  }
+
   .profile-content {
     padding: 16px;
   }
 
   .profile-card {
     padding: 24px 20px;
+    border-radius: 12px;
   }
 
   .profile-actions {
@@ -388,8 +401,17 @@ export default {
   .cancel-button {
     width: 100%;
   }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .top-header {
+    padding: 12px 16px;
+  }
 }
 
+/* Small mobile */
 @media (max-width: 480px) {
   .profile-card {
     padding: 20px 16px;
@@ -398,6 +420,15 @@ export default {
   .profile-avatar-large {
     width: 60px;
     height: 60px;
+    font-size: 20px;
+  }
+
+  .profile-name {
+    font-size: 20px;
+  }
+
+  .profile-input {
+    padding: 10px 12px;
   }
 }
 </style>

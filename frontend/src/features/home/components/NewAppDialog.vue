@@ -570,4 +570,50 @@ export default {
     transform: rotate(360deg);
   }
 }
+
+/* Mobile */
+@media (max-width: 768px) {
+  .dialog-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .dialog {
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .dialog-header {
+    padding: 16px 20px;
+  }
+
+  .dialog-title {
+    font-size: 18px;
+  }
+
+  .dialog-body {
+    padding: 20px;
+  }
+
+  .radio-group {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .file-upload-area {
+    padding: 24px;
+  }
+
+  .dialog-footer {
+    padding: 16px 20px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    flex: 1;
+    justify-content: center;
+  }
+}
 </style>

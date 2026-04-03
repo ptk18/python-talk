@@ -380,13 +380,45 @@ export default {
   margin-bottom: 48px;
 }
 
+/* Tablet */
+@media (max-width: 1024px) {
+  .content-area {
+    padding: 20px;
+  }
+
+  .section-title {
+    font-size: 24px;
+  }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+  }
+
   .content-area {
     padding: 16px;
   }
 
   .section-title {
-    font-size: 22px;
+    font-size: 20px;
+  }
+
+  .favorites-section,
+  .featured-section {
+    margin-bottom: 32px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .content-area {
+    padding: 12px;
+  }
+
+  .section-title {
+    font-size: 18px;
   }
 }
 </style>

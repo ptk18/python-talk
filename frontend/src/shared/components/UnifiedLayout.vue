@@ -135,7 +135,17 @@ export default {
   min-height: 0;
 }
 
+/* Tablet: hide app sidebar, stack layout */
 @media (max-width: 1024px) {
+  .unified-layout__editor-area {
+    flex: 6;
+    min-height: 450px;
+  }
+
+  .unified-layout__editor-column {
+    gap: 8px;
+  }
+
   .unified-main {
     margin-left: var(--sidebar-width);
   }
@@ -144,6 +154,7 @@ export default {
     flex-direction: column;
     height: auto;
     overflow-y: auto;
+    padding: 16px;
   }
 
   .unified-layout__editor-column,
@@ -152,7 +163,7 @@ export default {
   }
 
   .unified-layout__editor-column {
-    min-height: 300px;
+    min-height: 70vh;
   }
 
   .unified-layout__output-column {
@@ -160,14 +171,62 @@ export default {
   }
 }
 
+/* Mobile */
 @media (max-width: 768px) {
   .unified-main {
     margin-left: 0;
+    height: auto;
+    max-height: none;
+    min-height: calc(100vh - 50px);
+  }
+
+  .unified-layout {
+    height: auto;
+    max-height: none;
+    overflow: visible;
   }
 
   .unified-layout__container {
+    flex-direction: column;
     padding: 12px;
     gap: 12px;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .unified-layout__editor-column {
+    min-height: 65vh;
+    gap: 6px;
+  }
+
+  .unified-layout__editor-area {
+    flex: 6;
+    min-height: 400px;
+  }
+
+  .unified-layout__output-column {
+    min-height: 350px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .unified-layout__container {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .unified-layout__editor-column {
+    min-height: 60vh;
+  }
+
+  .unified-layout__editor-area {
+    min-height: 350px;
+  }
+
+  .unified-layout__output-column {
+    min-height: 300px;
   }
 }
 </style>

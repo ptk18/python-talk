@@ -507,4 +507,95 @@ export default {
 .output-panel__history::-webkit-scrollbar-thumb:hover {
   background: #666;
 }
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .output-panel__tab {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .output-panel {
+    border-radius: 12px;
+  }
+
+  .output-panel__tab {
+    padding: 8px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .output-panel__tab span {
+    display: none;
+  }
+
+  .output-panel__tab-icon,
+  .output-panel__tab-icon-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .output-panel__tab span {
+    display: inline;
+  }
+
+  .output-panel__content {
+    font-size: 11px;
+  }
+
+  .output-panel__gutter {
+    width: 36px;
+    padding: 8px 4px 8px 4px;
+  }
+
+  .output-panel__gutter-prompt {
+    font-size: 11px;
+  }
+
+  .output-panel__history::before {
+    width: 36px;
+  }
+
+  .output-panel__history-prompt {
+    width: 36px;
+    padding: 0 4px;
+    font-size: 11px;
+  }
+
+  .output-panel__history-text,
+  .output-panel__history-exec,
+  .output-panel__history-error {
+    font-size: 11px;
+    padding: 0 8px;
+  }
+
+  .output-panel__history-translated {
+    font-size: 11px;
+  }
+
+  .output-panel__history-time {
+    font-size: 10px;
+    padding-right: 8px;
+  }
+
+  .output-panel__history-empty {
+    font-size: 11px;
+  }
+
+  .output-panel__terminal-text {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .output-panel__graphic-label {
+    font-size: 11px;
+  }
+
+  .output-panel__graphic-placeholder {
+    font-size: 11px;
+  }
+}
 </style>

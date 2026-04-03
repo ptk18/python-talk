@@ -1,6 +1,13 @@
 <template>
   <header class="top-toolbar">
     <div class="toolbar-left">
+      <button class="hamburger-btn" @click="toggleSidebar" aria-label="Toggle menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
       <img :src="appIcon" alt="AgentTalk" class="toolbar-logo" @click="goToHome" />
       <span class="toolbar-title">AgentTalk</span>
     </div>
@@ -72,6 +79,10 @@ export default {
       setTTSEnabled(!ttsEnabled.value)
     }
 
+    const toggleSidebar = () => {
+      window.dispatchEvent(new CustomEvent('toggle-sidebar'))
+    }
+
     const handleClickOutside = (e) => {
       if (langSwitcher.value && !langSwitcher.value.contains(e.target)) {
         dropdownOpen.value = false
@@ -95,6 +106,7 @@ export default {
       dropdownOpen,
       langSwitcher,
       goToHome,
+      toggleSidebar,
       toggleDropdown,
       selectLanguage,
       toggleTTS
@@ -246,5 +258,38 @@ export default {
 .lang-option-name {
   font-size: 13px;
   color: #555;
+}
+
+/* Hamburger - hidden on desktop */
+.hamburger-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.hamburger-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+@media (max-width: 768px) {
+  .hamburger-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toolbar-title {
+    font-size: 17px;
+  }
+
+  .toolbar-logo {
+    width: 28px;
+    height: 28px;
+  }
 }
 </style>

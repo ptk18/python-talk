@@ -1,5 +1,11 @@
 <template>
-  <aside class="sidebar sidebar-slim">
+  <div>
+  <div
+    v-if="sidebarOpen"
+    class="sidebar-overlay sidebar-overlay--visible"
+    @click="closeSidebar"
+  ></div>
+  <aside class="sidebar sidebar-slim" :class="{ 'sidebar--open': sidebarOpen }">
     <nav class="sidebar-nav">
       <!-- Navigation items -->
       <router-link
@@ -7,6 +13,7 @@
         :key="item.id"
         :to="item.path"
         :class="['nav-item', { active: isActive(item.path) }]"
+        @click="closeSidebar"
       >
         <img v-if="item.iconSvg" :src="item.iconSvg" alt="" class="nav-icon-svg" />
         <span v-else class="nav-icon">{{ item.icon }}</span>
@@ -34,10 +41,11 @@
       </button>
     </div>
   </aside>
+  </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLanguage, useAuth } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
@@ -94,12 +102,35 @@ export default {
     }
 
     const goToProfile = () => {
+      closeSidebar()
       router.push('/profile')
     }
 
     const handleNewApp = () => {
       emit('new-app')
+      closeSidebar()
     }
+
+    // Mobile sidebar toggle
+    const sidebarOpen = ref(false)
+
+    const toggleSidebar = () => {
+      sidebarOpen.value = !sidebarOpen.value
+    }
+
+    const closeSidebar = () => {
+      sidebarOpen.value = false
+    }
+
+    const onToggleSidebar = () => toggleSidebar()
+
+    onMounted(() => {
+      window.addEventListener('toggle-sidebar', onToggleSidebar)
+    })
+
+    onBeforeUnmount(() => {
+      window.removeEventListener('toggle-sidebar', onToggleSidebar)
+    })
 
     loadUserInfo()
     if (typeof window !== 'undefined') {
@@ -112,6 +143,8 @@ export default {
       userInfo,
       userInitial,
       t,
+      sidebarOpen,
+      closeSidebar,
       isActive,
       handleLogout,
       goToProfile,
@@ -256,5 +289,55 @@ export default {
 .sidebar-slim .nav-item:hover .nav-icon-svg,
 .sidebar-slim .nav-item.active .nav-icon-svg {
   opacity: 1;
+}
+
+/* Mobile sidebar overlay */
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-slim {
+    position: fixed;
+    left: -260px;
+    width: 260px !important;
+    transition: left 0.3s ease;
+    z-index: var(--z-modal, 1000);
+  }
+
+  .sidebar-slim.sidebar--open {
+    left: 0;
+  }
+
+  /* Switch to horizontal nav items on mobile sidebar */
+  .sidebar-slim .nav-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 12px 16px;
+    margin: 0 8px;
+    gap: 12px;
+  }
+
+  .sidebar-slim .nav-label {
+    font-size: 14px;
+  }
+
+  .sidebar-slim .user-section {
+    flex-direction: row;
+    gap: 12px;
+    padding: 12px 8px;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    top: 50px;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: calc(var(--z-modal, 1000) - 1);
+  }
+
+  .sidebar-overlay--visible {
+    display: block;
+  }
 }
 </style>

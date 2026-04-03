@@ -269,5 +269,64 @@ export default {
   font-size: 14px;
   text-align: center;
 }
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .auth-card {
+    max-width: 400px;
+    padding: 36px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .auth-container {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 60px;
+  }
+
+  .auth-card {
+    padding: 28px 20px;
+    border-radius: 12px;
+  }
+
+  .auth-logo {
+    font-size: 30px;
+  }
+
+  .auth-subtitle {
+    font-size: 14px;
+  }
+
+  .auth-form {
+    gap: 16px;
+  }
+
+  .form-input {
+    padding: 10px 14px;
+  }
+
+  .auth-button {
+    padding: 12px;
+    font-size: 15px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 12px;
+    padding-top: 40px;
+  }
+
+  .auth-card {
+    padding: 24px 16px;
+  }
+
+  .auth-header {
+    margin-bottom: 24px;
+  }
+}
 </style>
 

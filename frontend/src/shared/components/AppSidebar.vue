@@ -620,4 +620,11 @@ export default {
 .app-sidebar__sections::-webkit-scrollbar-thumb:hover {
   background: #b0b0b0;
 }
+
+/* Tablet: hide app sidebar */
+@media (max-width: 1024px) {
+  .app-sidebar {
+    display: none;
+  }
+}
 </style>
