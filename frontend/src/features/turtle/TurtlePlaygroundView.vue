@@ -638,7 +638,6 @@ export default {
 
       if (!isRecording.value) {
         try {
-          voiceService.speak('Listening')
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
           const recorder = new MediaRecorder(stream)
           audioChunks.value = []

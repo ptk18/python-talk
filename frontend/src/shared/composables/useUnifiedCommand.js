@@ -47,9 +47,7 @@ export function useUnifiedCommand() {
           const translateResult = await translateAPI.translateToEnglish(text)
           commandForAnalysis = translateResult?.translated_text || text
           translatedText = commandForAnalysis
-          if (mode === 'codespace') {
-            voiceService.speak('Command translated')
-          }
+          // Silent - no TTS for translation
         } catch (translateErr) {
           console.error('Translation failed:', translateErr)
           voiceService.speak('Translation failed, please try again')

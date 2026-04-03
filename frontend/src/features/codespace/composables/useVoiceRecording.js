@@ -24,7 +24,6 @@ export function useVoiceRecording(language) {
 
     if (!isRecording.value) {
       try {
-        voiceService.speak('Listening')
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,

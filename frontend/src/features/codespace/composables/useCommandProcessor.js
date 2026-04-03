@@ -49,7 +49,6 @@ export function useCommandProcessor() {
           console.log('Translation Result:', translatedText)
           console.log('Time to Translate:', translationTime.toFixed(3), 'seconds')
           console.log('-'.repeat(60))
-          voiceService.speak('Command translated')
         } catch (translateErr) {
           console.error('Translation failed:', translateErr)
           voiceService.speak('Translation failed, please try again')
