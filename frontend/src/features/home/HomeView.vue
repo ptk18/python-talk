@@ -83,7 +83,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLanguage, useAuth, conversationAPI, favoritesAPI, voiceService } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
@@ -94,6 +94,9 @@ import AppCard from './components/AppCard.vue'
 import NewAppDialog from './components/NewAppDialog.vue'
 import EditAppDialog from './components/EditAppDialog.vue'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue'
+
+// Module-level flag — persists across component re-mounts (navigating away and back)
+let hasGreeted = false
 
 export default {
   name: 'Home',
@@ -117,12 +120,15 @@ export default {
     const selectedApp = ref(null)
     const userApps = ref([])
     const userFavorites = ref([])
-    const hasGreeted = ref(false)
+    let interactionHandler = null
 
-    const greetUser = () => {
-      if (!hasGreeted.value) {
-        hasGreeted.value = true
-        voiceService.speak(getGreeting() + ' Here are your apps.')
+    const greetUser = async () => {
+      if (!hasGreeted) {
+        hasGreeted = true
+        // Wait for Google TTS check to complete so we don't fall back to browser TTS
+        await voiceService.waitForGoogleCheck()
+        const suffix = language.value === 'th' ? ' นี่คือแอปของคุณ' : ' Here are your apps.'
+        voiceService.speak(getGreeting() + suffix)
       }
     }
 
@@ -141,7 +147,7 @@ export default {
           appId: app.id,
           name: app.title,
           icon: app.app_image || getDefaultIcon(app.app_type, app.title),
-          category: app.app_type === 'turtle' ? t.value.home.turtleApp || 'Turtle App' : t.value.home.uploadedApp || 'Uploaded App',
+          appType: app.app_type,
           route: app.app_type === 'turtle'
             ? `/turtle-playground/${app.id}`
             : { name: 'Workspace', query: { conversationId: app.id } },
@@ -250,8 +256,15 @@ export default {
       }
     }
 
-    // All apps (only user apps now)
-    const allFeaturedApps = computed(() => userApps.value)
+    // All apps with reactive category labels
+    const allFeaturedApps = computed(() =>
+      userApps.value.map(app => ({
+        ...app,
+        category: app.appType === 'turtle'
+          ? (t.value.home.turtleApp || 'Turtle App')
+          : (t.value.home.uploadedApp || 'Uploaded App')
+      }))
+    )
 
     // Computed property for favorite apps
     const favoriteApps = computed(() => {
@@ -266,15 +279,24 @@ export default {
       fetchUserApps()
       fetchUserFavorites()
 
-      const handleFirstInteraction = () => {
+      interactionHandler = () => {
         voiceService.enableAudioContext()
         greetUser()
-        document.removeEventListener('click', handleFirstInteraction)
-        document.removeEventListener('keydown', handleFirstInteraction)
+        document.removeEventListener('click', interactionHandler)
+        document.removeEventListener('keydown', interactionHandler)
+        interactionHandler = null
       }
 
-      document.addEventListener('click', handleFirstInteraction)
-      document.addEventListener('keydown', handleFirstInteraction)
+      document.addEventListener('click', interactionHandler)
+      document.addEventListener('keydown', interactionHandler)
+    })
+
+    onUnmounted(() => {
+      if (interactionHandler) {
+        document.removeEventListener('click', interactionHandler)
+        document.removeEventListener('keydown', interactionHandler)
+        interactionHandler = null
+      }
     })
 
     // Re-fetch when user changes

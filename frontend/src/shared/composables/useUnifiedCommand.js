@@ -168,12 +168,12 @@ export function useUnifiedCommand() {
         executables: []
       })
 
-      // TTS feedback
+      // TTS feedback — use fixed translatable strings, not raw API messages
       if (suggestions.length > 0) {
         const sugNames = suggestions.map(s => s.method).join(', ')
         voiceService.speak(`Did you mean ${sugNames}?`)
       } else {
-        voiceService.speak(errorMsg)
+        voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
       }
 
       return { success: false, error: errorMsg }

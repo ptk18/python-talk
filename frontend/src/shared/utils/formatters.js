@@ -12,33 +12,59 @@ function randomChoice(array) {
 
 export function getGreeting() {
   const hour = new Date().getHours()
+  const lang = localStorage.getItem('language') || 'en'
 
-  const morningGreetings = [
-    'Good morning! Ready to code?',
-    'Hey there! Let\'s start the day right.',
-    'Morning! What are we building today?'
-  ]
+  const greetings = {
+    en: {
+      morning: [
+        'Good morning! Ready to code?',
+        'Hey there! Let\'s start the day right.',
+        'Morning! What are we building today?'
+      ],
+      afternoon: [
+        'Hey there! Let\'s build something great.',
+        'Good afternoon! Ready to code?',
+        'Hi! What shall we create today?'
+      ],
+      evening: [
+        'Good evening! Let\'s code something awesome.',
+        'Evening! What are we working on?',
+        'Hey! Ready for some coding?'
+      ],
+      default: [
+        'Welcome back! Let\'s get started.',
+        'Hey! Ready to code?',
+        'Let\'s build something great!'
+      ]
+    },
+    th: {
+      morning: [
+        'สวัสดีตอนเช้า! พร้อมเขียนโค้ดไหม?',
+        'สวัสดี! มาเริ่มวันใหม่กันเถอะ',
+        'สวัสดีตอนเช้า! วันนี้จะสร้างอะไรดี?'
+      ],
+      afternoon: [
+        'สวัสดี! มาสร้างอะไรดีๆ กัน',
+        'สวัสดีตอนบ่าย! พร้อมเขียนโค้ดไหม?',
+        'สวัสดี! วันนี้จะสร้างอะไรดี?'
+      ],
+      evening: [
+        'สวัสดีตอนเย็น! มาเขียนโค้ดกัน',
+        'สวัสดีตอนเย็น! จะทำอะไรดี?',
+        'สวัสดี! พร้อมเขียนโค้ดไหม?'
+      ],
+      default: [
+        'ยินดีต้อนรับกลับมา! เริ่มกันเลย',
+        'สวัสดี! พร้อมเขียนโค้ดไหม?',
+        'มาสร้างอะไรดีๆ กัน!'
+      ]
+    }
+  }
 
-  const afternoonGreetings = [
-    'Hey there! Let\'s build something great.',
-    'Good afternoon! Ready to code?',
-    'Hi! What shall we create today?'
-  ]
+  const g = greetings[lang] || greetings.en
 
-  const eveningGreetings = [
-    'Good evening! Let\'s code something awesome.',
-    'Evening! What are we working on?',
-    'Hey! Ready for some coding?'
-  ]
-
-  const defaultGreetings = [
-    'Welcome back! Let\'s get started.',
-    'Hey! Ready to code?',
-    'Let\'s build something great!'
-  ]
-
-  if (hour >= 5 && hour < 12) return randomChoice(morningGreetings)
-  if (hour >= 12 && hour < 17) return randomChoice(afternoonGreetings)
-  if (hour >= 17 && hour < 21) return randomChoice(eveningGreetings)
-  return randomChoice(defaultGreetings)
+  if (hour >= 5 && hour < 12) return randomChoice(g.morning)
+  if (hour >= 12 && hour < 17) return randomChoice(g.afternoon)
+  if (hour >= 17 && hour < 21) return randomChoice(g.evening)
+  return randomChoice(g.default)
 }

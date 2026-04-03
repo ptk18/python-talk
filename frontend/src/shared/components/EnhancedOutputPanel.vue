@@ -52,8 +52,9 @@
                   <svg v-else-if="entry.sender === 'system'" class="prompt-icon prompt-icon--python" viewBox="0 0 24 24"><path d="M9.585 11.692h4.328s2.432.039 2.432-2.35V5.391S16.714 3 11.936 3C7.362 3 7.647 4.983 7.647 4.983l.006 2.055h4.363v.617H5.92S3 7.283 3 11.75s2.532 4.303 2.532 4.303h1.51v-2.07s-.082-2.53 2.49-2.53l.053.24zm-.29-4.09a.81.81 0 1 1 .001-1.622.81.81 0 0 1 0 1.621z" fill="#3776AB"/><path d="M14.415 12.308h-4.328s-2.432-.039-2.432 2.35v3.951S7.286 21 12.064 21c4.574 0 4.289-1.983 4.289-1.983l-.006-2.055h-4.363v-.617h6.096S21 16.717 21 12.25s-2.532-4.303-2.532-4.303h-1.51v2.07s.082 2.53-2.49 2.53l-.053-.24zm.29 4.09a.81.81 0 1 1-.001 1.622.81.81 0 0 1 0-1.621z" fill="#FFD43B"/></svg>
                   <!-- Human icon for user commands -->
                   <svg v-else class="prompt-icon prompt-icon--user" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
-                  <span class="prompt-arrow" :class="{ 'prompt-arrow--error': entry.sender === 'system' && isErrorMessage(entry.text) }"><svg class="prompt-arrow-svg" viewBox="0 0 24 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="18" y2="4" stroke-dasharray="2 2"/><polyline points="16,1 20,4 16,7"/></svg></span>
+                  <span class="prompt-dash">-</span>
                 </span>
+                <span class="prompt-chevron">></span>
                 <span :class="entry.sender === 'system' && isErrorMessage(entry.text) ? 'output-panel__history-error' : (entry.sender === 'system' ? 'output-panel__history-exec' : 'output-panel__history-text')">{{ entry.text }}</span>
                 <span class="output-panel__history-time">{{ formatTime(entry.timestamp) }}</span>
               </div>
@@ -64,15 +65,17 @@
               <div v-if="entry.executables && entry.executables.length" v-for="(exec, i) in entry.executables" :key="i" class="output-panel__history-line">
                 <span class="output-panel__history-prompt">
                   <svg v-if="i === 0" class="prompt-icon prompt-icon--python" viewBox="0 0 24 24"><path d="M9.585 11.692h4.328s2.432.039 2.432-2.35V5.391S16.714 3 11.936 3C7.362 3 7.647 4.983 7.647 4.983l.006 2.055h4.363v.617H5.92S3 7.283 3 11.75s2.532 4.303 2.532 4.303h1.51v-2.07s-.082-2.53 2.49-2.53l.053.24zm-.29-4.09a.81.81 0 1 1 .001-1.622.81.81 0 0 1 0 1.621z" fill="#3776AB"/><path d="M14.415 12.308h-4.328s-2.432-.039-2.432 2.35v3.951S7.286 21 12.064 21c4.574 0 4.289-1.983 4.289-1.983l-.006-2.055h-4.363v-.617h6.096S21 16.717 21 12.25s-2.532-4.303-2.532-4.303h-1.51v2.07s.082 2.53-2.49 2.53l-.053-.24zm.29 4.09a.81.81 0 1 1-.001 1.622.81.81 0 0 1 0-1.621z" fill="#FFD43B"/></svg>
-                  <span v-if="i === 0" class="prompt-arrow"><svg class="prompt-arrow-svg" viewBox="0 0 24 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="18" y2="4" stroke-dasharray="2 2"/><polyline points="16,1 20,4 16,7"/></svg></span>
+                  <span v-if="i === 0" class="prompt-dash">-</span>
                 </span>
+                <span v-if="i === 0" class="prompt-chevron">></span>
                 <code class="output-panel__history-exec">{{ exec }}</code>
               </div>
               <div v-if="entry.error && entry.status !== 'success'" class="output-panel__history-line">
                 <span class="output-panel__history-prompt">
                   <svg class="prompt-icon prompt-icon--error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                  <span class="prompt-arrow prompt-arrow--error"><svg class="prompt-arrow-svg" viewBox="0 0 24 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="18" y2="4" stroke-dasharray="2 2"/><polyline points="16,1 20,4 16,7"/></svg></span>
+                  <span class="prompt-dash">-</span>
                 </span>
+                <span class="prompt-chevron">></span>
                 <span class="output-panel__history-error">{{ entry.error }}</span>
               </div>
             </div>
@@ -361,18 +364,8 @@ export default {
   height: 100%;
   min-height: 0;
   overflow-y: auto;
-}
-
-/* Continuous gutter background + vertical line */
-.output-panel__history::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 48px;
-  background: #1a1a1a;
-  border-right: 2px solid #444;
+  /* Gutter background + border line that covers the full scroll area */
+  background: linear-gradient(to right, #1a1a1a 48px, #444 48px, #444 50px, transparent 50px);
 }
 
 .output-panel__history-empty {
@@ -396,7 +389,7 @@ export default {
 
 .output-panel__history-line {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   line-height: 1.6;
 }
 
@@ -404,11 +397,9 @@ export default {
   width: 48px;
   flex-shrink: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: 0 6px 0 8px;
-  font-weight: 700;
-  font-size: 14px;
   font-family: 'Consolas', 'Menlo', 'Monaco', 'Courier New', monospace;
 }
 
@@ -416,7 +407,6 @@ export default {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  margin-top: 3px;
 }
 
 .prompt-icon--user {
@@ -427,24 +417,21 @@ export default {
   color: #f44336;
 }
 
-.prompt-arrow {
-  color: #888;
-  position: relative;
-  z-index: 1;
+.prompt-dash {
+  color: #666;
+  font-size: 10px;
   margin-left: auto;
-  margin-right: -6px;
-  margin-top: 8px;
   display: flex;
   align-items: center;
 }
 
-.prompt-arrow--error {
-  color: #f44336;
-}
-
-.prompt-arrow-svg {
-  width: 18px;
-  height: 8px;
+.prompt-chevron {
+  color: #666;
+  font-size: 10px;
+  padding: 0 4px 0 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .output-panel__history-prompt--sub {
@@ -555,8 +542,8 @@ export default {
     font-size: 11px;
   }
 
-  .output-panel__history::before {
-    width: 36px;
+  .output-panel__history {
+    background: linear-gradient(to right, #1a1a1a 36px, #444 36px, #444 38px, transparent 38px);
   }
 
   .output-panel__history-prompt {

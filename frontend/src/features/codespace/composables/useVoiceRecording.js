@@ -85,7 +85,6 @@ export function useVoiceRecording(language) {
             } else {
               console.log('Transcribed:', text)
               console.log('Time:', transcriptionTime.toFixed(3), 'seconds')
-              voiceService.speak('Voice command received')
             }
 
             if (onTranscriptionComplete) {

@@ -1,5 +1,73 @@
 import { voiceAPI, googleSpeechAPI } from './api.js';
 
+const TTS_TRANSLATIONS = {
+  th: {
+    // Common
+    'Saved!': 'บันทึกแล้ว!',
+    'All set!': 'เรียบร้อย!',
+    'Save failed.': 'บันทึกไม่สำเร็จ',
+    'Undo': 'เลิกทำ',
+    'Undo failed': 'เลิกทำไม่สำเร็จ',
+    'Nothing to undo': 'ไม่มีอะไรให้เลิกทำ',
+    'Listening': 'กำลังฟัง',
+    'Canvas cleared': 'ล้างแคนวาสแล้ว',
+
+    // Voice
+    'Transcription failed. Please try again.': 'การถอดเสียงล้มเหลว กรุณาลองอีกครั้ง',
+    'Transcription error. Please try again.': 'เกิดข้อผิดพลาดในการถอดเสียง กรุณาลองอีกครั้ง',
+    'Microphone access denied': 'ไม่สามารถเข้าถึงไมโครโฟนได้',
+    'Voice transcription error': 'เกิดข้อผิดพลาดในการแปลงเสียง',
+    "I couldn't understand that. Please try again": 'ฉันไม่เข้าใจ กรุณาลองอีกครั้ง',
+
+    // Commands
+    'Command translated': 'แปลคำสั่งแล้ว',
+    'Command executed': 'คำสั่งสำเร็จ',
+    'Command executed successfully': 'ดำเนินการคำสั่งสำเร็จ',
+    "I couldn't understand that command. Please try again with a different phrase.": 'ฉันไม่เข้าใจคำสั่งนี้ กรุณาลองใหม่ด้วยประโยคอื่น',
+    'Translation failed, please try again': 'การแปลล้มเหลว กรุณาลองอีกครั้ง',
+    'Invalid command': 'คำสั่งไม่ถูกต้อง',
+    'I encountered an error. Please try again': 'เกิดข้อผิดพลาด กรุณาลองอีกครั้ง',
+    'No matching commands found': 'ไม่พบคำสั่งที่ตรงกัน',
+    'commands executed successfully': 'คำสั่งดำเนินการสำเร็จ',
+
+    // Code execution
+    'Running turtle code': 'กำลังรันโค้ดเต่า',
+    'Output ready!': 'ผลลัพธ์พร้อมแล้ว!',
+    'Please try again': 'กรุณาลองอีกครั้ง',
+    'Turtle graphics running!': 'Turtle graphics กำลังทำงาน!',
+    'Runner file is empty. Please add some commands': 'ไฟล์ runner ว่างเปล่า กรุณาเพิ่มคำสั่ง',
+    'Runner file not found. Please initialize the session first': 'ไม่พบไฟล์ runner กรุณาเริ่มต้นเซสชันก่อน',
+
+    // RunView
+    "Code Space ready! Let's run some code.": 'Code Space พร้อมแล้ว! มาเขียนโค้ดกัน',
+    'Please enter some code first.': 'กรุณาใส่โค้ดก่อน',
+    'Running your code...': 'กำลังรันโค้ด...',
+    'Code ran successfully!': 'รันโค้ดสำเร็จ!',
+    'Execution failed. Check the error.': 'รันไม่สำเร็จ ตรวจสอบข้อผิดพลาด',
+    'Output cleared.': 'ล้างผลลัพธ์แล้ว',
+    'Switched to text mode.': 'เปลี่ยนเป็นโหมดข้อความ',
+    'Switched to graphic mode.': 'เปลี่ยนเป็นโหมดกราฟิก',
+    'File loaded!': 'โหลดไฟล์แล้ว!',
+    'File loading failed.': 'โหลดไฟล์ไม่สำเร็จ',
+
+    // FilePanel
+    'File created successfully': 'สร้างไฟล์สำเร็จ',
+    'Failed to create file': 'สร้างไฟล์ไม่สำเร็จ',
+    'File deleted successfully': 'ลบไฟล์สำเร็จ',
+    'Failed to delete file': 'ลบไฟล์ไม่สำเร็จ',
+
+    // HomeView
+    'App created!': 'สร้างแอปแล้ว!',
+    "Couldn't create the app.": 'สร้างแอปไม่สำเร็จ',
+    'App updated!': 'อัปเดตแอปแล้ว!',
+    'Update failed.': 'อัปเดตไม่สำเร็จ',
+    'App deleted.': 'ลบแอปแล้ว',
+    'Deletion failed.': 'ลบไม่สำเร็จ',
+    'Removed from favorites.': 'ลบออกจากรายการโปรดแล้ว',
+    'Added to favorites!': 'เพิ่มในรายการโปรดแล้ว!',
+  }
+};
+
 class VoiceService {
   constructor() {
     this.engine = null;
@@ -11,10 +79,12 @@ class VoiceService {
     this.preferredVoice = null;
     this.voiceLoadPromise = null;
     this.lastSpeakTime = 0;
-    this.debounceDelay = 500;
+    this.debounceDelay = 100;
     this.isSpeaking = false;
     this.currentSpeechId = null;
     this.speechRate = 1.0;
+    this.currentAudio = null;
+    this.language = localStorage.getItem('language') || 'en';
     this.googleCheckPromise = null;
     this.init();
     this.initVoices();
@@ -84,8 +154,17 @@ class VoiceService {
     });
   }
 
-  selectBestVoice(voices) {
-    // Priority order for voice selection
+  selectBestVoice(voices, language = 'en') {
+    if (language === 'th') {
+      return (
+        voices.find(v => v.name.includes('Google') && v.lang === 'th-TH') ||
+        voices.find(v => v.lang === 'th-TH') ||
+        voices.find(v => v.lang.startsWith('th')) ||
+        voices[0]
+      );
+    }
+
+    // English priority order
     return (
       voices.find(v => v.name.includes('Google') && v.lang === 'en-US') ||
       voices.find(v => v.name.includes('Samantha')) ||
@@ -145,6 +224,23 @@ class VoiceService {
 
   getTTSEngine() {
     return this.ttsEngine || localStorage.getItem('tts_engine') || 'browser';
+  }
+
+  setLanguage(lang) {
+    this.language = lang;
+    // Stop any current speech so the next speak() call uses the new language cleanly
+    this.stopSpeaking();
+    console.log(`[VoiceService] Language set to: ${lang}`);
+  }
+
+  getLanguage() {
+    // Always read from localStorage as source of truth to handle multiple module instances
+    const stored = localStorage.getItem('language');
+    if (stored) {
+      this.language = stored;
+      return stored;
+    }
+    return this.language || 'en';
   }
 
   setSpeechRate(rate) {
@@ -261,8 +357,14 @@ class VoiceService {
     throw lastError;
   }
 
-  async speak(text) {
+  async speak(text, language) {
+    language = language || this.getLanguage();
     if (!text) return;
+
+    // Auto-translate TTS text based on language
+    if (language !== 'en' && TTS_TRANSLATIONS[language]) {
+      text = TTS_TRANSLATIONS[language][text] || text;
+    }
 
     const now = Date.now();
     if (now - this.lastSpeakTime < this.debounceDelay) {
@@ -270,10 +372,9 @@ class VoiceService {
       return;
     }
 
-    // Check if already speaking
+    // Interrupt current speech to speak the new message
     if (this.isSpeaking) {
-      console.log('[VoiceService] Already speaking, ignoring new request');
-      return;
+      this.stopSpeaking();
     }
 
     this.lastSpeakTime = now;
@@ -291,19 +392,22 @@ class VoiceService {
         console.log('[VoiceService] Using Google Cloud TTS');
         this.isSpeaking = true;
 
-        const audioBlob = await googleSpeechAPI.textToSpeech(text, this.speechRate);
+        const audioBlob = await googleSpeechAPI.textToSpeech(text, this.speechRate, language);
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
+        this.currentAudio = audio;
 
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
           this.isSpeaking = false;
+          this.currentAudio = null;
         };
 
         audio.onerror = (err) => {
           console.error('[VoiceService] Audio playback error:', err);
           URL.revokeObjectURL(audioUrl);
           this.isSpeaking = false;
+          this.currentAudio = null;
         };
 
         // Handle autoplay policy rejection
@@ -316,7 +420,7 @@ class VoiceService {
 
           // Only fallback if NOT already speaking with browser
           if (!window.speechSynthesis.speaking) {
-            this.speakWithBrowser(text);
+            this.speakWithBrowser(text, language);
           }
         }
       } catch (err) {
@@ -325,15 +429,15 @@ class VoiceService {
 
         // Only fallback if NOT already speaking
         if (!window.speechSynthesis.speaking) {
-          this.speakWithBrowser(text);
+          this.speakWithBrowser(text, language);
         }
       }
     } else {
-      this.speakWithBrowser(text);
+      this.speakWithBrowser(text, language);
     }
   }
 
-  async speakWithBrowser(text) {
+  async speakWithBrowser(text, language = 'en') {
     if (!text) return;
 
     // Check if TTS is enabled
@@ -364,24 +468,19 @@ class VoiceService {
     utterance.rate = this.getSpeechRate();
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
-    utterance.lang = 'en-US';
+    const langMap = { en: 'en-US', th: 'th-TH' };
+    utterance.lang = langMap[language] || 'en-US';
 
-    // Use cached preferred voice (avoids race condition)
-    if (this.preferredVoice) {
-      utterance.voice = this.preferredVoice;
-      console.log(`[VoiceService] Using cached voice: ${this.preferredVoice.name}`);
-    } else {
-      // Fallback: try to get voices synchronously
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        const voice = this.selectBestVoice(voices);
-        if (voice) {
-          utterance.voice = voice;
-          console.log(`[VoiceService] Selected voice: ${voice.name}`);
-        }
-      } else {
-        console.warn('[VoiceService] No voices available, using default');
+    // Select voice based on current language
+    const voices = this.cachedVoices.length > 0 ? this.cachedVoices : window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      const voice = this.selectBestVoice(voices, language);
+      if (voice) {
+        utterance.voice = voice;
+        console.log(`[VoiceService] Selected voice for ${language}: ${voice.name}`);
       }
+    } else {
+      console.warn('[VoiceService] No voices available, using default');
     }
 
     utterance.onstart = () => {
@@ -426,6 +525,13 @@ class VoiceService {
   }
 
   stopSpeaking() {
+    // Stop Google TTS audio if playing
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.currentTime = 0;
+      this.currentAudio = null;
+    }
+    // Stop browser TTS
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }

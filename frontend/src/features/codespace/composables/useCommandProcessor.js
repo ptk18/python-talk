@@ -133,12 +133,7 @@ export function useCommandProcessor() {
         voiceService.speak(`Did you mean ${sugNames}?`)
       }
       if (noMatches.length > 0 && matched.length === 0 && suggestions.length === 0) {
-        const first = noMatches[0]
-        if (first.suggestion_message) {
-          voiceService.speak(first.suggestion_message)
-        } else {
-          voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
-        }
+        voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
       }
 
       // Only offer to append matched commands

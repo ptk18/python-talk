@@ -37,7 +37,7 @@ async def google_speech_status():
 
 
 @router.post("/text-to-speech")
-async def google_text_to_speech(text: str, rate: float = 1.0):
+async def google_text_to_speech(text: str, rate: float = 1.0, language: str = "en"):
     """
     Convert text to speech using Google Cloud Text-to-Speech API
     Returns audio file (MP3)
@@ -45,6 +45,7 @@ async def google_text_to_speech(text: str, rate: float = 1.0):
     Args:
         text: The text to convert to speech
         rate: Speaking rate (0.5 to 2.0, default 1.0)
+        language: Language code ("en" or "th", default "en")
     """
     if not GOOGLE_AVAILABLE or not GOOGLE_LIBS_AVAILABLE:
         raise HTTPException(status_code=503, detail="Google Speech API not available")
@@ -52,7 +53,14 @@ async def google_text_to_speech(text: str, rate: float = 1.0):
     # Validate and clamp rate
     rate = max(0.5, min(2.0, rate))
 
-    print(f"[Google TTS] Request received - Text length: {len(text)} chars, Rate: {rate}x")
+    # Select voice based on language
+    voice_map = {
+        "th": ("th-TH", "th-TH-Chirp3-HD-Charon", None),
+        "en": ("en-US", "en-US-Standard-D", texttospeech.SsmlVoiceGender.MALE),
+    }
+    lang_code, voice_name, gender = voice_map.get(language.lower(), voice_map["en"])
+
+    print(f"[Google TTS] Request received - Text length: {len(text)} chars, Rate: {rate}x, Language: {language}")
 
     try:
         client = texttospeech.TextToSpeechClient()
@@ -60,12 +68,13 @@ async def google_text_to_speech(text: str, rate: float = 1.0):
 
         synthesis_input = texttospeech.SynthesisInput(text=text)
 
-        # Use English voice only
-        voice = texttospeech.VoiceSelectionParams(
-            language_code="en-US",
-            name="en-US-Standard-D",
-            ssml_gender=texttospeech.SsmlVoiceGender.MALE
-        )
+        voice_params = {
+            "language_code": lang_code,
+            "name": voice_name,
+        }
+        if gender:
+            voice_params["ssml_gender"] = gender
+        voice = texttospeech.VoiceSelectionParams(**voice_params)
 
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.MP3,
@@ -75,7 +84,7 @@ async def google_text_to_speech(text: str, rate: float = 1.0):
             sample_rate_hertz=24000  # High quality audio
         )
 
-        print(f"[Google TTS] Using voice: en-US-Standard-D, Rate: {rate}x")
+        print(f"[Google TTS] Using voice: {voice_name}, Rate: {rate}x")
 
         response = client.synthesize_speech(
             input=synthesis_input,

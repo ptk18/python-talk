@@ -1,5 +1,6 @@
 import { ref, onMounted } from 'vue';
 import { settingsSync } from '../services/settingsSync.js';
+import { voiceService } from '../services/voiceService.js';
 
 const language = ref('en');
 
@@ -13,6 +14,7 @@ export function useLanguage() {
   const setLanguage = (lang) => {
     language.value = lang;
     settingsSync.set('language', lang);
+    voiceService.setLanguage(lang);
   };
 
   // Listen for changes from other tabs/apps
@@ -20,6 +22,7 @@ export function useLanguage() {
     settingsSync.onSettingChange('language', (newLang) => {
       if (newLang && newLang !== language.value) {
         language.value = newLang;
+        voiceService.setLanguage(newLang);
       }
     });
 
