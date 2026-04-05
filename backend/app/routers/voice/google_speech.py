@@ -4,6 +4,7 @@ import os
 import tempfile
 from pathlib import Path
 import io
+import time
 
 router = APIRouter(prefix="/google-speech", tags=["google-speech"])
 
@@ -23,6 +24,22 @@ if GOOGLE_AVAILABLE:
 else:
     GOOGLE_LIBS_AVAILABLE = False
     print(f"Warning: Google credentials not found at {GOOGLE_CREDENTIALS_PATH}")
+
+# Reuse clients to avoid repeated initialization overhead
+_speech_client = None
+_tts_client = None
+
+def _get_speech_client():
+    global _speech_client
+    if _speech_client is None and GOOGLE_LIBS_AVAILABLE:
+        _speech_client = speech.SpeechClient()
+    return _speech_client
+
+def _get_tts_client():
+    global _tts_client
+    if _tts_client is None and GOOGLE_LIBS_AVAILABLE:
+        _tts_client = texttospeech.TextToSpeechClient()
+    return _tts_client
 
 
 @router.get("/status")
@@ -63,8 +80,8 @@ async def google_text_to_speech(text: str, rate: float = 1.0, language: str = "e
     print(f"[Google TTS] Request received - Text length: {len(text)} chars, Rate: {rate}x, Language: {language}")
 
     try:
-        client = texttospeech.TextToSpeechClient()
-        print("[Google TTS] Client initialized successfully")
+        client = _get_tts_client()
+        print("[Google TTS] Client ready")
 
         synthesis_input = texttospeech.SynthesisInput(text=text)
 
@@ -138,8 +155,10 @@ async def google_speech_to_text(
     print(f"[Google STT] Request received - File: {file.filename}, Language: {language} -> {language_code}")
 
     try:
-        client = speech.SpeechClient()
-        print("[Google STT] Client initialized successfully")
+        t_start = time.time()
+
+        client = _get_speech_client()
+        print("[Google STT] Client ready")
 
         # Read audio file
         audio_bytes = await file.read()
@@ -147,56 +166,47 @@ async def google_speech_to_text(
 
         audio = speech.RecognitionAudio(content=audio_bytes)
 
-        # Try multiple encoding configurations for better compatibility
-        configs_to_try = [
-            # Config 1: WEBM_OPUS (Chrome/Firefox default)
-            speech.RecognitionConfig(
-                encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-                sample_rate_hertz=48000,
-                language_code=language_code,
-                enable_automatic_punctuation=True,
-                model="default",
-                audio_channel_count=1,
-            ),
-            # Config 2: OGG_OPUS
-            speech.RecognitionConfig(
-                encoding=speech.RecognitionConfig.AudioEncoding.OGG_OPUS,
-                sample_rate_hertz=48000,
-                language_code=language_code,
-                enable_automatic_punctuation=True,
-                model="default",
-                audio_channel_count=1,
-            ),
-            # Config 3: LINEAR16 (WAV)
-            speech.RecognitionConfig(
-                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                language_code=language_code,
-                enable_automatic_punctuation=True,
-                model="default",
-            ),
-        ]
+        # Detect encoding from content type / filename to avoid sequential fallback
+        content_type = file.content_type or ""
+        filename = (file.filename or "").lower()
 
-        # Try each configuration
-        response = None
-        last_error = None
+        if "webm" in content_type or filename.endswith(".webm"):
+            encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS
+            sample_rate = 48000
+        elif "ogg" in content_type or filename.endswith(".ogg"):
+            encoding = speech.RecognitionConfig.AudioEncoding.OGG_OPUS
+            sample_rate = 48000
+        elif "wav" in content_type or filename.endswith(".wav"):
+            encoding = speech.RecognitionConfig.AudioEncoding.LINEAR16
+            sample_rate = None  # Let Google auto-detect from WAV header
+        else:
+            # Default to WEBM_OPUS (most common from browsers)
+            encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS
+            sample_rate = 48000
 
-        for i, config in enumerate(configs_to_try):
-            try:
-                print(f"[Google STT] Trying config {i+1}/{len(configs_to_try)}: {config.encoding.name}")
-                response = client.recognize(config=config, audio=audio)
-                if response and response.results:
-                    print(f"[Google STT] ✓ Config {i+1} succeeded")
-                    break  # Success, exit loop
-                else:
-                    print(f"[Google STT] Config {i+1} returned no results, trying next...")
-            except Exception as e:
-                print(f"[Google STT] ✗ Config {i+1} failed: {str(e)}")
-                last_error = e
-                continue  # Try next config
+        # Build config — use "latest_short" model for lower latency on short utterances
+        config_params = {
+            "encoding": encoding,
+            "language_code": language_code,
+            "enable_automatic_punctuation": True,
+            "model": "latest_short",
+            "audio_channel_count": 1,
+        }
+        if sample_rate:
+            config_params["sample_rate_hertz"] = sample_rate
+
+        config = speech.RecognitionConfig(**config_params)
+
+        print(f"[Google STT] Using encoding={encoding.name}, model=latest_short")
+
+        t_api_start = time.time()
+        response = client.recognize(config=config, audio=audio)
+        t_api_end = time.time()
+        print(f"[Google STT] API call took {(t_api_end - t_api_start)*1000:.0f}ms")
 
         if not response:
-            print("[Google STT] ✗ All configurations failed")
-            raise last_error or Exception("All audio encoding configurations failed")
+            print("[Google STT] ✗ No response from API")
+            raise Exception("No response from Google Speech API")
 
         if not response.results:
             print("[Google STT] No speech detected in audio")
@@ -251,7 +261,8 @@ async def google_speech_to_text(
                 "error": "Empty transcription"
             }
 
-        print(f"[Google STT] ✓ Transcription successful - Text: '{main_result['transcript']}', Confidence: {main_result['confidence']:.2f}, Language: {language_code}")
+        t_total = (time.time() - t_start) * 1000
+        print(f"[Google STT] ✓ Transcription successful ({t_total:.0f}ms total) - Text: '{main_result['transcript']}', Confidence: {main_result['confidence']:.2f}, Language: {language_code}")
 
         return {
             "text": main_result["transcript"],

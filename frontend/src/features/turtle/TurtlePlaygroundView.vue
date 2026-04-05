@@ -75,7 +75,7 @@ import EnhancedOutputPanel from '@/shared/components/EnhancedOutputPanel.vue'
 import CommandInput from '@/shared/components/CommandInput.vue'
 import StatusBar from '@/features/codespace/components/StatusBar.vue'
 import ParserDebugPanel from '@/shared/components/ParserDebugPanel.vue'
-import { useLanguage, useTTS, voiceService, executeAPI, messageAPI, conversationAPI } from '@py-talk/shared'
+import { useLanguage, useTTS, voiceService, executeAPI, messageAPI, conversationAPI, analyzeAPI } from '@py-talk/shared'
 import { useTranslations } from '@/utils/translations'
 import { useUnifiedCommand } from '@/shared/composables/useUnifiedCommand'
 
@@ -154,6 +154,10 @@ export default {
         await fetchMessages(conversationId)
         await fetchAvailableMethods(conversationId)
         await fetchAppDetails(conversationId)
+
+        // Prewarm pipeline + domain caches to avoid cold-start on first voice command
+        analyzeAPI.prewarmPipeline(parseInt(conversationId))
+          .catch(err => console.warn('Pipeline pre-warm failed:', err))
       } catch (err) {
         console.error('Failed to initialize session:', err)
       }

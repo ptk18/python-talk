@@ -18,7 +18,7 @@ from app.models.schemas import AnalyzeCommandRequest, UndoRequest
 
 from app.parser_engine.api import compile_single, apply_followup
 from app.parser_engine.lex_alz import analyze_sentence
-from app.parser_engine.phase2_domain import load_domain, phase2_map_tokens
+from app.parser_engine.phase2_domain import load_domain, phase2_map_tokens, DOMAIN_CACHE
 from app.parser_engine.cfg_parser import parse_command, extract_nodes_by_name, span_to_text
 
 from app.routers.codespace.conversations import initialize_turtle_session, load_turtle_domain_code
@@ -748,6 +748,15 @@ def get_pipeline_cache_stats():
 @router.post("/invalidate_pipeline_cache")
 def invalidate_pipeline_cache(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
     pipeline_cache.invalidate(f"conv_{payload.conversation_id}")
+
+    # Also invalidate domain cache for this conversation's file
+    convo = db.query(Conversation).filter(Conversation.id == payload.conversation_id).first()
+    if convo:
+        session_dir = BASE_EXEC_DIR / f"session_{payload.conversation_id}"
+        module_path = session_dir / convo.file_name
+        abs_path = str(module_path.resolve())
+        DOMAIN_CACHE.pop(abs_path, None)
+
     return {"success": True, "message": "Cache invalidated"}
 
 
@@ -773,6 +782,14 @@ def prewarm_pipeline(payload: AnalyzeCommandRequest, db: Session = Depends(get_d
     py_text = module_path.read_text(encoding="utf-8")
     class_name, method_names = _extract_class_and_methods(py_text)
     pipeline_cache.set(f"conv_{conversation_id}", {"class_name": class_name, "methods": method_names})
+
+    # Also warm the domain cache (AST + synonym expansion) to avoid cold-start on first command
+    try:
+        load_domain(str(module_path))
+        print(f"[prewarm] Domain cache warmed for conv_{conversation_id}")
+    except Exception as e:
+        print(f"[prewarm] Domain cache warm failed: {e}")
+
     return {"success": True, "message": "Pipeline prewarmed"}
 
 
@@ -829,6 +846,7 @@ def undo_last(payload: UndoRequest, db: Session = Depends(get_db)):
 
 @router.post("/analyze_command")
 def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db)):
+    t_total_start = time.time()
     conversation_id = payload.conversation_id
     command = (payload.command or "").strip()
 
@@ -1233,6 +1251,9 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         "explanation": "No results",
         "breakdown": {},
     }
+
+    t_total = (time.time() - t_total_start) * 1000
+    print(f"[TIMING] analyze_command conv={conversation_id} cmd='{command[:50]}': {t_total:.0f}ms total")
 
     return {
         "success": True,

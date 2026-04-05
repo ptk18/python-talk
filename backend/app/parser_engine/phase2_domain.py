@@ -3,6 +3,7 @@ import ast
 import os
 from typing import Dict, List, Set, Optional, Any, Tuple
 import re
+import time
 
 # from lex_alz import get_synonyms
 
@@ -698,6 +699,7 @@ def load_domain(py_file: str) -> Dict[str, Any]:
     if cached is not None:
         return cached
 
+    t0 = time.time()
     structure = extract_code_structure(py_file)
     domain = expand_domain(structure)
 
@@ -705,6 +707,8 @@ def load_domain(py_file: str) -> Dict[str, Any]:
     domain.setdefault("ACTIONS", {})
 
     DOMAIN_CACHE[py_file] = domain
+    elapsed = (time.time() - t0) * 1000
+    print(f"[DOMAIN_CACHE] MISS for {os.path.basename(py_file)}: {elapsed:.0f}ms")
     return domain
 
 

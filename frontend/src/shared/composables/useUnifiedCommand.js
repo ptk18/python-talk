@@ -119,7 +119,9 @@ export function useUnifiedCommand() {
         if (onMessagesUpdate) onMessagesUpdate(msgs)
       }
 
-      // 5) Handle results
+      // 5) Handle results — clear loading indicator now that messages are visible
+      isProcessingCommand.value = false
+
       if (executables.length > 0) {
         addHistoryEntry({
           text,
@@ -166,12 +168,18 @@ export function useUnifiedCommand() {
         executables: []
       })
 
-      // TTS feedback — use fixed translatable strings, not raw API messages
+      // TTS feedback
       if (suggestions.length > 0) {
         const sugNames = suggestions.map(s => s.method).join(', ')
         voiceService.speak(`Did you mean ${sugNames}?`)
       } else {
-        voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
+        // Check if any no-match result has a follow-up prompt (e.g. missing parameter)
+        const followUpMsg = noMatches.find(r => r.suggestion_message)?.suggestion_message
+        if (followUpMsg) {
+          voiceService.speak(followUpMsg)
+        } else {
+          voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
+        }
       }
 
       return { success: false, error: errorMsg }
