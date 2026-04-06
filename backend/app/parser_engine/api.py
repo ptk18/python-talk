@@ -158,7 +158,11 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
     # ---- build executable (only required params) ----
     parts: List[str] = []
     for p in required:
-        parts.append(f"{p}={repr(args.get(p))}")
+        v = args.get(p)
+        if isinstance(v, str):
+            parts.append(repr(v))
+        else:
+            parts.append(str(v))
     executable = f"{action}({', '.join(parts)})"
 
     # thresholds
@@ -341,9 +345,11 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
     # GENERAL (non-turtle) follow-up:
     # keep your existing behavior (domain-based)
     # -------------------------
-    value: Any = raw
-    if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-        value = int(value)
+    m = re.search(r"-?\d+", raw)
+    if m:
+        value: Any = int(m.group(0))
+    else:
+        value = raw
 
     if extracted:
         value = extracted
@@ -371,7 +377,11 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
 
     parts: List[str] = []
     for p in required:
-        parts.append(f"{p}={repr(params.get(p))}")
+        v = params.get(p)
+        if isinstance(v, str):
+            parts.append(repr(v))
+        else:
+            parts.append(str(v))
     executable = f"{method}({', '.join(parts)})"
 
     print("GENERAL FOLLOWUP: executable:", executable)

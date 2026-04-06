@@ -14,7 +14,7 @@
 # ============================================================
 
 from typing import Dict, List, Any, Optional
-import json
+import json, re
 
 from app.parser_engine.lex_alz import setup_nltk, analyze_sentence
 from app.parser_engine.phase2_domain import (
@@ -223,6 +223,26 @@ def extract_first_object_phrase(tokens: List[Dict[str, Any]]) -> Optional[str]:
 
     return None
 
+def extract_color_value(text: str) -> str | None:
+    s = text.lower().strip()
+
+    m = re.search(r"\b(?:to|as)\s+([a-zA-Z#][\w#\-]*(?:\s+[a-zA-Z][\w\-]*)?)\b", s)
+    if m:
+        return m.group(1).strip().replace(" ", "")
+
+    words = s.split()
+    stop = {
+        "set", "change", "make", "the", "a", "an", "to", "as",
+        "background", "bg", "pen", "fill", "turtle", "canvas", "color"
+    }
+    kept = [w for w in words if w not in stop]
+
+    if not kept:
+        return None
+
+    if len(kept) >= 2:
+        return "".join(kept[-2:])
+    return kept[-1]
 
 def pick_action_surface(action: Optional[str]) -> Optional[str]:
     """
@@ -371,7 +391,19 @@ def _clean_string_args(args: Dict[str, Any], action: Optional[str]) -> Dict[str,
     if not args or not action:
         return args
 
-    stop = set(action.replace("_", " ").lower().split())  # {"turn","on"}
+    stop = set(action.replace("_", " ").lower().split())
+    stop |= {
+        "the", "a", "an", "to", "for", "my",
+        "turtle", "object", "please", "set"
+    }
+    if action == "bgcolor":
+        stop |= {"background", "bg", "color"}
+    elif action == "pencolor":
+        stop |= {"pen", "color"}
+    elif action == "fillcolor":
+        stop |= {"fill", "color"}
+    elif action == "color":
+        stop |= {"color"}
 
     cleaned: Dict[str, Any] = {}
     for k, v in args.items():
@@ -404,9 +436,25 @@ def run(sentence: str, py_file: str) -> List[Dict[str, Any]]:
         require_number_if_param_int=True,
         tokens=lex_tokens
     )
+    
+    s = sentence.lower()
+    if "background color" in s or "bg color" in s:
+        best_action = "bgcolor"
+    elif "pen color" in s:
+        best_action = "pencolor"
+    elif "fill color" in s:
+        best_action = "fillcolor"
 
     # Bind params based on action signature + token evidence
     bind_info = bind_number_to_param(sem_tokens, domain, action=best_action)
+    bind_info["action"] = best_action
+    
+    if best_action in {"color", "bgcolor", "pencolor", "fillcolor"}:
+        c = extract_color_value(sentence)
+        if c:
+            c = c.replace(" ", "")
+            param = domain["ACTIONS"][best_action]["params"][0]
+            bind_info["args"][param] = c
 
     # cleanup string args like "turn tv" -> "tv", "turn" -> missing
     bind_info["args"] = _clean_string_args(bind_info.get("args", {}) or {}, bind_info.get("action"))

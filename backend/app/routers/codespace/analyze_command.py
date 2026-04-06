@@ -1057,10 +1057,8 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         print("FOLLOWUP RESULT:", r)
 
         will_append = (r.get("status") == "matched" and r.get("executable"))
-        if will_append:
-            _record_undo_once()  # BEFORE changing state and appending
 
-        # update pending state
+        # update pending state FIRST
         if r.get("status") == "matched":
             state["pending"] = None
             _save_state(session_dir, state)
@@ -1079,8 +1077,6 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                         "class": class_name_from_meta,
                         "constructor_args": r.get("parameters", {}) or {},
                     }
-
-                    print("FOLLOWUP CONSTRUCTOR SAVE:", state)
                     _save_state(session_dir, state)
 
         elif r.get("status") == "need_clarification":
@@ -1096,6 +1092,10 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             state["pending"] = None
             _save_state(session_dir, state)
 
+        # record undo AFTER state is correct
+        if will_append:
+            _record_undo_once()
+            
         # format result
         if r.get("status") == "matched":
             formatted = {

@@ -167,7 +167,7 @@ class TurtleApp:
         """
         Draw a circle.
 
-        Phrases: draw circle, make a circle, circle.
+        Phrases: draw circle, make a circle, circle, draw a circle, make circle.
 
         Args:
             radius: circle radius.
@@ -418,7 +418,7 @@ class TurtleApp:
         Set the screen background color.
 
         Phrases: background color, set background, change canvas color,
-        make background blue.
+        make background blue, bg color.
 
         Args:
             color_name: color name like "red", "blue", "black"
@@ -442,8 +442,8 @@ class TurtleApp:
         """
         Check whether the pen is currently down.
 
-        Phrases: is pen down, pen status, drawing status,
-        check pen down.
+        Phrases: is pen down, pen status, drawing status, 
+        check pen down, is it down, is turtle down.
         """
         return turtle.isdown()
 

@@ -569,6 +569,7 @@ export default {
       if (!commandText.value.trim() || isProcessingCommand.value) return
 
       const cmd = commandText.value.trim()
+      commandText.value = ''
       const { isAssignment, isTargetedCall, isBareCall } = detectDirectPythonCommand(cmd)
 
       try {
