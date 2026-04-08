@@ -1,5 +1,19 @@
 <template>
-  <aside class="app-sidebar">
+  <div>
+    <!-- Mobile/Tablet overlay -->
+    <div
+      v-if="isDrawerOpen"
+      class="app-sidebar-overlay"
+      @click="closeDrawer"
+    ></div>
+    <aside class="app-sidebar" :class="{ 'app-sidebar--open': isDrawerOpen }">
+    <!-- Close button for drawer mode -->
+    <button class="app-sidebar__close" @click="closeDrawer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
     <!-- Back Button -->
     <div class="app-sidebar__back" @click="goBack">
       <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -127,6 +141,7 @@
       </div>
     </div>
   </aside>
+  </div>
 </template>
 
 <script>
@@ -160,10 +175,23 @@ export default {
     }
   },
   emits: ['insert-method', 'select-file'],
-  setup(props, { emit }) {
+  setup(props, { emit, expose }) {
     const router = useRouter()
     const { language } = useLanguage()
     const t = computed(() => useTranslations(language.value))
+
+    // Drawer state for mobile/tablet
+    const isDrawerOpen = ref(false)
+
+    const openDrawer = () => {
+      isDrawerOpen.value = true
+    }
+
+    const closeDrawer = () => {
+      isDrawerOpen.value = false
+    }
+
+    expose({ openDrawer, closeDrawer })
 
     // Section expand states
     const expandedSections = ref({
@@ -278,11 +306,13 @@ export default {
         : `${method.name}(${method.required_parameters?.join(', ') || ''})`
 
       emit('insert-method', methodCall)
+      closeDrawer()
     }
 
     // Handle file click
     const handleFileClick = (filename) => {
       emit('select-file', filename)
+      closeDrawer()
     }
 
     // Restore expand state
@@ -321,6 +351,9 @@ export default {
 
     return {
       t,
+      isDrawerOpen,
+      openDrawer,
+      closeDrawer,
       expandedSections,
       methodsList,
       methodsClasses,
@@ -621,10 +654,63 @@ export default {
   background: #b0b0b0;
 }
 
-/* Tablet: hide app sidebar */
+/* Close button - hidden on desktop */
+.app-sidebar__close {
+  display: none;
+}
+
+/* Overlay - hidden on desktop */
+.app-sidebar-overlay {
+  display: none;
+}
+
+/* Tablet/Mobile: convert to slide-out drawer */
 @media (max-width: 1024px) {
   .app-sidebar {
-    display: none;
+    position: fixed;
+    top: var(--toolbar-height);
+    left: -280px;
+    width: 270px;
+    height: calc(100vh - var(--toolbar-height));
+    z-index: calc(var(--z-modal) + 1);
+    transition: left 0.3s ease;
+    box-shadow: none;
+  }
+
+  .app-sidebar--open {
+    left: 0;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .app-sidebar__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #666;
+    z-index: 1;
+  }
+
+  .app-sidebar__close:hover {
+    background: #f0f0f0;
+    color: #333;
+  }
+
+  .app-sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: var(--toolbar-height);
+    background: rgba(0, 0, 0, 0.4);
+    z-index: var(--z-modal);
   }
 }
 </style>

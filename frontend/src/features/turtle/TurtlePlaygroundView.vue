@@ -33,6 +33,7 @@
         graphic-label="Turtle Graphics Stream"
         :graphic-placeholder="'Waiting for turtle stream...'"
         @set-tab="activeTab = $event"
+        @clear-history="messageAPI.deleteByConversation(appId).then(() => messages = [])"
       />
     </template>
 
@@ -845,7 +846,9 @@ export default {
       handleRunCode,
       handleRunCommand,
       handleMicClick,
-      handleClear
+      handleClear,
+      clearHistory,
+      messageAPI
     }
   }
 }

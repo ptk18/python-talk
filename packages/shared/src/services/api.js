@@ -146,6 +146,12 @@ export const messageAPI = {
   getByConversation: async (conversationId) => {
     return apiCall(`/api/messages/${conversationId}`);
   },
+
+  deleteByConversation: async (conversationId) => {
+    return apiCall(`/api/messages/${conversationId}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 export const voiceAPI = {

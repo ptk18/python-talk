@@ -30,6 +30,17 @@
         <img :src="graphicModeIcon" alt="" class="output-panel__tab-icon" />
         <span>Graphic</span>
       </button>
+      <button
+        v-show="activeTab === 'history'"
+        class="output-panel__clear-btn"
+        @click="$emit('clear-history')"
+        title="Clear text output"
+      >
+        <svg class="output-panel__clear-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6h12z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
     <div class="output-panel__body">
       <div ref="contentRef" class="output-panel__content">
@@ -149,7 +160,7 @@ export default {
       default: 'Turtle Graphics Stream'
     }
   },
-  emits: ['set-tab'],
+  emits: ['set-tab', 'clear-history'],
   setup(props) {
     const historyRef = ref(null)
     const contentRef = ref(null)
@@ -224,9 +235,35 @@ export default {
 
 .output-panel__tabs {
   display: flex;
+  align-items: center;
   background: #fafafa;
   border-bottom: 1px solid #e8e8e8;
   flex-shrink: 0;
+}
+
+.output-panel__clear-btn {
+  margin-left: auto;
+  margin-right: 8px;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: #999;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.output-panel__clear-btn:hover {
+  color: #f44336;
+  background: rgba(244, 67, 54, 0.08);
+}
+
+.output-panel__clear-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .output-panel__tab {

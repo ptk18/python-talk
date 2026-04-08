@@ -20,3 +20,9 @@ def create_message(conversation_id: int, sender: str, content: str, db: Session 
 @router.get("/{conversation_id}")
 def get_messages(conversation_id: int, db: Session = Depends(get_db)):
     return db.query(Message).filter(Message.conversation_id == conversation_id).all()
+
+@router.delete("/{conversation_id}")
+def delete_messages(conversation_id: int, db: Session = Depends(get_db)):
+    db.query(Message).filter(Message.conversation_id == conversation_id).delete()
+    db.commit()
+    return {"detail": "Messages cleared"}

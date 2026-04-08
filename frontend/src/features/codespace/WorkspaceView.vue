@@ -45,6 +45,7 @@
         :terminal-placeholder="t.workspace.outputWillAppear"
         :graphic-label="t.workspace.turtleGraphicsStream"
         @set-tab="activeTab = $event"
+        @clear-history="messageAPI.deleteByConversation(conversationId).then(() => messages = [])"
       />
     </template>
 
@@ -82,7 +83,7 @@ import CommandInput from '@/shared/components/CommandInput.vue'
 import StatusBar from './components/StatusBar.vue'
 import SuccessDialog from './components/SuccessDialog.vue'
 import ParserDebugPanel from '@/shared/components/ParserDebugPanel.vue'
-import { conversationAPI, fileAPI, analyzeAPI, useAuth, useLanguage, useTTS, voiceService } from '@py-talk/shared'
+import { conversationAPI, fileAPI, analyzeAPI, messageAPI, useAuth, useLanguage, useTTS, voiceService } from '@py-talk/shared'
 import { useCode } from './composables/useCode'
 import { useFile } from './composables/useFile'
 import { useCodeExecution } from './composables/useCodeExecution'
@@ -484,7 +485,10 @@ export default {
       handleEditorChange,
       handleInsertMethod,
       handleSelectFile,
-      handleClearOutput
+      handleClearOutput,
+      clearHistory,
+      messages,
+      messageAPI
     }
   }
 }
