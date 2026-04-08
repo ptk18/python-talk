@@ -21,13 +21,14 @@ class SmartHome:
         Phrases: login, sign in, authenticate, connect to smart home.
         """
         url = f"{self.base_url}/auth/login/"
-        response = requests.post(url, json={"email": self.email, "password": self.password}, verify=False)
+        response = requests.post(url, json={"email": self.email, "password": self.password}, verify=False, timeout=10)
         print(f"[LOGIN] Status: {response.status_code}, Response: {response.text}")
         if response.status_code == 200:
             data = response.json()
             self.token = data.get("token")
-            return "Login successful"
-        return f"Login failed: {response.text}"
+            print("Login successful")
+        else:
+            print(f"Login failed: {response.text}")
 
     def turn_on_lightbulb(self):
         """Turn the lightbulb on.
@@ -37,11 +38,12 @@ class SmartHome:
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/450bc6dc-14dd-483b-a5ee-d944e3ba0357/"
         headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"is_on": True}, headers=headers, verify=False)
+        response = requests.patch(url, json={"is_on": True}, headers=headers, verify=False, timeout=10)
         print(f"[TURN_ON] Status: {response.status_code}, Response: {response.text}")
         if response.status_code == 200:
-            return "Lightbulb turned on"
-        return f"Failed to turn on lightbulb: {response.text}"
+            print("Lightbulb turned on")
+        else:
+            print(f"Failed to turn on lightbulb: {response.text}")
 
     def turn_off_lightbulb(self):
         """Turn the lightbulb off.
@@ -51,11 +53,12 @@ class SmartHome:
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/450bc6dc-14dd-483b-a5ee-d944e3ba0357/"
         headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"is_on": False}, headers=headers, verify=False)
+        response = requests.patch(url, json={"is_on": False}, headers=headers, verify=False, timeout=10)
         print(f"[TURN_OFF] Status: {response.status_code}, Response: {response.text}")
         if response.status_code == 200:
-            return "Lightbulb turned off"
-        return f"Failed to turn off lightbulb: {response.text}"
+            print("Lightbulb turned off")
+        else:
+            print(f"Failed to turn off lightbulb: {response.text}")
 
     def get_devices_info(self):
         """Get all devices information in the room.
@@ -65,8 +68,9 @@ class SmartHome:
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/homes/521b6189-28b2-4395-a099-4423cf166dc8/get_devices/"
         headers = {"Authorization": f"Token {self.token}"}
-        response = requests.get(url, headers=headers, verify=False)
+        response = requests.get(url, headers=headers, verify=False, timeout=10)
         print(f"[GET_DEVICES] Status: {response.status_code}, Response: {response.text}")
         if response.status_code == 200:
-            return response.json()
-        return f"Failed to get devices information: {response.text}"
+            print(response.json())
+        else:
+            print(f"Failed to get devices information: {response.text}")

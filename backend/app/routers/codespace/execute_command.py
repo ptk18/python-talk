@@ -134,6 +134,8 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
         # -----------------------------
         module_name = os.path.splitext(safe_module_fname)[0]
         with open(runner_path, "w", encoding="utf-8") as f:
+            f.write("import socket\n")
+            f.write("socket.setdefaulttimeout(15)\n")
             f.write(f"from {module_name} import {class_name}\n")
             f.write("import sys\n")
             f.write("\n")
@@ -145,7 +147,7 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
                 capture_output=True,
                 text=True,
                 cwd=session_dir,
-                timeout=10
+                timeout=30
             )
             output = result.stdout.strip() or result.stderr.strip()
             return {"output": output or "No output"}
@@ -173,7 +175,7 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             capture_output=True,
             text=True,
             cwd=session_dir,
-            timeout=10
+            timeout=30
         )
         output = result.stdout.strip() or result.stderr.strip()
         return {"output": output or "No output"}
@@ -200,7 +202,7 @@ def rerun_command(conversation_id: int = Query(..., description="ID of the conve
             capture_output=True,
             text=True,
             cwd=session_dir,
-            timeout=10
+            timeout=30
         )
         output = result.stdout.strip() or result.stderr.strip()
         return {"output": output or "No output"}

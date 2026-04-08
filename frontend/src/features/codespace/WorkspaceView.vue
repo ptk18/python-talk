@@ -292,7 +292,7 @@ export default {
     }
 
     const handleRun = async () => {
-      await runCode(conversationId.value, activeTab.value === 'terminal')
+      await runCode(conversationId.value, appType.value !== 'turtle')
     }
 
     const handleInsertMethod = (methodCall) => {
