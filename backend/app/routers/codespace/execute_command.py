@@ -95,7 +95,15 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
             state_path = os.path.join(session_dir, "state.json")
             if not os.path.exists(state_path):
                 with open(state_path, "w", encoding="utf-8") as sf:
-                    sf.write('{\n  "active_object": null,\n  "pending": null\n}\n')
+                    sf.write(
+                        json.dumps({
+                            "active_object": None,
+                            "pending": None,
+                            "objects": {},
+                            "constructor_args": [],
+                            "constructor_kwargs": {}
+                        }, indent=2)
+                    )
             return {"output": "Turtle runner initialized"}
         
         # -----------------------------
@@ -119,7 +127,15 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
 
 
         with open(state_path, "w", encoding="utf-8") as sf:
-            sf.write(json.dumps(state, ensure_ascii=False, indent=2))
+            sf.write(
+                json.dumps({
+                    "active_object": None,
+                    "pending": None,
+                    "objects": {},
+                    "constructor_args": [],
+                    "constructor_kwargs": {}
+                }, indent=2)
+            )
 
         constructor_args = state["constructor_args"]
         constructor_kwargs = state["constructor_kwargs"]
@@ -588,7 +604,10 @@ def reset_runner(conversation_id: int = Query(...)):
     if state_path.exists():
         state = {
             "active_object": None,
-            "pending": None
+            "pending": None,
+            "objects": {},
+            "constructor_args": [],
+            "constructor_kwargs": {}
         }
         state_path.write_text(
             json.dumps(state, indent=2),

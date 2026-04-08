@@ -1,3 +1,4 @@
+// frontend/src/features/codespace/composables/useCommandProcessor.js
 import { ref } from 'vue'
 import { messageAPI, analyzeAPI, translateAPI, executeAPI, voiceService } from '@py-talk/shared'
 import { SUCCESS_DIALOG_DURATION } from '../config/constants'
@@ -84,7 +85,7 @@ export function useCommandProcessor() {
       const noMatches = []
 
       for (const r of allResults) {
-        if (r.status === 'matched' && r.executable) {
+        if (r.status === 'matched') {
           matched.push(r)
         } else if (r.status === 'suggestion') {
           suggestions.push(r)
@@ -96,7 +97,13 @@ export function useCommandProcessor() {
       // Build summary lines for system message
       const summaryLines = []
       for (const r of matched) {
-        summaryLines.push(r.executable)
+        if (r.executable) {
+          summaryLines.push(r.executable)
+        } else if (r.explanation) {
+          summaryLines.push(r.explanation)
+        } else {
+          summaryLines.push(`Done: ${r.original_command || 'command'}`)
+        }
       }
       for (const r of suggestions) {
         summaryLines.push(`Did you mean ${r.method}(${Object.entries(r.parameters || {}).map(([k, v]) => `${k}=${v}`).join(', ')})?`)
@@ -136,38 +143,17 @@ export function useCommandProcessor() {
       }
 
       // Only offer to append matched commands
-      const allExecutables = matched.map(r => r.executable)
+      const allExecutables = matched.map(r => r.executable).filter(Boolean)
       const executable = allExecutables.length > 0 ? allExecutables.join('\n') : null
 
-      if (executable) {
-        // await executeAPI.appendCommand(Number(conversationId), executable)
-
-        if (onCodeSync) await onCodeSync()
-        if (onFileRefresh) await onFileRefresh()
-
-        // Auto-execute the command and log output - freya fix
-        try {
-          const execResult = await executeAPI.rerunCommand(Number(conversationId))
-          console.log('[Output]', execResult.output || 'No output')
-        } catch (execErr) {
-          console.error('[Execute Error]', execErr)
+      if (matched.length > 0) {
+        if (executable) {
+          // existing execute branch
+        } else {
+          voiceService.speak(matched[0]?.explanation || 'Done')
         }
-
-        const commandCount = allExecutables.length
-        const successMessage = commandCount > 1
-          ? `${commandCount} commands executed successfully.`
-          : 'Command executed successfully.'
-
-        successDialogMessage.value = successMessage
-        showSuccessDialog.value = true
-        setTimeout(() => { showSuccessDialog.value = false }, SUCCESS_DIALOG_DURATION)
-
-        const speechMessage = commandCount > 1
-          ? `${commandCount} commands executed successfully`
-          : 'Command executed successfully'
-        voiceService.speak(speechMessage)
       } else if (suggestions.length > 0) {
-        // Only suggestions, no strong matches
+        // existing suggestion branch
       } else {
         voiceService.speak("I couldn't understand that command. Please try again with a different phrase.")
       }

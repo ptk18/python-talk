@@ -84,7 +84,7 @@ export function useUnifiedCommand() {
       const noMatches = []
 
       for (const r of allResults) {
-        if (r.status === 'matched' && r.executable) {
+        if (r.status === 'matched') {
           matched.push(r)
         } else if (r.status === 'suggestion') {
           suggestions.push(r)
@@ -93,12 +93,22 @@ export function useUnifiedCommand() {
         }
       }
 
-      const executables = matched.map(r => r.executable)
+      const executables = matched
+        .map(r => r.executable)
+        .filter(Boolean)
 
       // 4) Build summary for workspace message history
       if (mode === 'codespace' || mode === 'turtle') {
         const summaryLines = []
-        for (const r of matched) summaryLines.push(r.executable)
+        for (const r of matched) {
+          if (r.executable) {
+            summaryLines.push(r.executable)
+          } else if (r.explanation) {
+            summaryLines.push(r.explanation)
+          } else {
+            summaryLines.push(`Done: ${r.original_command || 'command'}`)
+          }
+        }
         for (const r of suggestions) {
           summaryLines.push(`Did you mean ${r.method}(${Object.entries(r.parameters || {}).map(([k, v]) => `${k}=${v}`).join(', ')})?`)
         }
@@ -122,7 +132,10 @@ export function useUnifiedCommand() {
       // 5) Handle results — clear loading indicator now that messages are visible
       isProcessingCommand.value = false
 
-      if (executables.length > 0) {
+      const hasMatched = matched.length > 0
+      const hasExecutables = executables.length > 0
+
+      if (hasMatched) {
         addHistoryEntry({
           text,
           translatedText,
@@ -130,27 +143,29 @@ export function useUnifiedCommand() {
           status: 'success'
         })
 
-        if (mode === 'codespace') {
-          // Sync code and refresh files
-          if (onCodeSync) await onCodeSync()
-          if (onFileRefresh) await onFileRefresh()
+        if (hasExecutables) {
+          if (mode === 'codespace') {
+            if (onCodeSync) await onCodeSync()
+            if (onFileRefresh) await onFileRefresh()
 
-          // Auto-execute
-          try {
-            const execResult = await executeAPI.rerunCommand(Number(conversationId))
-            console.log('[Output]', execResult.output || 'No output')
-          } catch (execErr) {
-            console.error('[Execute Error]', execErr)
+            try {
+              const execResult = await executeAPI.rerunCommand(Number(conversationId))
+              console.log('[Output]', execResult.output || 'No output')
+            } catch (execErr) {
+              console.error('[Execute Error]', execErr)
+            }
+
+            voiceService.speak(
+              executables.length > 1
+                ? `${executables.length} commands executed successfully`
+                : 'Command executed successfully'
+            )
+          } else {
+            voiceService.speak('Command executed')
           }
-
-          voiceService.speak(
-            executables.length > 1
-              ? `${executables.length} commands executed successfully`
-              : 'Command executed successfully'
-          )
         } else {
-          // Turtle mode: voice feedback handled by the caller
-          voiceService.speak('Command executed')
+          const firstMatched = matched[0]
+          voiceService.speak(firstMatched?.explanation || 'Done')
         }
 
         return { success: true, executables }

@@ -29,7 +29,8 @@ def _looks_like_turtle_create(text: str) -> bool:
     return ("turtle" in s) and any(w in s for w in ["create", "make", "init", "initialize", "spawn", "new"])
 
 def _first_number(text: str) -> Optional[int]:
-    m = re.search(r"(-?\d+)", text)
+    # match only standalone numbers, not digits inside identifiers like t1 or acc2
+    m = re.search(r"(?<![A-Za-z_])(-?\d+)(?![A-Za-z_])", text)
     return int(m.group(1)) if m else None
 
 
@@ -63,6 +64,14 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
     Returns dict used by analyze_command.py.
     """
     _ensure_nltk()
+    command_text = (command_text or "").strip()
+
+    # remove only trailing sentence period
+    # "top." -> "top"
+    # "move to x 10 y 15." -> "move to x 10 y 15"
+    # keeps decimals like 3.14 inside text untouched
+    if command_text.endswith("."):
+        command_text = command_text[:-1].strip()
 
     # ---- HARDCASE: turtle creation -> emit assignment line (no file read) ----
     # This runs BEFORE load_domain/main_process, so turtle creation follows preset rules only.
@@ -207,7 +216,9 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
     #     answer_text = re.sub(r"[^\w\s\-\.]", "", answer_text)   # remove punctuation except dot/space/hyphen
     #     answer_text = answer_text.strip()
     
-    answer_text = re.sub(r"[^\w\s\-]", "", answer_text)
+    answer_text = (answer_text or "").strip()
+    if answer_text.endswith("."):
+        answer_text = answer_text[:-1].strip()
 
     method = (pending or {}).get("method")
     missing = list((pending or {}).get("missing") or [])
@@ -345,16 +356,41 @@ def apply_followup(pending: dict, answer_text: str, module_path: str) -> Dict[st
     # GENERAL (non-turtle) follow-up:
     # keep your existing behavior (domain-based)
     # -------------------------
-    m = re.search(r"-?\d+", raw)
-    if m:
-        value: Any = int(m.group(0))
+    # support answers like:
+    # "10"
+    # "y 15"
+    # "x 10"
+    # "x = 10"
+    # "y = 15"
+
+    target_param = param_name
+    value: Any = raw
+
+    named_match = re.match(r"^\s*([A-Za-z_]\w*)\s*(?:=\s*)?(-?\d+)\s*$", raw)
+    if named_match:
+        typed_param = named_match.group(1)
+        typed_value = int(named_match.group(2))
+
+        # only accept if user named one of the still-missing/required params
+        domain = load_domain(module_path)
+        required = (domain.get("ACTIONS", {}).get(method, {}) or {}).get("params", []) or []
+
+        if typed_param in required:
+            target_param = typed_param
+            value = typed_value
+        else:
+            value = raw
     else:
-        value = raw
+        m = re.search(r"-?\d+", raw)
+        if m:
+            value = int(m.group(0))
+        else:
+            value = raw
 
-    if extracted:
-        value = extracted
+        if extracted:
+            value = extracted
 
-    params[param_name] = value
+    params[target_param] = value
 
     print("GENERAL FOLLOWUP: params(after bind):", params)
 

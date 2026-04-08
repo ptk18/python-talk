@@ -561,8 +561,15 @@ export default {
       const text = s.trim()
       return {
         isAssignment: /^[a-zA-Z_]\w*\s*=/.test(text),
-        isTargetedCall: /^[a-zA-Z_]\w*\./.test(text),
-        isBareCall: /^[a-zA-Z_]\w*\s*\(.*\)\s*$/.test(text)
+
+        // require full targeted method call like t1.forward(100)
+        // do NOT treat "top." as valid direct code
+        isTargetedCall: /^[a-zA-Z_]\w*\.[A-Za-z_]\w*\s*\(.*\)\s*$/.test(text),
+
+        isBareCall: /^[A-Za-z_]\w*\s*\(.*\)\s*$/.test(text),
+
+        // incomplete attribute access like top. or t1.
+        isIncompleteTarget: /^[A-Za-z_]\w*\.\s*$/.test(text)
       }
     }
 
@@ -571,7 +578,15 @@ export default {
 
       const cmd = commandText.value.trim()
       commandText.value = ''
-      const { isAssignment, isTargetedCall, isBareCall } = detectDirectPythonCommand(cmd)
+      const { isAssignment, isTargetedCall, isBareCall, isIncompleteTarget } = detectDirectPythonCommand(cmd)
+
+      if (isIncompleteTarget) {
+        showAlertBox(
+          'Incomplete command. Use a full call like t1.forward(100), or type just "top" / "use top".',
+          'error'
+        )
+        return
+      }
 
       try {
         if (isAssignment || isTargetedCall) {
@@ -610,7 +625,7 @@ export default {
             : []
 
           if (!codeLines.length) {
-            showAlertBox(res?.message || res?.suggestion_message || 'No executable code generated', 'info')
+            showAlertBox('Active object changed', 'success')
             return
           }
 

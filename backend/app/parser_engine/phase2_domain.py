@@ -1073,22 +1073,90 @@ def bind_args_to_params(
                 explain.append(f"Bound {note_param}='{rest2}' from remaining words (fallback).")
 
     # ---------- INT binding ----------
+    def bind_named_int_params() -> Dict[str, int]:
+        """
+        Supports:
+        x 10
+        y 15
+        x = 10
+        y = 15
+        x10
+        y15
+        """
+        bound: Dict[str, int] = {}
+        words_raw = [str(t.get("word") or "").strip().lower() for t in semantic_tokens if str(t.get("word") or "").strip()]
+
+        i = 0
+        while i < len(words_raw):
+            w = words_raw[i]
+
+            # case: x10 / y15
+            m = re.match(r"^([A-Za-z_]+)(-?\d+)$", w)
+            if m:
+                param_part = m.group(1).lower()
+                value_part = int(m.group(2))
+
+                if param_part in [p.lower() for p in int_params]:
+                    real_param = next(p for p in int_params if p.lower() == param_part)
+                    bound[real_param] = value_part
+                    i += 1
+                    continue
+
+            if w in [p.lower() for p in int_params]:
+                # case: x 10
+                if i + 1 < len(words_raw):
+                    v = as_int(words_raw[i + 1])
+                    if v is not None:
+                        real_param = next(p for p in int_params if p.lower() == w)
+                        bound[real_param] = v
+                        i += 2
+                        continue
+
+                # case: x = 10
+                if i + 2 < len(words_raw) and words_raw[i + 1] == "=":
+                    v = as_int(words_raw[i + 2])
+                    if v is not None:
+                        real_param = next(p for p in int_params if p.lower() == w)
+                        bound[real_param] = v
+                        i += 3
+                        continue
+
+            i += 1
+
+        return bound
+
     if len(int_params) == 1:
-        num = first_number()
-        if num is not None and int_params[0] not in args:
-            args[int_params[0]] = num
-            explain.append(f"Bound {int_params[0]}={num} (first number in sentence).")
+        named_bound = bind_named_int_params()
+        if named_bound:
+            args.update(named_bound)
+            for k, v in named_bound.items():
+                explain.append(f"Bound {k}={v} from named integer parameter.")
+        else:
+            num = first_number()
+            if num is not None and int_params[0] not in args:
+                args[int_params[0]] = num
+                explain.append(f"Bound {int_params[0]}={num} (first number in sentence).")
 
     elif len(int_params) == 2:
-        nums = first_n_numbers(2)
-        if len(nums) == 2:
-            if int_params[0] not in args:
-                args[int_params[0]] = nums[0]
-            if int_params[1] not in args:
-                args[int_params[1]] = nums[1]
-            explain.append(
-                f"Bound {int_params[0]}={nums[0]}, {int_params[1]}={nums[1]} (first two numbers in sentence)."
-            )
+        named_bound = bind_named_int_params()
+        if named_bound:
+            args.update(named_bound)
+            for k, v in named_bound.items():
+                explain.append(f"Bound {k}={v} from named integer parameter.")
+
+        remaining_int_params = [p for p in int_params if p not in args]
+        if remaining_int_params:
+            nums = first_n_numbers(len(remaining_int_params))
+            num_idx = 0
+            for p in remaining_int_params:
+                if num_idx < len(nums):
+                    args[p] = nums[num_idx]
+                    num_idx += 1
+
+            if nums:
+                explain.append(
+                    f"Bound remaining int params by position: { {p: args[p] for p in remaining_int_params if p in args} }."
+                )
 
     # ---------- CATEGORY binding ----------
     # Works for:

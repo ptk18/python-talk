@@ -41,9 +41,19 @@ def _maybe_set_active_from_assignment(session_dir: Path, executable: str | None)
     m = re.match(r"^([A-Za-z_]\w*)\s*=\s*turtle\.Turtle\(\)\s*$", exe)
     if not m:
         return
+
+    obj_name = m.group(1)
+
     st = _load_state(session_dir)
-    st["active_object"] = m.group(1)
+    st.setdefault("objects", {})
+    st["objects"][obj_name] = {
+        "class": "Turtle",
+        "constructor_args": [],
+        "constructor_kwargs": {}
+    }
+    st["active_object"] = obj_name
     st["pending"] = None
+
     _save_state(session_dir, st)
     
 def _is_turtle_app(convo) -> bool:
@@ -303,7 +313,36 @@ def _try_build_constructor_executable(command: str, class_name: str, init_info: 
         "missing": [],
         "executable": executable,
     }
+    
+def _extract_switch_object_name(command: str) -> Optional[str]:
+    s = (command or "").strip()
 
+    patterns = [
+        r"^\s*change\s+object\s+to\s+([A-Za-z_]\w*)\s*\.?\s*$",
+        r"^\s*switch\s+object\s+to\s+([A-Za-z_]\w*)\s*\.?\s*$",
+        r"^\s*set\s+active\s+object\s+to\s+([A-Za-z_]\w*)\s*\.?\s*$",
+        r"^\s*use\s+object\s+([A-Za-z_]\w*)\s*\.?\s*$",
+        r"^\s*use\s+([A-Za-z_]\w*)\s*\.?\s*$",
+        r"^\s*select\s+object\s+([A-Za-z_]\w*)\s*\.?\s*$",
+    ]
+
+    for pat in patterns:
+        m = re.match(pat, s, flags=re.IGNORECASE)
+        if m:
+            return m.group(1)
+
+    return None
+
+def _extract_referenced_object(command: str, known_objects: Dict[str, Any]) -> Optional[str]:
+    s = (command or "").strip().rstrip(".").lower()
+    if not s or not known_objects:
+        return None
+
+    for obj_name in known_objects.keys():
+        if re.search(rf"\b{re.escape(obj_name.lower())}\b", s):
+            return obj_name
+
+    return None
    
 # ============================================================
 # Cache
@@ -886,6 +925,83 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     state.setdefault("constructor_kwargs", {})
 
     _save_state(session_dir, state)
+    
+    # ------------------------------------------------------------
+    # Universal object switch command
+    # ------------------------------------------------------------
+    switch_name = _extract_switch_object_name(command)
+    if switch_name:
+        known_objects = state.get("objects", {}) or {}
+
+        real_name = None
+        for obj_name in known_objects.keys():
+            if obj_name.lower() == switch_name.lower():
+                real_name = obj_name
+                break
+
+        if not real_name:
+            return {
+                "success": True,
+                "class_name": class_name,
+                "file_name": convo.file_name,
+                "command_count": 1,
+                "result": {
+                    "success": False,
+                    "status": "no_match",
+                    "original_command": command,
+                    "suggestion_message": f'No object named "{switch_name}" exists.',
+                    "method": None,
+                    "parameters": {},
+                    "confidence": 100.0,
+                    "executable": None,
+                    "intent_type": "session_control",
+                    "source": "state",
+                    "explanation": "Requested object does not exist in session state.",
+                    "breakdown": {"known_objects": list(known_objects.keys())},
+                },
+                "results": [{
+                    "success": False,
+                    "status": "no_match",
+                    "original_command": command,
+                    "suggestion_message": f'No object named "{switch_name}" exists.',
+                    "method": None,
+                    "parameters": {},
+                    "confidence": 100.0,
+                    "executable": None,
+                    "intent_type": "session_control",
+                    "source": "state",
+                    "explanation": "Requested object does not exist in session state.",
+                    "breakdown": {"known_objects": list(known_objects.keys())},
+                }],
+            }
+
+        state["active_object"] = real_name
+        state["pending"] = None
+        _save_state(session_dir, state)
+
+        formatted = {
+            "success": True,
+            "status": "matched",
+            "original_command": command,
+            "suggestion_message": None,
+            "method": "__set_active_object__",
+            "parameters": {"object_name": real_name},
+            "confidence": 100.0,
+            "executable": None,
+            "intent_type": "session_control",
+            "source": "state",
+            "explanation": f'Active object changed to "{real_name}".',
+            "breakdown": {"active_object": real_name},
+        }
+
+        return {
+            "success": True,
+            "class_name": class_name,
+            "file_name": convo.file_name,
+            "command_count": 1,
+            "result": formatted,
+            "results": [formatted],
+        }
 
     # ------------------------------------------------------------
     # Undo snapshot: record at most once per request
@@ -1208,14 +1324,31 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     if _is_turtle_app(convo):
         st = _load_state(session_dir)
         active = st.get("active_object")
+        known_objects = st.get("objects", {}) or {}
+
         print("[DEBUG] active_object at targeting =", active)
+        print("[DEBUG] known_objects =", list(known_objects.keys()))
 
         for rr in results:
             exe_before = rr.get("executable")
+            original_command = rr.get("original_command") or ""
             if exe_before:
-                exe_after = _target_turtle_executable(exe_before, active)
+                explicit_obj = _extract_referenced_object(original_command, known_objects)
+                target_obj = explicit_obj or active
+
+                exe_after = _target_turtle_executable(exe_before, target_obj)
                 rr["executable"] = exe_after
-                print("[DEBUG] target:", exe_before, "=>", exe_after)
+
+                print(
+                    "[DEBUG] target:",
+                    exe_before,
+                    "=>",
+                    exe_after,
+                    "| explicit_obj =",
+                    explicit_obj,
+                    "| active =",
+                    active
+                )
 
     # append matched results to runner
     runner_path = _ensure_runner_exists(session_dir, module_path, class_name)

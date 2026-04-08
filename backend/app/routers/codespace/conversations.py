@@ -56,7 +56,13 @@ def initialize_turtle_session(conversation_id: int, domain_code: str):
 
     # initialize turtle state
     (session_dir / "state.json").write_text(
-        json.dumps({"active_object": None, "pending": None}, indent=2),
+        json.dumps({
+        "active_object": None,
+        "pending": None,
+        "objects": {},
+        "constructor_args": [],
+        "constructor_kwargs": {}
+    }, indent=2),
         encoding="utf-8"
     )
 
@@ -108,6 +114,9 @@ def initialize_session(conversation_id: int, file_name: str, code: str):
                 {
                     "active_object": None,
                     "pending": None,
+                    "objects": {},
+                    "constructor_args": [],
+                    "constructor_kwargs": {}
                 },
                 indent=2
             ),
