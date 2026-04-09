@@ -8,9 +8,9 @@ from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["Turtle Execute"])
 
-STREAM_DEVICE_IP = "161.246.5.67"
+STREAM_DEVICE_IP = "192.168.4.228"
 STREAM_DEVICE_PORT = "8001"
-STREAM_DEVICE_BASE_URL = "https://161.246.5.67:8001"
+STREAM_DEVICE_BASE_URL = "https://192.168.4.228:8001"
 CODE_API_BASE = os.getenv("CODE_API_BASE", "http://localhost:8000/api")
 
 BASE_EXEC_DIR = Path(__file__).resolve().parents[2] / "executions"

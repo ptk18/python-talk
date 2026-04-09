@@ -53,7 +53,7 @@ services:
       - python_talk_net
     environment:
       - PORT=3005
-      - STREAM_DEVICE_BASE_URL=https://161.246.5.67:8001
+      - STREAM_DEVICE_BASE_URL=https://192.168.4.228:8001
       - CODE_API_BASE=http://backend:3005/api
       - DISABLE_SEMANTIC_MATCHING=true
       - PREWARM_MODELS=true

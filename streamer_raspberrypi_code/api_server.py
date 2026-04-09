@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.INFO)
 BASE_SESSION_DIR = "/home/pi/Desktop/GUI_Stream/turtle_sessions"
 os.makedirs(BASE_SESSION_DIR, exist_ok=True)
 
-WS_PUBLISH_BASE = "wss://161.246.5.67:443/publish"
+WS_PUBLISH_BASE = "wss://192.168.4.228:443/publish"
 RUNTIME_PATH = "/home/pi/Desktop/GUI_Stream/turtle_runtime.py"
 
 

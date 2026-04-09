@@ -80,8 +80,8 @@ import { useLanguage, useTTS, voiceService, executeAPI, messageAPI, conversation
 import { useTranslations } from '@/utils/translations'
 import { useUnifiedCommand } from '@/shared/composables/useUnifiedCommand'
 
-const PI_API_BASE_URL = import.meta.env.VITE_STREAM_DEVICE_BASE_URL || 'https://161.246.5.67:8001'
-const STREAM_WS_BASE_URL = import.meta.env.VITE_STREAM_WS_BASE_URL || 'wss://161.246.5.67:443'
+const PI_API_BASE_URL = import.meta.env.VITE_STREAM_DEVICE_BASE_URL || 'https://192.168.4.228:8001'
+const STREAM_WS_BASE_URL = import.meta.env.VITE_STREAM_WS_BASE_URL || 'wss://192.168.4.228:443'
 
 export default {
   name: 'TurtlePlayground',
@@ -217,7 +217,7 @@ export default {
         return
       }
 
-      const wsUrl = `wss://161.246.5.67:443/subscribe/${channelId}`
+      const wsUrl = `wss://192.168.4.228:443/subscribe/${channelId}`
       console.log('[STREAM] connecting to', wsUrl)
 
       manuallyClosed = false
