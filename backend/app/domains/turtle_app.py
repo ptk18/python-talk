@@ -155,7 +155,7 @@ class TurtleApp:
         Set pen thickness.
 
         Phrases: pen size, pen thickness, thicker line,
-        thinner line, line width.
+        thinner line, line width, set size, set thickness.
 
         Args:
             width: pen width.
