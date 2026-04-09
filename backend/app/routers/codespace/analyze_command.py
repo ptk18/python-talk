@@ -174,6 +174,7 @@ def _extract_object_name(command: str) -> Optional[str]:
         r"\bcall\s+it\s+([A-Za-z_]\w*)\b",
         r"\bnamed\s+([A-Za-z_]\w*)\b",
         r"\bcalled\s+([A-Za-z_]\w*)\b",
+        r"\bname\s+([A-Za-z_]\w*)\b",
         r"\bas\s+([A-Za-z_]\w*)\b",
     ]
 
