@@ -121,10 +121,31 @@ class SmartHome:
         else:
             print(f"Failed to get homes: {response.text}")
 
-    def set_lightbulb_colour(self, colour):
-        """Change the lightbulb colour.
+    def set_lightbulb_1_colour(self, colour):
+        """Change lightbulb 1 colour.
 
-        Phrases: change light colour, set light color, change lightbulb colour, make the light red, change light to blue.
+        Phrases: change light 1 colour, set light 1 color, change lightbulb 1 colour, change lightbulb 1 color, set lightbulb 1 color.
+        """
+        colour_map = {
+            "red": "#FF0000",
+            "green": "#00FF00",
+            "blue": "#0000FF",
+        }
+        colour = colour_map.get(colour.lower(), colour)
+        self._ensure_authenticated()
+        url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/set_colour/"
+        headers = {"Authorization": f"Token {self.token}"}
+        response = requests.post(url, json={"colour": colour}, headers=headers, verify=False, timeout=10)
+        print(f"[SET_COLOUR_LB1] Status: {response.status_code}, Response: {response.text}")
+        if response.status_code == 200:
+            print(f"Lightbulb 1 colour changed to {colour}")
+        else:
+            print(f"Failed to change lightbulb 1 colour: {response.text}")
+
+    def set_lightbulb_2_colour(self, colour):
+        """Change lightbulb 2 colour.
+
+        Phrases: change light 2 colour, set light 2 color, change lightbulb 2 colour, change lightbulb 2 color, set lightbulb 2 color.
         """
         colour_map = {
             "red": "#FF0000",
@@ -136,26 +157,41 @@ class SmartHome:
         url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_colour/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.post(url, json={"colour": colour}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_COLOUR] Status: {response.status_code}, Response: {response.text}")
+        print(f"[SET_COLOUR_LB2] Status: {response.status_code}, Response: {response.text}")
         if response.status_code == 200:
-            print(f"Lightbulb colour changed to {colour}")
+            print(f"Lightbulb 2 colour changed to {colour}")
         else:
-            print(f"Failed to change lightbulb colour: {response.text}")
+            print(f"Failed to change lightbulb 2 colour: {response.text}")
 
-    def set_lightbulb_brightness(self, brightness):
-        """Change the lightbulb brightness.
+    def set_lightbulb_1_brightness(self, brightness):
+        """Change lightbulb 1 brightness.
 
-        Phrases: change brightness, set light brightness, dim the light, brighten the light, set lightbulb brightness.
+        Phrases: change brightness light 1, set light 1 brightness, dim light 1, brighten light 1, set lightbulb 1 brightness.
+        """
+        self._ensure_authenticated()
+        url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/set_brightness/"
+        headers = {"Authorization": f"Token {self.token}"}
+        response = requests.patch(url, json={"brightness": brightness}, headers=headers, verify=False, timeout=10)
+        print(f"[SET_BRIGHTNESS_LB1] Status: {response.status_code}, Response: {response.text}")
+        if response.status_code == 200:
+            print(f"Lightbulb 1 brightness set to {brightness}")
+        else:
+            print(f"Failed to change lightbulb 1 brightness: {response.text}")
+
+    def set_lightbulb_2_brightness(self, brightness):
+        """Change lightbulb 2 brightness.
+
+        Phrases: change brightness light 2, set light 2 brightness, dim light 2, brighten light 2, set lightbulb 2 brightness.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_brightness/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"brightness": brightness}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_BRIGHTNESS] Status: {response.status_code}, Response: {response.text}")
+        print(f"[SET_BRIGHTNESS_LB2] Status: {response.status_code}, Response: {response.text}")
         if response.status_code == 200:
-            print(f"Lightbulb brightness set to {brightness}")
+            print(f"Lightbulb 2 brightness set to {brightness}")
         else:
-            print(f"Failed to change lightbulb brightness: {response.text}")
+            print(f"Failed to change lightbulb 2 brightness: {response.text}")
 
     def turn_on_ac(self):
         """Turn the air conditioner on.

@@ -43,45 +43,173 @@ class SmartHome:
         else:
             print(f"Login failed: {response.text}")
 
-    def turn_on_lightbulb(self):
+    def turn_on_lightbulb_1(self):
         """
-        Turn the lightbulb on.
+        Turn lightbulb 1 on.
 
-        Phrases: turn on lightbulb, turn the lightbulb on, switch on lightbulb,
-        switch on the lightbulb, enable lightbulb, power on lightbulb,
-        turn on light, turn the light on, switch on light,
-        switch on the light, enable light, power on light,
-        open light, open the light.
+        Phrases: turn on lightbulb 1, turn lightbulb 1 on, switch on lightbulb 1,
+        switch on light 1, turn on light 1, turn light 1 on,
+        enable lightbulb 1, enable light 1, lightbulb 1 on, light 1 on,
+        power on lightbulb 1, power on light 1, open light 1.
+        """
+        self._ensure_authenticated()
+        url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/"
+        headers = {"Authorization": f"Token {self.token}"}
+        response = requests.patch(url, json={"is_on": True}, headers=headers, verify=False, timeout=10)
+        print(f"[TURN_ON_LB1] Status: {response.status_code}, Response: {response.text}")
+        if response.status_code == 200:
+            print("Lightbulb 1 turned on")
+        else:
+            print(f"Failed to turn on lightbulb 1: {response.text}")
+
+    def turn_off_lightbulb_1(self):
+        """
+        Turn lightbulb 1 off.
+
+        Phrases: turn off lightbulb 1, turn lightbulb 1 off, switch off lightbulb 1,
+        switch off light 1, turn off light 1, turn light 1 off,
+        disable lightbulb 1, disable light 1, lightbulb 1 off, light 1 off,
+        power off lightbulb 1, power off light 1, close light 1.
+        """
+        self._ensure_authenticated()
+        url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/"
+        headers = {"Authorization": f"Token {self.token}"}
+        response = requests.patch(url, json={"is_on": False}, headers=headers, verify=False, timeout=10)
+        print(f"[TURN_OFF_LB1] Status: {response.status_code}, Response: {response.text}")
+        if response.status_code == 200:
+            print("Lightbulb 1 turned off")
+        else:
+            print(f"Failed to turn off lightbulb 1: {response.text}")
+
+    def turn_on_lightbulb_2(self):
+        """
+        Turn lightbulb 2 on.
+
+        Phrases: turn on lightbulb 2, turn lightbulb 2 on, switch on lightbulb 2,
+        switch on light 2, turn on light 2, turn light 2 on,
+        enable lightbulb 2, enable light 2, lightbulb 2 on, light 2 on,
+        power on lightbulb 2, power on light 2, open light 2.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": True}, headers=headers, verify=False, timeout=10)
-        print(f"[TURN_ON] Status: {response.status_code}, Response: {response.text}")
+        print(f"[TURN_ON_LB2] Status: {response.status_code}, Response: {response.text}")
         if response.status_code == 200:
-            print("Lightbulb turned on")
+            print("Lightbulb 2 turned on")
         else:
-            print(f"Failed to turn on lightbulb: {response.text}")
+            print(f"Failed to turn on lightbulb 2: {response.text}")
 
-    def turn_off_lightbulb(self):
+    def turn_off_lightbulb_2(self):
         """
-        Turn the lightbulb off.
+        Turn lightbulb 2 off.
 
-        Phrases: turn off lightbulb, turn the lightbulb off, switch off lightbulb,
-        switch off the lightbulb, disable lightbulb, power off lightbulb,
-        turn off light, turn the light off, switch off light,
-        switch off the light, disable light, power off light,
-        close light, close the light.
+        Phrases: turn off lightbulb 2, turn lightbulb 2 off, switch off lightbulb 2,
+        switch off light 2, turn off light 2, turn light 2 off,
+        disable lightbulb 2, disable light 2, lightbulb 2 off, light 2 off,
+        power off lightbulb 2, power off light 2, close light 2.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": False}, headers=headers, verify=False, timeout=10)
-        print(f"[TURN_OFF] Status: {response.status_code}, Response: {response.text}")
+        print(f"[TURN_OFF_LB2] Status: {response.status_code}, Response: {response.text}")
         if response.status_code == 200:
-            print("Lightbulb turned off")
+            print("Lightbulb 2 turned off")
         else:
-            print(f"Failed to turn off lightbulb: {response.text}")
+            print(f"Failed to turn off lightbulb 2: {response.text}")
+
+    def set_lightbulb_1_colour(self, colour):
+        """
+        Change lightbulb 1 colour.
+
+        Phrases: change light 1 colour, change light 1 color, set light 1 colour,
+        set light 1 color, change lightbulb 1 colour, change lightbulb 1 color,
+        set lightbulb 1 colour, set lightbulb 1 color,
+        change the lightbulb 1 color, set the lightbulb 1 color,
+        change the light 1 color, set the light 1 color,
+        make light 1 red, make light 1 green, make light 1 blue.
+        """
+        colour_map = {
+            "red": "#FF0000",
+            "green": "#00FF00",
+            "blue": "#0000FF",
+        }
+        colour = colour_map.get(colour.lower(), colour)
+        self._ensure_authenticated()
+        url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/set_colour/"
+        headers = {"Authorization": f"Token {self.token}"}
+        response = requests.post(url, json={"colour": colour}, headers=headers, verify=False, timeout=10)
+        print(f"[SET_COLOUR_LB1] Status: {response.status_code}, Response: {response.text}")
+        if response.status_code == 200:
+            print(f"Lightbulb 1 colour changed to {colour}")
+        else:
+            print(f"Failed to change lightbulb 1 colour: {response.text}")
+
+    def set_lightbulb_2_colour(self, colour):
+        """
+        Change lightbulb 2 colour.
+
+        Phrases: change light 2 colour, change light 2 color, set light 2 colour,
+        set light 2 color, change lightbulb 2 colour, change lightbulb 2 color,
+        set lightbulb 2 colour, set lightbulb 2 color,
+        change the lightbulb 2 color, set the lightbulb 2 color,
+        change the light 2 color, set the light 2 color,
+        make light 2 red, make light 2 green, make light 2 blue.
+        """
+        colour_map = {
+            "red": "#FF0000",
+            "green": "#00FF00",
+            "blue": "#0000FF",
+        }
+        colour = colour_map.get(colour.lower(), colour)
+        self._ensure_authenticated()
+        url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_colour/"
+        headers = {"Authorization": f"Token {self.token}"}
+        response = requests.post(url, json={"colour": colour}, headers=headers, verify=False, timeout=10)
+        print(f"[SET_COLOUR_LB2] Status: {response.status_code}, Response: {response.text}")
+        if response.status_code == 200:
+            print(f"Lightbulb 2 colour changed to {colour}")
+        else:
+            print(f"Failed to change lightbulb 2 colour: {response.text}")
+
+    def set_lightbulb_1_brightness(self, brightness):
+        """
+        Change lightbulb 1 brightness.
+
+        Phrases: change brightness light 1, set light 1 brightness,
+        change light 1 brightness, set lightbulb 1 brightness,
+        change lightbulb 1 brightness, adjust light 1 brightness,
+        dim light 1, brighten light 1.
+        """
+        self._ensure_authenticated()
+        url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/set_brightness/"
+        headers = {"Authorization": f"Token {self.token}"}
+        response = requests.patch(url, json={"brightness": brightness}, headers=headers, verify=False, timeout=10)
+        print(f"[SET_BRIGHTNESS_LB1] Status: {response.status_code}, Response: {response.text}")
+        if response.status_code == 200:
+            print(f"Lightbulb 1 brightness set to {brightness}")
+        else:
+            print(f"Failed to change lightbulb 1 brightness: {response.text}")
+
+    def set_lightbulb_2_brightness(self, brightness):
+        """
+        Change lightbulb 2 brightness.
+
+        Phrases: change brightness light 2, set light 2 brightness,
+        change light 2 brightness, set lightbulb 2 brightness,
+        change lightbulb 2 brightness, adjust light 2 brightness,
+        dim light 2, brighten light 2.
+        """
+        self._ensure_authenticated()
+        url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_brightness/"
+        headers = {"Authorization": f"Token {self.token}"}
+        response = requests.patch(url, json={"brightness": brightness}, headers=headers, verify=False, timeout=10)
+        print(f"[SET_BRIGHTNESS_LB2] Status: {response.status_code}, Response: {response.text}")
+        if response.status_code == 200:
+            print(f"Lightbulb 2 brightness set to {brightness}")
+        else:
+            print(f"Failed to change lightbulb 2 brightness: {response.text}")
 
     def get_devices_info(self):
         """
@@ -119,53 +247,6 @@ class SmartHome:
         else:
             print(f"Failed to get homes: {response.text}")
 
-    def set_lightbulb_colour(self, colour):
-        """
-        Change the lightbulb colour.
-
-        Phrases: change light colour, change light color, set light colour,
-        set light color, change lightbulb colour, change lightbulb color,
-        set lightbulb colour, set lightbulb color,
-        make the light red, make the light green, make the light blue,
-        change light to red, change light to green, change light to blue,
-        change the lightbulb color, set the lightbulb color,
-        change the light color, set the light color.
-        """
-        colour_map = {
-            "red": "#FF0000",
-            "green": "#00FF00",
-            "blue": "#0000FF",
-        }
-        colour = colour_map.get(colour.lower(), colour)
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_colour/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.post(url, json={"colour": colour}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_COLOUR] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"Lightbulb colour changed to {colour}")
-        else:
-            print(f"Failed to change lightbulb colour: {response.text}")
-
-    def set_lightbulb_brightness(self, brightness):
-        """
-        Change the lightbulb brightness.
-
-        Phrases: change brightness, set brightness, set light brightness,
-        change light brightness, dim the light, brighten the light,
-        set lightbulb brightness, change lightbulb brightness,
-        adjust brightness, adjust light brightness.
-        """
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_brightness/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"brightness": brightness}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_BRIGHTNESS] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"Lightbulb brightness set to {brightness}")
-        else:
-            print(f"Failed to change lightbulb brightness: {response.text}")
-
     def turn_on_ac(self):
         """
         Turn the air conditioner on.
@@ -176,7 +257,7 @@ class SmartHome:
         switch on air conditioner, start AC.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/acs/PLACEHOLDER_AC_UUID/"
+        url = f"{self.base_url}/homes/acs/35da478b-b03b-4509-9f66-979c76bfa3d9/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": True}, headers=headers, verify=False, timeout=10)
         print(f"[AC_ON] Status: {response.status_code}, Response: {response.text}")
@@ -195,7 +276,7 @@ class SmartHome:
         switch off air conditioner, stop AC.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/acs/PLACEHOLDER_AC_UUID/"
+        url = f"{self.base_url}/homes/acs/35da478b-b03b-4509-9f66-979c76bfa3d9/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": False}, headers=headers, verify=False, timeout=10)
         print(f"[AC_OFF] Status: {response.status_code}, Response: {response.text}")
@@ -214,7 +295,7 @@ class SmartHome:
         AC temperature to, adjust temperature.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/acs/PLACEHOLDER_AC_UUID/set_temperature/"
+        url = f"{self.base_url}/homes/acs/35da478b-b03b-4509-9f66-979c76bfa3d9/set_temperature/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"temp": temp}, headers=headers, verify=False, timeout=10)
         print(f"[SET_TEMP] Status: {response.status_code}, Response: {response.text}")
@@ -232,7 +313,7 @@ class SmartHome:
         start fan, start the fan.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/fans/PLACEHOLDER_FAN_UUID/"
+        url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": True}, headers=headers, verify=False, timeout=10)
         print(f"[FAN_ON] Status: {response.status_code}, Response: {response.text}")
@@ -250,7 +331,7 @@ class SmartHome:
         stop fan, stop the fan.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/fans/PLACEHOLDER_FAN_UUID/"
+        url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": False}, headers=headers, verify=False, timeout=10)
         print(f"[FAN_OFF] Status: {response.status_code}, Response: {response.text}")
@@ -268,7 +349,7 @@ class SmartHome:
         make fan faster, make fan slower.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/fans/PLACEHOLDER_FAN_UUID/set_speed/"
+        url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/set_speed/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"speed": speed}, headers=headers, verify=False, timeout=10)
         print(f"[SET_SPEED] Status: {response.status_code}, Response: {response.text}")
@@ -287,7 +368,7 @@ class SmartHome:
         start fan swing, stop fan swing.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/fans/PLACEHOLDER_FAN_UUID/set_swing/"
+        url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/set_swing/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"swing": swing}, headers=headers, verify=False, timeout=10)
         print(f"[SET_SWING] Status: {response.status_code}, Response: {response.text}")
@@ -306,7 +387,7 @@ class SmartHome:
         switch on television, start TV.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/tvs/PLACEHOLDER_TV_UUID/"
+        url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": True}, headers=headers, verify=False, timeout=10)
         print(f"[TV_ON] Status: {response.status_code}, Response: {response.text}")
@@ -325,7 +406,7 @@ class SmartHome:
         switch off television, stop TV.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/tvs/PLACEHOLDER_TV_UUID/"
+        url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": False}, headers=headers, verify=False, timeout=10)
         print(f"[TV_OFF] Status: {response.status_code}, Response: {response.text}")
@@ -344,7 +425,7 @@ class SmartHome:
         """
         self._ensure_authenticated()
         self.tv_volume = min(self.tv_volume + 1, 100)
-        url = f"{self.base_url}/homes/tvs/PLACEHOLDER_TV_UUID/set_volume/"
+        url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/set_volume/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"volume": self.tv_volume}, headers=headers, verify=False, timeout=10)
         print(f"[VOLUME_UP] Status: {response.status_code}, Response: {response.text}")
@@ -363,7 +444,7 @@ class SmartHome:
         """
         self._ensure_authenticated()
         self.tv_volume = max(self.tv_volume - 1, 0)
-        url = f"{self.base_url}/homes/tvs/PLACEHOLDER_TV_UUID/set_volume/"
+        url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/set_volume/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"volume": self.tv_volume}, headers=headers, verify=False, timeout=10)
         print(f"[VOLUME_DOWN] Status: {response.status_code}, Response: {response.text}")
@@ -382,7 +463,7 @@ class SmartHome:
         switch to channel.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/tvs/PLACEHOLDER_TV_UUID/set_channel/"
+        url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/set_channel/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"channel": channel}, headers=headers, verify=False, timeout=10)
         print(f"[SET_CHANNEL] Status: {response.status_code}, Response: {response.text}")
