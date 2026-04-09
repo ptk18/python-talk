@@ -596,21 +596,22 @@ export default {
 
           await saveAppData(codeContent.value)
 
-          const startData = await startPiTurtleSession(appId.value)
-          if (startData?.status === 'started') {
-            await replayWholeRunnerToPi()
-          } else {
-            await sendPiTurtleCommand(appId.value, normalizedCmd)
+          try {
+            const startData = await startPiTurtleSession(appId.value)
+            if (startData?.status === 'started') {
+              await replayWholeRunnerToPi()
+            } else {
+              await sendPiTurtleCommand(appId.value, normalizedCmd)
+            }
+          } catch (piErr) {
+            console.warn('[TurtlePlayground] Pi device communication failed:', piErr.message)
           }
 
           return
         }
 
         if (isBareCall) {
-          showAlertBox(
-            'Please use a targeted call like t1.forward(100), or create/select a turtle first.',
-            'error'
-          )
+          voiceService.speak('Please use a targeted call')
           return
         }
 
@@ -625,30 +626,30 @@ export default {
             : []
 
           if (!codeLines.length) {
-            showAlertBox('Active object changed', 'success')
             return
           }
 
           const normalizedLines = codeLines.map(normalizeTurtleLineForEditor)
           appendToCodeEditor(normalizedLines.join('\n'), cmd)
-          showAlertBox(codeLines.join(' | '), 'success')
           commandText.value = ''
 
           await saveAppData(codeContent.value)
 
-          const startData = await startPiTurtleSession(appId.value)
-          if (startData?.status === 'started') {
-            await replayWholeRunnerToPi()
-          } else {
-            for (const line of normalizedLines) {
-              await sendPiTurtleCommand(appId.value, line)
+          try {
+            const startData = await startPiTurtleSession(appId.value)
+            if (startData?.status === 'started') {
+              await replayWholeRunnerToPi()
+            } else {
+              for (const line of normalizedLines) {
+                await sendPiTurtleCommand(appId.value, line)
+              }
             }
+          } catch (piErr) {
+            console.warn('[TurtlePlayground] Pi device communication failed:', piErr.message)
           }
-        } else {
-          showAlertBox(res?.error || res?.suggestion_message || 'Command failed', 'error')
         }
       } catch (err) {
-        showAlertBox(err?.message || 'Command failed', 'error')
+        console.warn('[TurtlePlayground] Command error:', err.message)
       } finally {
         await fetchMessages(appId.value)
       }

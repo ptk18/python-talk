@@ -1,0 +1,108 @@
+LOGIN 
+URL: https://turing.se.kmitl.ac.th:5500/api/auth/login/
+body:
+{
+    "email": "p@gmail.com",
+    "password": "12345678"
+}
+
+GET ALL HOMES
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/homes/
+
+GET ALL DEVICES IN HOME
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/homes/:id/get_devices/
+
+
+
+
+
+LIGHTBULB
+
+ON/OFF
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/lightbulbs/:id/
+body: 
+{
+    "is_on": true
+}
+
+CHANGE COLOUR
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/lightbulbs/:id/set_colour/
+body: 
+{
+    "colour": "#FF0000"
+}
+
+CHANGE BRIGHTNESS
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/lightbulbs/:id/set_brightness/
+body:
+{
+    "brightness": 52
+}
+
+
+
+AC
+
+ON/OFF
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/acs/:id/
+body:
+{
+    "is_on": true
+}
+
+SET TEMP 
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/acs/:id/set_temperature/
+body:
+{
+    "temp": 22
+}
+
+
+
+FAN
+
+ON/OFF
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/fans/:id/
+body:
+{
+    "is_on": true
+}
+
+FAN SPEED
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/fans/:id/set_speed/
+body:
+{
+    "speed": 1
+}
+
+FAN SWING
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/fans/:id/set_swing/
+body: 
+{
+    "swing": true
+}
+
+
+
+
+TV
+
+ON/OFF
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/tvs/:id/
+body:
+{
+    "is_on": true
+}
+
+SET VOLUME
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/tvs/:id/set_volume/
+body:
+{
+    "volume": 15
+}
+
+CHANGE CHANNEL
+URL: https://turing.se.kmitl.ac.th:5500/api/homes/tvs/:id/set_channel/
+{
+    "channel": 2
+}

@@ -36,7 +36,7 @@ class SmartHome:
         Phrases: turn on the light, switch on light, lightbulb on, turn on lightbulb, enable light.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/lightbulbs/450bc6dc-14dd-483b-a5ee-d944e3ba0357/"
+        url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": True}, headers=headers, verify=False, timeout=10)
         print(f"[TURN_ON] Status: {response.status_code}, Response: {response.text}")
@@ -51,7 +51,7 @@ class SmartHome:
         Phrases: turn off the light, switch off light, lightbulb off, turn off lightbulb, disable light.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/lightbulbs/450bc6dc-14dd-483b-a5ee-d944e3ba0357/"
+        url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.patch(url, json={"is_on": False}, headers=headers, verify=False, timeout=10)
         print(f"[TURN_OFF] Status: {response.status_code}, Response: {response.text}")
@@ -66,7 +66,7 @@ class SmartHome:
         Phrases: get devices, show devices, list devices, device info, what devices are there.
         """
         self._ensure_authenticated()
-        url = f"{self.base_url}/homes/homes/521b6189-28b2-4395-a099-4423cf166dc8/get_devices/"
+        url = f"{self.base_url}/homes/homes/d0cef9a6-1050-4830-908d-b85e994de47d/get_devices/"
         headers = {"Authorization": f"Token {self.token}"}
         response = requests.get(url, headers=headers, verify=False, timeout=10)
         print(f"[GET_DEVICES] Status: {response.status_code}, Response: {response.text}")

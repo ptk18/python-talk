@@ -637,6 +637,54 @@ _COMPOUND_SEP = re.compile(
     re.IGNORECASE,
 )
 
+
+def _is_likely_followup_answer(command: str, pending: dict, module_path: Path) -> bool:
+    """
+    Check whether the user's input looks like a direct answer to a pending
+    clarification question (e.g. "50" for radius) vs. a new command
+    (e.g. "draw a circle").
+
+    Returns True if it looks like a follow-up answer, False if it looks like
+    a new command and we should bypass the follow-up flow.
+    """
+    method = pending.get("method", "")
+    missing = pending.get("missing", [])
+    if not missing:
+        return False
+
+    clean = command.strip()
+    param_name = missing[0]
+
+    # Pure number → almost certainly a follow-up answer
+    if re.match(r"^-?\d+(\.\d+)?$", clean):
+        return True
+
+    # Load domain to check expected param type
+    try:
+        domain = load_domain(str(module_path))
+    except Exception:
+        domain = {}
+
+    action_info = domain.get("ACTIONS", {}).get(method, {})
+    param_types = action_info.get("param_types", {})
+    expected_type = (param_types.get(param_name) or "").lower()
+
+    # If the expected type is numeric and the input has no digits,
+    # it's likely a new command, not an answer
+    if expected_type in ("int", "float", "number"):
+        if not re.search(r"\d", clean):
+            return False
+
+    # If the input matches a known action verb in the domain → new command
+    cmd_words = set(clean.lower().split())
+    for _action, info in domain.get("ACTIONS", {}).items():
+        base_words = info.get("base_words", set())
+        if cmd_words & base_words:
+            return False
+
+    # Short single-word or two-word input that doesn't match an action → likely answer
+    return True
+
 def _split_compound_simple(full_text: str) -> List[str]:
     """
     Simple regex-based compound command splitting for turtle apps.
@@ -901,6 +949,17 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             initialize_turtle_session(conversation_id, code)
         else:
             raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
+
+    # Sync turtle domain file with the canonical version so that
+    # existing sessions pick up updated phrases / docstrings.
+    if _is_turtle_app(convo) and module_path.exists():
+        canonical = load_turtle_domain_code()
+        current = module_path.read_text(encoding="utf-8")
+        if canonical != current:
+            module_path.write_text(canonical, encoding="utf-8")
+            abs_path = str(module_path.resolve())
+            DOMAIN_CACHE.pop(abs_path, None)
+            print(f"[SYNC] Updated session domain file: {module_path}")
 
     if not module_path.exists():
         raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")
@@ -1168,11 +1227,31 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # Follow-up flow
     # ------------------------------------------------------------
     if pending:
+        print(f"[FOLLOWUP] Pending state found: {pending}")
+        print(f"[FOLLOWUP] User input: '{command}'")
+        # Check if the input looks like a genuine answer to the pending
+        # clarification question, or if it's actually a new command.
+        # Skip this check when there's a compound buffer — the user is
+        # more likely answering the clarification question in that context.
+        is_compound_pending = bool(pending.get("compound_buffer")) or bool(pending.get("compound_remaining"))
+        if not is_compound_pending:
+            is_answer = _is_likely_followup_answer(command, pending, module_path)
+            print(f"[FOLLOWUP] _is_likely_followup_answer => {is_answer}")
+            if not is_answer:
+                print(f"[FOLLOWUP] Bypassing follow-up: input '{command}' looks like a new command, not an answer")
+                state["pending"] = None
+                _save_state(session_dir, state)
+                pending = None   # fall through to normal flow below
+
+    if pending:
+        compound_buffer = pending.get("compound_buffer") or []
+        compound_remaining = pending.get("compound_remaining") or []
         r = apply_followup(pending, command, str(module_path))
-        
+
         print("FOLLOWUP RESULT:", r)
 
         will_append = (r.get("status") == "matched" and r.get("executable"))
+        is_compound = bool(compound_buffer) or bool(compound_remaining)
 
         # update pending state FIRST
         if r.get("status") == "matched":
@@ -1202,16 +1281,149 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 "missing": meta.get("missing", []),
                 "parameters": r.get("parameters", {}) or {},
                 "class_name": meta.get("class_name"),
+                "compound_buffer": compound_buffer,       # preserve buffer
+                "compound_remaining": compound_remaining,  # preserve remaining
             }
             _save_state(session_dir, state)
         else:
             state["pending"] = None
             _save_state(session_dir, state)
 
+        # ----------------------------------------------------------
+        # Compound follow-up: resolved clause joins the buffer,
+        # then check if remaining clauses also need clarification.
+        # ----------------------------------------------------------
+        if r.get("status") == "matched" and is_compound:
+            # Add the just-resolved clause to the buffer
+            compound_buffer.append({
+                "executable": r.get("executable"),
+                "original_command": command,
+                "method": r.get("method"),
+                "parameters": r.get("parameters", {}) or {},
+            })
+
+            # Walk through remaining clauses:
+            #   - matched → add to buffer
+            #   - need_clarification → save new pending, ask the question
+            next_clarification = None
+            new_remaining: List[Dict[str, Any]] = []
+            found_clarification = False
+
+            for rem in compound_remaining:
+                if found_clarification:
+                    # Everything after the next clarification stays in remaining
+                    new_remaining.append(rem)
+                    continue
+
+                if rem.get("status") == "matched" and rem.get("executable"):
+                    # Already resolved → add to buffer
+                    compound_buffer.append({
+                        "executable": rem["executable"],
+                        "original_command": rem.get("original_command"),
+                        "method": rem.get("method"),
+                        "parameters": rem.get("parameters", {}),
+                    })
+                elif rem.get("suggestion_message") and rem.get("method"):
+                    # Needs clarification → this is the next question to ask
+                    next_clarification = rem
+                    found_clarification = True
+                # else: no_match without suggestion → skip
+
+            if next_clarification:
+                # More clarifications needed — save state and ask
+                state = _load_state(session_dir)
+                state["pending"] = {
+                    "method": next_clarification["method"],
+                    "missing": next_clarification.get("missing") or ["unknown"],
+                    "parameters": next_clarification.get("parameters", {}) or {},
+                    "class_name": next_clarification.get("class_name"),
+                    "compound_buffer": compound_buffer,
+                    "compound_remaining": new_remaining,
+                }
+                _save_state(session_dir, state)
+
+                nice_question = next_clarification.get("suggestion_message")
+                if not nice_question:
+                    missing = next_clarification.get("missing", [])
+                    param = missing[0].replace("_", " ") if missing else "value"
+                    method_nice = next_clarification["method"].replace("_", " ")
+                    nice_question = f"What {param} would you like to specify for {method_nice}?"
+
+                print(f"[COMPOUND] Next clarification needed for '{next_clarification['method']}', {len(compound_buffer)} buffered, {len(new_remaining)} remaining")
+
+                clarification_result = {
+                    "success": False,
+                    "status": "no_match",
+                    "original_command": command,
+                    "suggestion_message": nice_question,
+                    "method": next_clarification["method"],
+                    "parameters": next_clarification.get("parameters", {}),
+                    "confidence": 0.0,
+                    "executable": None,
+                    "intent_type": "parser",
+                    "source": "parser",
+                    "explanation": f"Compound: asking next clarification",
+                    "breakdown": {},
+                }
+
+                return {
+                    "success": True,
+                    "class_name": class_name,
+                    "file_name": convo.file_name,
+                    "command_count": 1,
+                    "result": clarification_result,
+                    "results": [clarification_result],
+                }
+
+            # ----------------------------------------------------------
+            # All clauses resolved — flush everything to runner
+            # ----------------------------------------------------------
+            print(f"[COMPOUND] Flushing all {len(compound_buffer)} clause(s)")
+
+            all_results: List[Dict[str, Any]] = []
+            _record_undo_once()
+
+            for buf in compound_buffer:
+                exe = buf["executable"]
+                _maybe_set_active_from_assignment(session_dir, exe)
+                if _is_turtle_app(convo):
+                    st = _load_state(session_dir)
+                    exe = _target_turtle_executable(exe, st.get("active_object"))
+
+                runner_path = _ensure_runner_exists(session_dir, module_path, class_name)
+                _append_to_runner(session_dir, runner_path, exe, buf.get("original_command"))
+
+                all_results.append({
+                    "success": True,
+                    "status": "matched",
+                    "original_command": buf.get("original_command"),
+                    "suggestion_message": None,
+                    "method": buf.get("method"),
+                    "parameters": buf.get("parameters", {}),
+                    "confidence": 100.0,
+                    "executable": exe,
+                    "intent_type": "parser",
+                    "source": "parser",
+                    "explanation": "Compound clause",
+                    "breakdown": {},
+                })
+
+            return {
+                "success": True,
+                "class_name": class_name,
+                "file_name": convo.file_name,
+                "command_count": len(all_results),
+                "result": all_results[0],
+                "results": all_results,
+            }
+
+        # ----------------------------------------------------------
+        # No compound buffer — single follow-up (original behavior)
+        # ----------------------------------------------------------
         # record undo AFTER state is correct
         if will_append:
             _record_undo_once()
-            
+
         # format result
         if r.get("status") == "matched":
             formatted = {
@@ -1258,7 +1470,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 "explanation": r.get("explanation"),
                 "breakdown": r.get("meta"),
             }
-            
+
         # IMPORTANT: if this creates a turtle, set active_object immediately
         _maybe_set_active_from_assignment(session_dir, formatted.get("executable"))
 
@@ -1308,6 +1520,91 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         results.append(_process_single_command(part, module_path))
         print("[DEBUG] raw executables =", [r.get("executable") for r in results])
 
+    # ----------------------------------------------------------
+    # Compound buffering: if ANY clause needs clarification,
+    # hold ALL resolved clauses and only ask the question.
+    # Once the user answers, execute everything together.
+    # ----------------------------------------------------------
+    needs_clarification_idx = None
+    for i, rr in enumerate(results):
+        if rr.get("suggestion_message") and rr.get("method"):
+            needs_clarification_idx = i
+            break
+
+    if needs_clarification_idx is not None and len(command_parts) > 1:
+        needs_clarification = results[needs_clarification_idx]
+
+        # Buffer all matched clauses BEFORE the one needing clarification
+        buffered: List[Dict[str, Any]] = []
+        for rr in results[:needs_clarification_idx]:
+            if rr.get("status") == "matched" and rr.get("executable"):
+                buffered.append({
+                    "executable": rr["executable"],
+                    "original_command": rr.get("original_command"),
+                    "method": rr.get("method"),
+                    "parameters": rr.get("parameters", {}),
+                })
+
+        # Store remaining clauses AFTER the one needing clarification
+        remaining: List[Dict[str, Any]] = []
+        for rr in results[needs_clarification_idx + 1:]:
+            breakdown = rr.get("breakdown") or {}
+            remaining.append({
+                "status": rr.get("status"),
+                "executable": rr.get("executable"),
+                "original_command": rr.get("original_command"),
+                "method": rr.get("method"),
+                "parameters": rr.get("parameters", {}),
+                "suggestion_message": rr.get("suggestion_message"),
+                "missing": breakdown.get("missing") or [],
+            })
+
+        # Save pending with compound_buffer + compound_remaining
+        breakdown = needs_clarification.get("breakdown") or {}
+        state = _load_state(session_dir)
+        state["pending"] = {
+            "method": needs_clarification.get("method"),
+            "missing": breakdown.get("missing") or ["unknown"],
+            "parameters": needs_clarification.get("parameters", {}) or {},
+            "class_name": breakdown.get("class_name"),
+            "compound_buffer": buffered,
+            "compound_remaining": remaining,
+        }
+        _save_state(session_dir, state)
+
+        print(f"[COMPOUND] Buffered {len(buffered)} clause(s), {len(remaining)} remaining, asking clarification for '{needs_clarification.get('method')}'")
+
+        # Return ONLY the clarification question to the frontend
+        clarification_result = {
+            "success": False,
+            "status": "no_match",
+            "original_command": command,
+            "suggestion_message": needs_clarification.get("suggestion_message"),
+            "method": needs_clarification.get("method"),
+            "parameters": needs_clarification.get("parameters", {}) or {},
+            "confidence": float(needs_clarification.get("confidence", 0.0)),
+            "executable": None,
+            "intent_type": "parser",
+            "source": "parser",
+            "explanation": needs_clarification.get("explanation"),
+            "breakdown": needs_clarification.get("breakdown"),
+        }
+
+        t_total = (time.time() - t_total_start) * 1000
+        print(f"[TIMING] analyze_command conv={conversation_id} cmd='{command[:50]}': {t_total:.0f}ms total")
+
+        return {
+            "success": True,
+            "class_name": class_name,
+            "file_name": convo.file_name,
+            "command_count": len(command_parts),
+            "result": clarification_result,
+            "results": [clarification_result],
+        }
+
+    # ----------------------------------------------------------
+    # No clarification needed (or single command) — execute normally
+    # ----------------------------------------------------------
     # Determine if any command will append; if so, snapshot before state mutation
     will_append_any = any(
         rr.get("status") == "matched" and rr.get("executable")
@@ -1319,7 +1616,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # IMPORTANT: if any command created a turtle, set active_object immediately
     for rr in results:
         _maybe_set_active_from_assignment(session_dir, rr.get("executable"))
-        
+
     # Turtle: rewrite executables to active turtle (backend sends final line)
     if _is_turtle_app(convo):
         st = _load_state(session_dir)
@@ -1356,7 +1653,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         if rr.get("status") == "matched" and rr.get("executable"):
             _append_to_runner(session_dir, runner_path, rr["executable"], rr.get("original_command"))
 
-    # store pending follow-up if needed
+    # store pending follow-up if needed (single command that needs clarification)
     for rr in results:
         if rr.get("suggestion_message") and rr.get("method"):
             breakdown = rr.get("breakdown") or {}
