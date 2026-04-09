@@ -81,8 +81,11 @@ def _target_turtle_executable(executable: str, active: str | None) -> str:
         return s
 
     # screen-level call stays global
+    # screen-level call stays global on turtle module
     if _is_turtle_screen_method_call(s):
-        return s
+        if s.startswith("turtle."):
+            return s
+        return f"turtle.{s}"
 
     # already targeted: X.something(...)
     m = re.match(r"^([A-Za-z_]\w*)\.(.+)$", s)
@@ -595,15 +598,15 @@ def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, com
     with runner_path.open("a", encoding="utf-8") as f:
         if comment:
             f.write(f"# {comment.strip()}\n")
+            
+        # screen-level turtle call stays global
+        if _is_turtle_screen_method_call(line):
+            f.write(f"turtle.{line}\n")
+            return
 
         # raw assignment stays raw
         if re.match(r"^[A-Za-z_]\w*\s*=", line):
             f.write(f"{line}\n")
-            return
-
-        # screen-level turtle call stays global
-        if _is_turtle_screen_method_call(line):
-            f.write(f"turtle.{line}\n")
             return
 
         # already targeted like acc1.deposit(...) or t1.forward(...)
