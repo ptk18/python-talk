@@ -119,15 +119,40 @@ def _remove_leading_phrase(words: List[str], phrase: str) -> List[str]:
     return words
 
 def _split_device_number_joins(words: List[str]) -> List[str]:
-    """Split joined device-number tokens: lightbulb2 -> lightbulb 2, light1 -> light 1."""
+    """Normalize device tokens in word list.
+
+    - lightbulb2 -> lightbulb 2, light1 -> light 1
+    - light + bulb -> lightbulb  (merge two-word form)
+    - first -> 1, second -> 2  (ordinals to numbers)
+    """
+    _ordinals = {
+        "first": "1", "second": "2", "third": "3", "fourth": "4", "fifth": "5",
+        "sixth": "6", "seventh": "7", "eighth": "8", "ninth": "9", "tenth": "10",
+        "1st": "1", "2nd": "2", "3rd": "3", "4th": "4", "5th": "5",
+    }
     out: List[str] = []
-    for w in words:
+    i = 0
+    while i < len(words):
+        w = words[i]
+        # merge "light" + "bulb" -> "lightbulb"
+        if w == "light" and i + 1 < len(words) and words[i + 1] == "bulb":
+            out.append("lightbulb")
+            i += 2
+            continue
+        # split joined device-number: lightbulb2 -> lightbulb 2
         m = re.match(r'^(lightbulb|light|fan|ac|tv)(\d+)$', w)
         if m:
             out.append(m.group(1))
             out.append(m.group(2))
-        else:
-            out.append(w)
+            i += 1
+            continue
+        # ordinals to numbers
+        if w in _ordinals:
+            out.append(_ordinals[w])
+            i += 1
+            continue
+        out.append(w)
+        i += 1
     return out
 
 
@@ -247,6 +272,18 @@ def normalize_user_input(s: str) -> str:
     # strip articles
     s = re.sub(r"\b(the|a|an)\b", " ", s)
 
+    # normalize "light bulb" -> "lightbulb" (two words to one)
+    s = re.sub(r"\blight\s+bulb\b", "lightbulb", s)
+
+    # normalize ordinals: first -> 1, second -> 2, etc.
+    _ordinals = {
+        "first": "1", "second": "2", "third": "3", "fourth": "4", "fifth": "5",
+        "sixth": "6", "seventh": "7", "eighth": "8", "ninth": "9", "tenth": "10",
+        "1st": "1", "2nd": "2", "3rd": "3", "4th": "4", "5th": "5",
+    }
+    for word, num in _ordinals.items():
+        s = re.sub(rf"\b{word}\b", num, s)
+
     # normalize device-number joins: lightbulb1 -> lightbulb 1, light2 -> light 2, etc.
     s = re.sub(r"\b(lightbulb|light|fan|ac|tv)(\d+)\b", r"\1 \2", s)
 
@@ -261,7 +298,7 @@ def normalize_user_input(s: str) -> str:
     # strip filler linking words between device and param: "of", "to be", "to", "for me"
     s = re.sub(r"\bto\s+be\b", " ", s)
     s = re.sub(r"\bfor\s+me\b", " ", s)
-    s = re.sub(r"\b(of)\b", " ", s)
+    s = re.sub(r"\b(of|to)\b", " ", s)
 
     # collapse whitespace
     s = " ".join(s.split())

@@ -163,7 +163,9 @@ class SmartHome:
         set color of lightbulb 1, set color of light 1,
         change the color of lightbulb 1, change the color of light 1,
         lightbulb 1 color, light 1 color,
-        make lightbulb 1, make light 1.
+        make lightbulb 1, make light 1,
+        change lightbulb 1, change light 1,
+        set lightbulb 1, set light 1.
         """
         colour = self._parse_colour(colour)
         self._ensure_authenticated()
@@ -186,7 +188,9 @@ class SmartHome:
         set color of lightbulb 2, set color of light 2,
         change the color of lightbulb 2, change the color of light 2,
         lightbulb 2 color, light 2 color,
-        make lightbulb 2, make light 2.
+        make lightbulb 2, make light 2,
+        change lightbulb 2, change light 2,
+        set lightbulb 2, set light 2.
         """
         colour = self._parse_colour(colour)
         self._ensure_authenticated()
@@ -204,7 +208,8 @@ class SmartHome:
 
         Phrases: turn on ac, switch on ac, turn ac on, switch ac on,
         enable ac, power on ac, start ac, ac on,
-        turn on air conditioner, turn on air con.
+        turn on air conditioner, turn on air con,
+        open ac, open air conditioner, open air con.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/acs/35da478b-b03b-4509-9f66-979c76bfa3d9/"
@@ -221,7 +226,8 @@ class SmartHome:
 
         Phrases: turn off ac, switch off ac, turn ac off, switch ac off,
         disable ac, power off ac, stop ac, ac off,
-        turn off air conditioner, turn off air con.
+        turn off air conditioner, turn off air con,
+        close ac, close air conditioner, close air con.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/acs/35da478b-b03b-4509-9f66-979c76bfa3d9/"
@@ -237,7 +243,8 @@ class SmartHome:
         """Turn the fan on.
 
         Phrases: turn on fan, switch on fan, turn fan on, switch fan on,
-        enable fan, power on fan, start fan, fan on.
+        enable fan, power on fan, start fan, fan on,
+        open fan.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/"
@@ -253,7 +260,8 @@ class SmartHome:
         """Turn the fan off.
 
         Phrases: turn off fan, switch off fan, turn fan off, switch fan off,
-        disable fan, power off fan, stop fan, fan off.
+        disable fan, power off fan, stop fan, fan off,
+        close fan.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/"
@@ -270,7 +278,8 @@ class SmartHome:
 
         Phrases: turn on tv, switch on tv, turn tv on, switch tv on,
         enable tv, power on tv, start tv, tv on,
-        turn on television.
+        turn on television,
+        open tv, open television.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/"
@@ -287,7 +296,8 @@ class SmartHome:
 
         Phrases: turn off tv, switch off tv, turn tv off, switch tv off,
         disable tv, power off tv, stop tv, tv off,
-        turn off television.
+        turn off television,
+        close tv, close television.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/"
