@@ -316,7 +316,7 @@ def _try_build_constructor_executable(command: str, class_name: str, init_info: 
     }
     
 def _extract_switch_object_name(command: str) -> Optional[str]:
-    s = (command or "").strip()
+    s = (command or "").strip().rstrip(".")
 
     patterns = [
         r"^\s*change\s+object\s+to\s+([A-Za-z_]\w*)\s*\.?\s*$",
@@ -325,6 +325,16 @@ def _extract_switch_object_name(command: str) -> Optional[str]:
         r"^\s*use\s+object\s+([A-Za-z_]\w*)\s*\.?\s*$",
         r"^\s*use\s+([A-Za-z_]\w*)\s*\.?\s*$",
         r"^\s*select\s+object\s+([A-Za-z_]\w*)\s*\.?\s*$",
+        
+        r"^\s*switch\s+to\s+([A-Za-z_]\w*)\s*$",
+        r"^\s*change\s+to\s+([A-Za-z_]\w*)\s*$",
+        r"^\s*set\s+to\s+([A-Za-z_]\w*)\s*$",
+        r"^\s*make\s+([A-Za-z_]\w*)\s+active\s*$",
+        r"^\s*set\s+([A-Za-z_]\w*)\s+as\s+active\s*$",
+        r"^\s*change\s+to\s+turtle\s+called\s+([A-Za-z_]\w*)\s*$",
+        r"^\s*switch\s+to\s+turtle\s+called\s+([A-Za-z_]\w*)\s*$",
+        r"^\s*use\s+turtle\s+([A-Za-z_]\w*)\s*$",
+        r"^\s*select\s+turtle\s+([A-Za-z_]\w*)\s*$",
     ]
 
     for pat in patterns:
@@ -339,12 +349,39 @@ def _extract_referenced_object(command: str, known_objects: Dict[str, Any]) -> O
     if not s or not known_objects:
         return None
 
+    matches = []
     for obj_name in known_objects.keys():
         if re.search(rf"\b{re.escape(obj_name.lower())}\b", s):
-            return obj_name
+            matches.append(obj_name)
 
-    return None
+    if not matches:
+        return None
+
+    # prefer longest/specific object name
+    matches.sort(key=len, reverse=True)
+    return matches[0]
    
+def _rewrite_object_first_turtle_command(command: str, known_objects: Dict[str, Any]) -> str:
+    s = (command or "").strip()
+    if not s or not known_objects:
+        return s
+
+    for obj_name in sorted(known_objects.keys(), key=len, reverse=True):
+        pat1 = rf"^\s*move\s+{re.escape(obj_name)}\s+(.+)$"
+        m1 = re.match(pat1, s, flags=re.IGNORECASE)
+        if m1:
+            rest = m1.group(1).strip()
+            return f"move {rest} {obj_name}"
+
+        pat2 = rf"^\s*{re.escape(obj_name)}\s+(.+)$"
+        m2 = re.match(pat2, s, flags=re.IGNORECASE)
+        if m2:
+            rest = m2.group(1).strip()
+            return f"{rest} {obj_name}"
+
+    return s
+
+
 # ============================================================
 # Cache
 # ============================================================
@@ -566,7 +603,7 @@ def _append_to_runner(session_dir: Path, runner_path: Path, executable: str, com
 
         # screen-level turtle call stays global
         if _is_turtle_screen_method_call(line):
-            f.write(f"{line}\n")
+            f.write(f"turtle.{line}\n")
             return
 
         # already targeted like acc1.deposit(...) or t1.forward(...)
@@ -1521,6 +1558,10 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     # Normal flow
     # ------------------------------------------------------------
+    if _is_turtle_app(convo):
+        st = _load_state(session_dir)
+        known_objects = st.get("objects", {}) or {}
+        command = _rewrite_object_first_turtle_command(command, known_objects)
     # Try CFG split first, fall back to simple regex split if CFG returns only 1 part
     command_parts = _split_with_cfg(command, module_path)
     if len(command_parts) <= 1:
