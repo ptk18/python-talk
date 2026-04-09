@@ -142,12 +142,15 @@ def compile_single(command_text: str, module_path: str) -> Dict[str, Any]:
     required = (domain.get("ACTIONS", {}).get(action, {}) or {}).get("params", []) or []
 
     # ---- number binding (1 required param) ----
+    # Only bind number to param if it's an int-like param, not a string param like colour
+    STR_PARAM_HINTS = {"colour", "color", "name", "note", "category", "recipient", "owner", "owner_name", "target", "device", "room"}
     n = _first_number(command_text)
     if n is not None and len(required) == 1:
         p = required[0]
-        v = args.get(p)
-        if v in (None, "", []) or isinstance(v, str):
-            args[p] = n
+        if p.lower() not in STR_PARAM_HINTS:
+            v = args.get(p)
+            if v in (None, "", []) or isinstance(v, str):
+                args[p] = n
 
     # ---- missing required params ----
     missing = [p for p in required if (p not in args) or (args.get(p) in (None, "", []))]

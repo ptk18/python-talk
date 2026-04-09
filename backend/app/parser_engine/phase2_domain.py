@@ -156,12 +156,17 @@ def _extract_free_string_value(
             words = new_words
             break
 
-    # 2) then remove leftover generic command verbs
-    while words and words[0] in {"set", "change", "make", "use"}:
-        words = words[1:]
-
-    # 3) remove linking words before actual value
-    while words and words[0] in {"to", "as", "in", "with", "into", "for"}:
+    # 2) then remove leftover generic command verbs and param-name echoes
+    pn = param_name.lower()
+    param_aliases = {pn}
+    if "colour" in pn:
+        param_aliases.add(pn.replace("colour", "color"))
+    elif "color" in pn:
+        param_aliases.add(pn.replace("color", "colour"))
+    strip_leading = {"set", "change", "make", "use", "to", "as", "in", "with", "into", "for",
+                      "color", "colour", "lightbulb", "light", "brightness", "temperature", "temp",
+                      "speed", "volume", "channel", "swing", "fan", "ac", "tv"} | param_aliases
+    while words and words[0] in strip_leading:
         words = words[1:]
 
     # 4) trim param filler patterns
@@ -181,6 +186,46 @@ def _norm_text(s: str) -> str:
     s = (s or "").lower().strip()
     # replace punctuation with space (keep letters/numbers/_)
     s = re.sub(r"[^a-z0-9_]+", " ", s)
+    s = " ".join(s.split())
+    return s
+
+
+def normalize_user_input(s: str) -> str:
+    """
+    Pre-process user input before phrase matching to reduce variant explosion.
+
+    1. Lowercase + strip punctuation (via _norm_text)
+    2. Strip filler articles: the, a, an, please, can you, could you
+    3. Normalize joined device names: lightbulb1 -> lightbulb 1, light2 -> light 2
+    4. Normalize spelling: colour -> color (canonical form)
+    5. Normalize synonyms: air conditioner / air con -> ac, television -> tv
+    6. Strip filler linking words: of, to, be, to be, for me
+    """
+    s = _norm_text(s)
+
+    # strip polite prefixes
+    s = re.sub(r"^(please\s+|can you\s+|could you\s+|i want to\s+|i need to\s+)", "", s)
+
+    # strip articles
+    s = re.sub(r"\b(the|a|an)\b", " ", s)
+
+    # normalize device-number joins: lightbulb1 -> lightbulb 1, light2 -> light 2, etc.
+    s = re.sub(r"\b(lightbulb|light|fan|ac|tv)(\d+)\b", r"\1 \2", s)
+
+    # normalize spelling: colour -> color
+    s = s.replace("colour", "color")
+
+    # normalize device synonyms
+    s = re.sub(r"\bair\s+conditioner\b", "ac", s)
+    s = re.sub(r"\bair\s+con\b", "ac", s)
+    s = re.sub(r"\btelevision\b", "tv", s)
+
+    # strip filler linking words between device and param: "of", "to be", "to", "for me"
+    s = re.sub(r"\bto\s+be\b", " ", s)
+    s = re.sub(r"\bfor\s+me\b", " ", s)
+    s = re.sub(r"\b(of)\b", " ", s)
+
+    # collapse whitespace
     s = " ".join(s.split())
     return s
 
@@ -764,8 +809,8 @@ def match_action_by_phrases(
       (best_action, matched_phrase, ranked)
     """
     actions = domain.get("ACTIONS") or {}
-    sent_norm = _norm_text(sentence)
-    sent_words = _sentence_words(sentence, tokens)
+    sent_norm = normalize_user_input(sentence)
+    sent_words = sent_norm.split()
 
     if not actions:
         return None, None, []
@@ -775,7 +820,7 @@ def match_action_by_phrases(
 
     for action, info in actions.items():
         for raw_phrase in (info.get("phrases") or []):
-            phrase = _norm_text(str(raw_phrase))
+            phrase = normalize_user_input(str(raw_phrase))
             if not phrase:
                 continue
 
@@ -834,6 +879,7 @@ def pick_best_action(
     print("\n========== DOCSTRING MATCH DEBUG ==========")
     print("Sentence:", sentence)
     print("Sentence(norm):", _norm_text(sentence))
+    print("Sentence(user_norm):", normalize_user_input(sentence))
     print("Tokens(norm):", " ".join(_token_words(tokens)))
     print("Matched phrase:", matched_phrase)
     print("Selected action:", action)
@@ -1020,7 +1066,8 @@ def bind_args_to_params(
         "angle", "fullcircle", "stamp_id", "stretch_wid", "stretch_len", "outline"
     }
     STR_HINTS = {
-        "category", "note", "recipient", "name", "owner", "owner_name", "target", "device", "room"
+        "category", "note", "recipient", "name", "owner", "owner_name", "target", "device", "room",
+        "colour", "color"
     }
 
     def kind_of(p: str) -> str:

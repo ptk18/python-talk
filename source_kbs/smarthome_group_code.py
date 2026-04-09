@@ -9,7 +9,6 @@ class SmartHome:
         self.email = "p@gmail.com"
         self.password = "12345678"
         self.token = None
-        self.tv_volume = 10
 
     def _ensure_authenticated(self):
         """Ensure the client is authenticated before making API calls."""
@@ -19,7 +18,8 @@ class SmartHome:
     def login(self):
         """Login to the SmartHome API and store the authentication token.
 
-        Phrases: login, sign in, authenticate, connect to smart home.
+        Phrases: login, log in, sign in, authenticate, connect account,
+        access smart home, connect to smart home.
         """
         url = f"{self.base_url}/auth/login/"
         response = requests.post(url, json={"email": self.email, "password": self.password}, verify=False, timeout=10)
@@ -34,7 +34,10 @@ class SmartHome:
     def turn_on_lightbulb_1(self):
         """Turn lightbulb 1 on.
 
-        Phrases: turn on lightbulb 1, switch on light 1, lightbulb 1 on, turn on light 1, enable light 1.
+        Phrases: turn on lightbulb 1, turn on light 1, switch on lightbulb 1, switch on light 1,
+        turn lightbulb 1 on, turn light 1 on, switch lightbulb 1 on, switch light 1 on,
+        enable lightbulb 1, enable light 1, power on lightbulb 1, power on light 1,
+        lightbulb 1 on, light 1 on, open lightbulb 1, open light 1.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/"
@@ -49,7 +52,10 @@ class SmartHome:
     def turn_off_lightbulb_1(self):
         """Turn lightbulb 1 off.
 
-        Phrases: turn off lightbulb 1, switch off light 1, lightbulb 1 off, turn off light 1, disable light 1.
+        Phrases: turn off lightbulb 1, turn off light 1, switch off lightbulb 1, switch off light 1,
+        turn lightbulb 1 off, turn light 1 off, switch lightbulb 1 off, switch light 1 off,
+        disable lightbulb 1, disable light 1, power off lightbulb 1, power off light 1,
+        lightbulb 1 off, light 1 off, close lightbulb 1, close light 1.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/"
@@ -64,7 +70,10 @@ class SmartHome:
     def turn_on_lightbulb_2(self):
         """Turn lightbulb 2 on.
 
-        Phrases: turn on lightbulb 2, switch on light 2, lightbulb 2 on, turn on light 2, enable light 2.
+        Phrases: turn on lightbulb 2, turn on light 2, switch on lightbulb 2, switch on light 2,
+        turn lightbulb 2 on, turn light 2 on, switch lightbulb 2 on, switch light 2 on,
+        enable lightbulb 2, enable light 2, power on lightbulb 2, power on light 2,
+        lightbulb 2 on, light 2 on, open lightbulb 2, open light 2.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/"
@@ -79,7 +88,10 @@ class SmartHome:
     def turn_off_lightbulb_2(self):
         """Turn lightbulb 2 off.
 
-        Phrases: turn off lightbulb 2, switch off light 2, lightbulb 2 off, turn off light 2, disable light 2.
+        Phrases: turn off lightbulb 2, turn off light 2, switch off lightbulb 2, switch off light 2,
+        turn lightbulb 2 off, turn light 2 off, switch lightbulb 2 off, switch light 2 off,
+        disable lightbulb 2, disable light 2, power off lightbulb 2, power off light 2,
+        lightbulb 2 off, light 2 off, close lightbulb 2, close light 2.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/"
@@ -94,7 +106,9 @@ class SmartHome:
     def get_devices_info(self):
         """Get all devices information in the room.
 
-        Phrases: get devices, show devices, list devices, device info, what devices are there.
+        Phrases: get devices, get device info, show devices, list devices,
+        show all devices, list all devices, view devices, check devices,
+        device status, show device status, what devices are there.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/homes/d0cef9a6-1050-4830-908d-b85e994de47d/get_devices/"
@@ -106,25 +120,15 @@ class SmartHome:
         else:
             print(f"Failed to get devices information: {response.text}")
 
-    def get_all_homes_info(self):
-        """Get all homes information.
-
-        Phrases: get all homes, show homes, list homes, what homes are there, homes info.
-        """
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/homes/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.get(url, headers=headers, verify=False, timeout=10)
-        print(f"[GET_HOMES] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(response.json())
-        else:
-            print(f"Failed to get homes: {response.text}")
-
     def set_lightbulb_1_colour(self, colour):
         """Change lightbulb 1 colour.
 
-        Phrases: change light 1 colour, set light 1 color, change lightbulb 1 colour, change lightbulb 1 color, set lightbulb 1 color.
+        Phrases: change lightbulb 1 color, change light 1 color,
+        set lightbulb 1 color, set light 1 color,
+        change color lightbulb 1, change color light 1,
+        lightbulb 1 color, light 1 color,
+        change lightbulb 1 color, set lightbulb 1 color,
+        make lightbulb 1, make light 1.
         """
         colour_map = {
             "red": "#FF0000",
@@ -145,7 +149,12 @@ class SmartHome:
     def set_lightbulb_2_colour(self, colour):
         """Change lightbulb 2 colour.
 
-        Phrases: change light 2 colour, set light 2 color, change lightbulb 2 colour, change lightbulb 2 color, set lightbulb 2 color.
+        Phrases: change lightbulb 2 color, change light 2 color,
+        set lightbulb 2 color, set light 2 color,
+        change color lightbulb 2, change color light 2,
+        lightbulb 2 color, light 2 color,
+        change lightbulb 2 color, set lightbulb 2 color,
+        make lightbulb 2, make light 2.
         """
         colour_map = {
             "red": "#FF0000",
@@ -166,7 +175,13 @@ class SmartHome:
     def set_lightbulb_1_brightness(self, brightness):
         """Change lightbulb 1 brightness.
 
-        Phrases: change brightness light 1, set light 1 brightness, dim light 1, brighten light 1, set lightbulb 1 brightness.
+        Phrases: set lightbulb 1 brightness, set light 1 brightness,
+        change lightbulb 1 brightness, change light 1 brightness,
+        adjust lightbulb 1 brightness, adjust light 1 brightness,
+        change brightness lightbulb 1, change brightness light 1,
+        set brightness lightbulb 1, set brightness light 1,
+        dim lightbulb 1, dim light 1, brighten lightbulb 1, brighten light 1,
+        lightbulb 1 brightness, light 1 brightness.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/set_brightness/"
@@ -181,7 +196,13 @@ class SmartHome:
     def set_lightbulb_2_brightness(self, brightness):
         """Change lightbulb 2 brightness.
 
-        Phrases: change brightness light 2, set light 2 brightness, dim light 2, brighten light 2, set lightbulb 2 brightness.
+        Phrases: set lightbulb 2 brightness, set light 2 brightness,
+        change lightbulb 2 brightness, change light 2 brightness,
+        adjust lightbulb 2 brightness, adjust light 2 brightness,
+        change brightness lightbulb 2, change brightness light 2,
+        set brightness lightbulb 2, set brightness light 2,
+        dim lightbulb 2, dim light 2, brighten lightbulb 2, brighten light 2,
+        lightbulb 2 brightness, light 2 brightness.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_brightness/"
@@ -196,7 +217,9 @@ class SmartHome:
     def turn_on_ac(self):
         """Turn the air conditioner on.
 
-        Phrases: turn on AC, switch on air conditioner, AC on, enable AC, turn on air con.
+        Phrases: turn on ac, switch on ac, turn ac on, switch ac on,
+        enable ac, power on ac, start ac, ac on,
+        turn on air conditioner, turn on air con.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/acs/35da478b-b03b-4509-9f66-979c76bfa3d9/"
@@ -211,7 +234,9 @@ class SmartHome:
     def turn_off_ac(self):
         """Turn the air conditioner off.
 
-        Phrases: turn off AC, switch off air conditioner, AC off, disable AC, turn off air con.
+        Phrases: turn off ac, switch off ac, turn ac off, switch ac off,
+        disable ac, power off ac, stop ac, ac off,
+        turn off air conditioner, turn off air con.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/acs/35da478b-b03b-4509-9f66-979c76bfa3d9/"
@@ -223,25 +248,11 @@ class SmartHome:
         else:
             print(f"Failed to turn off AC: {response.text}")
 
-    def set_ac_temperature(self, temp):
-        """Set the air conditioner temperature.
-
-        Phrases: set AC temperature, change AC temp, set air conditioner to 25 degrees, adjust AC temperature.
-        """
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/acs/35da478b-b03b-4509-9f66-979c76bfa3d9/set_temperature/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"temp": temp}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_TEMP] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"AC temperature set to {temp}")
-        else:
-            print(f"Failed to set AC temperature: {response.text}")
-
     def turn_on_fan(self):
         """Turn the fan on.
 
-        Phrases: turn on fan, switch on fan, fan on, enable fan, start the fan.
+        Phrases: turn on fan, switch on fan, turn fan on, switch fan on,
+        enable fan, power on fan, start fan, fan on.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/"
@@ -256,7 +267,8 @@ class SmartHome:
     def turn_off_fan(self):
         """Turn the fan off.
 
-        Phrases: turn off fan, switch off fan, fan off, disable fan, stop the fan.
+        Phrases: turn off fan, switch off fan, turn fan off, switch fan off,
+        disable fan, power off fan, stop fan, fan off.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/"
@@ -268,40 +280,12 @@ class SmartHome:
         else:
             print(f"Failed to turn off fan: {response.text}")
 
-    def set_fan_speed(self, speed):
-        """Set the fan speed.
-
-        Phrases: set fan speed, change fan speed, fan speed to 1, adjust fan speed, make fan faster, make fan slower.
-        """
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/set_speed/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"speed": speed}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_SPEED] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"Fan speed set to {speed}")
-        else:
-            print(f"Failed to set fan speed: {response.text}")
-
-    def set_fan_swing(self, swing):
-        """Set the fan swing on or off.
-
-        Phrases: turn on fan swing, enable swing, fan swing on, turn off fan swing, disable swing, fan swing off.
-        """
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/fans/eadcc85f-71c5-4452-b3ac-f2276a5cfa7a/set_swing/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"swing": swing}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_SWING] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"Fan swing set to {swing}")
-        else:
-            print(f"Failed to set fan swing: {response.text}")
-
     def turn_on_tv(self):
         """Turn the TV on.
 
-        Phrases: turn on TV, switch on TV, TV on, enable TV, turn on television.
+        Phrases: turn on tv, switch on tv, turn tv on, switch tv on,
+        enable tv, power on tv, start tv, tv on,
+        turn on television.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/"
@@ -316,7 +300,9 @@ class SmartHome:
     def turn_off_tv(self):
         """Turn the TV off.
 
-        Phrases: turn off TV, switch off TV, TV off, disable TV, turn off television.
+        Phrases: turn off tv, switch off tv, turn tv off, switch tv off,
+        disable tv, power off tv, stop tv, tv off,
+        turn off television.
         """
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/"
@@ -327,50 +313,3 @@ class SmartHome:
             print("TV turned off")
         else:
             print(f"Failed to turn off TV: {response.text}")
-
-    def increase_tv_volume(self):
-        """Increase the TV volume by 1.
-
-        Phrases: increase volume, volume up, turn up TV, louder, raise volume.
-        """
-        self._ensure_authenticated()
-        self.tv_volume = min(self.tv_volume + 1, 100)
-        url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/set_volume/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"volume": self.tv_volume}, headers=headers, verify=False, timeout=10)
-        print(f"[VOLUME_UP] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"TV volume increased to {self.tv_volume}")
-        else:
-            print(f"Failed to increase TV volume: {response.text}")
-
-    def decrease_tv_volume(self):
-        """Decrease the TV volume by 1.
-
-        Phrases: decrease volume, volume down, turn down TV, quieter, lower volume.
-        """
-        self._ensure_authenticated()
-        self.tv_volume = max(self.tv_volume - 1, 0)
-        url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/set_volume/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"volume": self.tv_volume}, headers=headers, verify=False, timeout=10)
-        print(f"[VOLUME_DOWN] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"TV volume decreased to {self.tv_volume}")
-        else:
-            print(f"Failed to decrease TV volume: {response.text}")
-
-    def set_tv_channel(self, channel):
-        """Change the TV channel.
-
-        Phrases: change channel, set TV channel, switch channel, go to channel 2, change TV to channel 5.
-        """
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/tvs/f914aefe-76d2-44fd-bc0a-bf536f0bd227/set_channel/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"channel": channel}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_CHANNEL] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"TV channel set to {channel}")
-        else:
-            print(f"Failed to set TV channel: {response.text}")
