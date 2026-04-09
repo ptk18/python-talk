@@ -2,7 +2,7 @@ import { ref, onMounted } from 'vue';
 import { settingsSync } from '../services/settingsSync.js';
 
 const ttsEnabled = ref(true);
-const ttsEngine = ref('browser');
+const ttsEngine = ref('google');
 const ttsRate = ref(1.0);
 
 // Initialize from localStorage

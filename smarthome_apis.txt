@@ -106,3 +106,10 @@ URL: https://turing.se.kmitl.ac.th:5500/api/homes/tvs/:id/set_channel/
 {
     "channel": 2
 }
+
+
+tv: f914aefe-76d2-44fd-bc0a-bf536f0bd227
+ac: 35da478b-b03b-4509-9f66-979c76bfa3d9
+lightbulb 1: f5398b01-79c5-4f88-b9ea-019b452d6de6
+lightbulb 2: badec2bd-10e0-40ff-a38d-95b8d80c4504
+fan: eadcc85f-71c5-4452-b3ac-f2276a5cfa7a

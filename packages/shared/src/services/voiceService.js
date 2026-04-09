@@ -223,7 +223,7 @@ class VoiceService {
   }
 
   getTTSEngine() {
-    return this.ttsEngine || localStorage.getItem('tts_engine') || 'browser';
+    return this.ttsEngine || localStorage.getItem('tts_engine') || 'google';
   }
 
   setLanguage(lang) {
