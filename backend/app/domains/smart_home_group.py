@@ -1,7 +1,21 @@
 import requests
+import re
 
 
 class SmartHome:
+    COLOUR_MAP = {
+        "red": "#FF0000",
+        "green": "#00FF00",
+        "blue": "#0000FF",
+        "yellow": "#FFFF00",
+        "orange": "#FFA500",
+        "purple": "#800080",
+        "pink": "#FFC0CB",
+        "white": "#FFFFFF",
+        "cyan": "#00FFFF",
+        "magenta": "#FF00FF",
+    }
+
     def __init__(self):
         """Initialize the SmartHome client."""
         # self.base_url = "https://turing.se.kmitl.ac.th/smarthome/api/api"
@@ -14,6 +28,25 @@ class SmartHome:
         """Ensure the client is authenticated before making API calls."""
         if self.token is None:
             self.login()
+
+    def _parse_colour(self, raw: str) -> str:
+        """Extract a colour hex code from a raw string that may contain extra words.
+
+        Handles inputs like 'red', 'color of red', 'lightbulb2 color red', '#FF0000'.
+        """
+        raw_lower = raw.strip().lower()
+
+        # If it's already a hex code, return as-is
+        if re.match(r'^#[0-9a-fA-F]{6}$', raw.strip()):
+            return raw.strip()
+
+        # Search for a known colour name anywhere in the input
+        for name, hex_code in self.COLOUR_MAP.items():
+            if re.search(r'\b' + name + r'\b', raw_lower):
+                return hex_code
+
+        # Fallback: return raw input (let the API handle it)
+        return raw.strip()
 
     def login(self):
         """Login to the SmartHome API and store the authentication token.
@@ -126,16 +159,13 @@ class SmartHome:
         Phrases: change lightbulb 1 color, change light 1 color,
         set lightbulb 1 color, set light 1 color,
         change color lightbulb 1, change color light 1,
+        change color of lightbulb 1, change color of light 1,
+        set color of lightbulb 1, set color of light 1,
+        change the color of lightbulb 1, change the color of light 1,
         lightbulb 1 color, light 1 color,
-        change lightbulb 1 color, set lightbulb 1 color,
         make lightbulb 1, make light 1.
         """
-        colour_map = {
-            "red": "#FF0000",
-            "green": "#00FF00",
-            "blue": "#0000FF",
-        }
-        colour = colour_map.get(colour.lower(), colour)
+        colour = self._parse_colour(colour)
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/set_colour/"
         headers = {"Authorization": f"Token {self.token}"}
@@ -152,16 +182,13 @@ class SmartHome:
         Phrases: change lightbulb 2 color, change light 2 color,
         set lightbulb 2 color, set light 2 color,
         change color lightbulb 2, change color light 2,
+        change color of lightbulb 2, change color of light 2,
+        set color of lightbulb 2, set color of light 2,
+        change the color of lightbulb 2, change the color of light 2,
         lightbulb 2 color, light 2 color,
-        change lightbulb 2 color, set lightbulb 2 color,
         make lightbulb 2, make light 2.
         """
-        colour_map = {
-            "red": "#FF0000",
-            "green": "#00FF00",
-            "blue": "#0000FF",
-        }
-        colour = colour_map.get(colour.lower(), colour)
+        colour = self._parse_colour(colour)
         self._ensure_authenticated()
         url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_colour/"
         headers = {"Authorization": f"Token {self.token}"}
@@ -171,48 +198,6 @@ class SmartHome:
             print(f"Lightbulb 2 colour changed to {colour}")
         else:
             print(f"Failed to change lightbulb 2 colour: {response.text}")
-
-    def set_lightbulb_1_brightness(self, brightness):
-        """Change lightbulb 1 brightness.
-
-        Phrases: set lightbulb 1 brightness, set light 1 brightness,
-        change lightbulb 1 brightness, change light 1 brightness,
-        adjust lightbulb 1 brightness, adjust light 1 brightness,
-        change brightness lightbulb 1, change brightness light 1,
-        set brightness lightbulb 1, set brightness light 1,
-        dim lightbulb 1, dim light 1, brighten lightbulb 1, brighten light 1,
-        lightbulb 1 brightness, light 1 brightness.
-        """
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/lightbulbs/f5398b01-79c5-4f88-b9ea-019b452d6de6/set_brightness/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"brightness": brightness}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_BRIGHTNESS_LB1] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"Lightbulb 1 brightness set to {brightness}")
-        else:
-            print(f"Failed to change lightbulb 1 brightness: {response.text}")
-
-    def set_lightbulb_2_brightness(self, brightness):
-        """Change lightbulb 2 brightness.
-
-        Phrases: set lightbulb 2 brightness, set light 2 brightness,
-        change lightbulb 2 brightness, change light 2 brightness,
-        adjust lightbulb 2 brightness, adjust light 2 brightness,
-        change brightness lightbulb 2, change brightness light 2,
-        set brightness lightbulb 2, set brightness light 2,
-        dim lightbulb 2, dim light 2, brighten lightbulb 2, brighten light 2,
-        lightbulb 2 brightness, light 2 brightness.
-        """
-        self._ensure_authenticated()
-        url = f"{self.base_url}/homes/lightbulbs/badec2bd-10e0-40ff-a38d-95b8d80c4504/set_brightness/"
-        headers = {"Authorization": f"Token {self.token}"}
-        response = requests.patch(url, json={"brightness": brightness}, headers=headers, verify=False, timeout=10)
-        print(f"[SET_BRIGHTNESS_LB2] Status: {response.status_code}, Response: {response.text}")
-        if response.status_code == 200:
-            print(f"Lightbulb 2 brightness set to {brightness}")
-        else:
-            print(f"Failed to change lightbulb 2 brightness: {response.text}")
 
     def turn_on_ac(self):
         """Turn the air conditioner on.

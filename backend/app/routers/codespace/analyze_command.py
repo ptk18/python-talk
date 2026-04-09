@@ -18,10 +18,10 @@ from app.models.schemas import AnalyzeCommandRequest, UndoRequest
 
 from app.parser_engine.api import compile_single, apply_followup
 from app.parser_engine.lex_alz import analyze_sentence
-from app.parser_engine.phase2_domain import load_domain, phase2_map_tokens, DOMAIN_CACHE
+from app.parser_engine.phase2_domain import load_domain, phase2_map_tokens, DOMAIN_CACHE, DOMAIN_MTIME
 from app.parser_engine.cfg_parser import parse_command, extract_nodes_by_name, span_to_text
 
-from app.routers.codespace.conversations import initialize_turtle_session, load_turtle_domain_code
+from app.routers.codespace.conversations import initialize_turtle_session, load_turtle_domain_code, load_smarthome_domain_code
 
 router = APIRouter()
 
@@ -844,6 +844,7 @@ def invalidate_pipeline_cache(payload: AnalyzeCommandRequest, db: Session = Depe
         module_path = session_dir / convo.file_name
         abs_path = str(module_path.resolve())
         DOMAIN_CACHE.pop(abs_path, None)
+        DOMAIN_MTIME.pop(abs_path, None)
 
     return {"success": True, "message": "Cache invalidated"}
 
@@ -960,7 +961,22 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             module_path.write_text(canonical, encoding="utf-8")
             abs_path = str(module_path.resolve())
             DOMAIN_CACHE.pop(abs_path, None)
+            DOMAIN_MTIME.pop(abs_path, None)
             print(f"[SYNC] Updated session domain file: {module_path}")
+
+    # Sync smart home domain file similarly
+    if convo.file_name == "smarthome_group_code.py" and module_path.exists():
+        try:
+            canonical = load_smarthome_domain_code()
+            current = module_path.read_text(encoding="utf-8")
+            if canonical != current:
+                module_path.write_text(canonical, encoding="utf-8")
+                abs_path = str(module_path.resolve())
+                DOMAIN_CACHE.pop(abs_path, None)
+                DOMAIN_MTIME.pop(abs_path, None)
+                print(f"[SYNC] Updated session smart home file: {module_path}")
+        except FileNotFoundError:
+            pass
 
     if not module_path.exists():
         raise HTTPException(status_code=400, detail=f"Session file not found: {module_path}")

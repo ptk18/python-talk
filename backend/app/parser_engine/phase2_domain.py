@@ -118,6 +118,19 @@ def _remove_leading_phrase(words: List[str], phrase: str) -> List[str]:
         return words[len(parts):]
     return words
 
+def _split_device_number_joins(words: List[str]) -> List[str]:
+    """Split joined device-number tokens: lightbulb2 -> lightbulb 2, light1 -> light 1."""
+    out: List[str] = []
+    for w in words:
+        m = re.match(r'^(lightbulb|light|fan|ac|tv)(\d+)$', w)
+        if m:
+            out.append(m.group(1))
+            out.append(m.group(2))
+        else:
+            out.append(w)
+    return out
+
+
 def _extract_free_string_value(
     semantic_tokens: List[Dict[str, Any]],
     action: str,
@@ -142,6 +155,9 @@ def _extract_free_string_value(
     if not words:
         return None
 
+    # Normalize joined device-number tokens: lightbulb2 -> lightbulb 2
+    words = _split_device_number_joins(words)
+
     # 1) remove the longest matching docstring phrase for this action FIRST
     action_phrases = (domain.get("ACTIONS", {}).get(action, {}) or {}).get("phrases", []) or []
     action_phrases = sorted(
@@ -155,6 +171,22 @@ def _extract_free_string_value(
         if new_words != words:
             words = new_words
             break
+    else:
+        # No leading phrase matched — try removing phrase words found anywhere
+        # This handles word-order variants like "change the color of lightbulb 2 red"
+        # where the phrase is "change lightbulb 2 color" but user reordered it.
+        action_name_words = set(_norm_text(action.replace("_", " ")).split())
+        best_remaining = words  # fallback
+        best_removed = 0
+        for ph in action_phrases:
+            ph_words_set = set(_norm_text(ph).split()) | action_name_words
+            remaining = [w for w in words if w not in ph_words_set]
+            removed = len(words) - len(remaining)
+            if removed > best_removed:
+                best_removed = removed
+                best_remaining = remaining
+        if best_removed > 0:
+            words = best_remaining
 
     # 2) then remove leftover generic command verbs and param-name echoes
     pn = param_name.lower()
@@ -163,11 +195,17 @@ def _extract_free_string_value(
         param_aliases.add(pn.replace("colour", "color"))
     elif "color" in pn:
         param_aliases.add(pn.replace("color", "colour"))
-    strip_leading = {"set", "change", "make", "use", "to", "as", "in", "with", "into", "for",
-                      "color", "colour", "lightbulb", "light", "brightness", "temperature", "temp",
-                      "speed", "volume", "channel", "swing", "fan", "ac", "tv"} | param_aliases
-    while words and words[0] in strip_leading:
+    strip_words = {"set", "change", "make", "use", "to", "as", "in", "with", "into", "for",
+                    "the", "a", "an", "of", "on", "my",
+                    "color", "colour", "lightbulb", "light", "brightness", "temperature", "temp",
+                    "speed", "volume", "channel", "swing", "fan", "ac", "tv"} | param_aliases
+    # Strip from the front
+    while words and (words[0] in strip_words or re.match(r'^\d+$', words[0])):
         words = words[1:]
+
+    # Also strip these filler/device words from the end (e.g. trailing "lightbulb" or numbers)
+    while words and (words[-1] in strip_words or re.match(r'^\d+$', words[-1])):
+        words = words[:-1]
 
     # 4) trim param filler patterns
     words = _trim_string_fillers(words, param_name)
@@ -732,16 +770,21 @@ def expand_domain(structure: Dict[str, Any]) -> Dict[str, Any]:
     return domain
 
 
+DOMAIN_MTIME: Dict[str, float] = {}
+
+
 def load_domain(py_file: str) -> Dict[str, Any]:
     """
     Load + cache domain extracted from a python file.
 
-    Caches by absolute path.
+    Caches by absolute path. Re-loads if the file has been modified.
     """
     py_file = os.path.abspath(py_file)
 
+    current_mtime = os.path.getmtime(py_file)
     cached = DOMAIN_CACHE.get(py_file)
-    if cached is not None:
+    cached_mtime = DOMAIN_MTIME.get(py_file, 0)
+    if cached is not None and current_mtime <= cached_mtime:
         return cached
 
     t0 = time.time()
@@ -752,8 +795,9 @@ def load_domain(py_file: str) -> Dict[str, Any]:
     domain.setdefault("ACTIONS", {})
 
     DOMAIN_CACHE[py_file] = domain
+    DOMAIN_MTIME[py_file] = current_mtime
     elapsed = (time.time() - t0) * 1000
-    print(f"[DOMAIN_CACHE] MISS for {os.path.basename(py_file)}: {elapsed:.0f}ms")
+    print(f"[DOMAIN_CACHE] {'RELOAD' if cached else 'MISS'} for {os.path.basename(py_file)}: {elapsed:.0f}ms")
     return domain
 
 
