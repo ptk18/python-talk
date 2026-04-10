@@ -17,7 +17,7 @@ from app.models.models import Conversation
 from app.models.schemas import AnalyzeCommandRequest, UndoRequest
 
 from app.parser_engine.api import compile_single, apply_followup
-from app.parser_engine.lex_alz import analyze_sentence
+from app.parser_engine.lex_alz import analyze_sentence, _words_to_numbers
 from app.parser_engine.phase2_domain import load_domain, phase2_map_tokens, DOMAIN_CACHE, DOMAIN_MTIME
 from app.parser_engine.cfg_parser import parse_command, extract_nodes_by_name, span_to_text
 
@@ -581,7 +581,7 @@ def _ensure_runner_exists(session_dir: Path, module_path: Path, class_name: str)
     module_name = module_path.stem
 
     runner_path.write_text(
-        f"from {module_name} import {class_name}\n"
+        f"from {module_name} import *\n"
         f"import sys\n\n",
         encoding="utf-8"
     )
@@ -978,6 +978,9 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     t_total_start = time.time()
     conversation_id = payload.conversation_id
     command = (payload.command or "").strip()
+    # Early normalization: word numbers → digits, "light bulb" → "lightbulb"
+    command = _words_to_numbers(command)
+    command = re.sub(r'\blight\s+bulb', 'lightbulb', command, flags=re.IGNORECASE)
 
     convo = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not convo:
@@ -1566,9 +1569,13 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
         known_objects = st.get("objects", {}) or {}
         command = _rewrite_object_first_turtle_command(command, known_objects)
     # Try CFG split first, fall back to simple regex split if CFG returns only 1 part
+    # or if any CFG-split part looks incomplete (too few words = bad boundary)
     command_parts = _split_with_cfg(command, module_path)
-    if len(command_parts) <= 1:
-        command_parts = _split_compound_simple(command)
+    cfg_looks_bad = len(command_parts) <= 1 or any(len(p.split()) < 2 for p in command_parts)
+    if cfg_looks_bad:
+        simple_parts = _split_compound_simple(command)
+        if len(simple_parts) > 1 or len(command_parts) <= 1:
+            command_parts = simple_parts
 
     print("command_parts:", command_parts)
     print("[DEBUG] convo.app_type =", getattr(convo, "app_type", None))
@@ -1580,6 +1587,20 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
             continue
         results.append(_process_single_command(part, module_path))
         print("[DEBUG] raw executables =", [r.get("executable") for r in results])
+
+    # If ALL results failed and we haven't tried simple split yet, retry with simple split
+    all_failed = all(r.get("status") != "matched" for r in results) if results else True
+    if all_failed and len(command_parts) > 1:
+        simple_parts = _split_compound_simple(command)
+        if simple_parts != command_parts:
+            print("[DEBUG] CFG split failed, retrying with simple split:", simple_parts)
+            results = []
+            command_parts = simple_parts
+            for part in command_parts:
+                part = (part or "").strip()
+                if not part:
+                    continue
+                results.append(_process_single_command(part, module_path))
 
     # ----------------------------------------------------------
     # Compound buffering: if ANY clause needs clarification,

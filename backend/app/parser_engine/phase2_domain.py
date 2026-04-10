@@ -130,13 +130,18 @@ def _split_device_number_joins(words: List[str]) -> List[str]:
         "sixth": "6", "seventh": "7", "eighth": "8", "ninth": "9", "tenth": "10",
         "1st": "1", "2nd": "2", "3rd": "3", "4th": "4", "5th": "5",
     }
+    _word_nums = {
+        "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+        "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+        "ten": "10",
+    }
     out: List[str] = []
     i = 0
     while i < len(words):
         w = words[i]
-        # merge "light" + "bulb" -> "lightbulb"
-        if w == "light" and i + 1 < len(words) and words[i + 1] == "bulb":
-            out.append("lightbulb")
+        # merge "light" + "bulb" or "light" + "bulb2" -> "lightbulb" or "lightbulb2"
+        if w == "light" and i + 1 < len(words) and (words[i + 1] == "bulb" or re.match(r'^bulb\d+$', words[i + 1])):
+            out.append("light" + words[i + 1])  # "lightbulb" or "lightbulb2"
             i += 2
             continue
         # split joined device-number: lightbulb2 -> lightbulb 2
@@ -149,6 +154,11 @@ def _split_device_number_joins(words: List[str]) -> List[str]:
         # ordinals to numbers
         if w in _ordinals:
             out.append(_ordinals[w])
+            i += 1
+            continue
+        # English number words to digits
+        if w in _word_nums:
+            out.append(_word_nums[w])
             i += 1
             continue
         out.append(w)
@@ -220,16 +230,20 @@ def _extract_free_string_value(
         param_aliases.add(pn.replace("colour", "color"))
     elif "color" in pn:
         param_aliases.add(pn.replace("color", "colour"))
+    device_words = {"lightbulb", "light", "fan", "ac", "tv"}
     strip_words = {"set", "change", "make", "use", "to", "as", "in", "with", "into", "for",
                     "the", "a", "an", "of", "on", "my",
-                    "color", "colour", "lightbulb", "light", "brightness", "temperature", "temp",
-                    "speed", "volume", "channel", "swing", "fan", "ac", "tv"} | param_aliases
+                    "color", "colour", "brightness", "temperature", "temp",
+                    "speed", "volume", "channel", "swing"} | param_aliases
+    # Only strip device words when we're NOT extracting the device param itself
+    if param_name.lower() != "device":
+        strip_words |= device_words
     # Strip from the front
-    while words and (words[0] in strip_words or re.match(r'^\d+$', words[0])):
+    while words and (words[0] in strip_words or (re.match(r'^\d+$', words[0]) and param_name.lower() != "device")):
         words = words[1:]
 
     # Also strip these filler/device words from the end (e.g. trailing "lightbulb" or numbers)
-    while words and (words[-1] in strip_words or re.match(r'^\d+$', words[-1])):
+    while words and (words[-1] in strip_words or (re.match(r'^\d+$', words[-1]) and param_name.lower() != "device")):
         words = words[:-1]
 
     # 4) trim param filler patterns
@@ -272,8 +286,19 @@ def normalize_user_input(s: str) -> str:
     # strip articles
     s = re.sub(r"\b(the|a|an)\b", " ", s)
 
-    # normalize "light bulb" -> "lightbulb" (two words to one)
-    s = re.sub(r"\blight\s+bulb\b", "lightbulb", s)
+    # normalize "light bulb" / "light bulb2" -> "lightbulb" / "lightbulb2"
+    s = re.sub(r"\blight\s+bulb", "lightbulb", s)
+
+    # normalize English number words: one -> 1, two -> 2, etc.
+    _word_numbers = {
+        "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+        "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+        "ten": "10", "eleven": "11", "twelve": "12", "thirteen": "13",
+        "fourteen": "14", "fifteen": "15", "sixteen": "16", "seventeen": "17",
+        "eighteen": "18", "nineteen": "19", "twenty": "20",
+    }
+    for word, num in _word_numbers.items():
+        s = re.sub(rf"\b{word}\b", num, s)
 
     # normalize ordinals: first -> 1, second -> 2, etc.
     _ordinals = {
@@ -1335,7 +1360,31 @@ def bind_args_to_params(
 
     if not explain:
         explain.append("No binding rules matched; args may be incomplete.")
-        
+
+    # ---------- DEVICE binding (smart home) ----------
+    # Scan sentence for known device aliases before generic string binding
+    device_param = next((p for p in params if p.lower() == "device"), None)
+    if device_param and device_param not in args:
+        DEVICE_ALIASES = {
+            "lightbulb 1": "lightbulb 1", "lightbulb1": "lightbulb 1",
+            "light 1": "lightbulb 1", "light1": "lightbulb 1",
+            "lb1": "lightbulb 1", "lb 1": "lightbulb 1",
+            "lightbulb one": "lightbulb 1", "light one": "lightbulb 1",
+            "lightbulb 2": "lightbulb 2", "lightbulb2": "lightbulb 2",
+            "light 2": "lightbulb 2", "light2": "lightbulb 2",
+            "lb2": "lightbulb 2", "lb 2": "lightbulb 2",
+            "lightbulb two": "lightbulb 2", "light two": "lightbulb 2",
+            "air conditioner": "ac", "air con": "ac", "ac": "ac",
+            "fan": "fan",
+            "tv": "tv", "television": "tv",
+        }
+        # Sort by length descending so "lightbulb 1" matches before "lightbulb"
+        for alias in sorted(DEVICE_ALIASES.keys(), key=len, reverse=True):
+            if alias in sent_norm:
+                args[device_param] = DEVICE_ALIASES[alias]
+                explain.append(f"Bound {device_param}='{DEVICE_ALIASES[alias]}' from device alias '{alias}'.")
+                break
+
     # ---------- GENERIC SINGLE STRING PARAM ----------
     unbound_str_params = [p for p in str_params if p not in args]
 

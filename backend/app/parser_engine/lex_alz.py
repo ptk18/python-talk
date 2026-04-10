@@ -1,3 +1,4 @@
+import re
 import nltk
 from nltk.corpus import wordnet as wn
 from typing import List, Dict
@@ -5,6 +6,24 @@ from typing import List, Dict
 import ssl
 
 # from word2number import w2n
+
+# -----------------------------
+# English word → digit mapping
+# -----------------------------
+WORD_TO_NUMBER = {
+    "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+    "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+    "ten": "10", "eleven": "11", "twelve": "12", "thirteen": "13",
+    "fourteen": "14", "fifteen": "15", "sixteen": "16", "seventeen": "17",
+    "eighteen": "18", "nineteen": "19", "twenty": "20",
+}
+
+def _words_to_numbers(sentence: str) -> str:
+    """Replace English number words with their digit equivalents."""
+    def _replace(match):
+        return WORD_TO_NUMBER[match.group(0).lower()]
+    pattern = r'\b(?:' + '|'.join(WORD_TO_NUMBER.keys()) + r')\b'
+    return re.sub(pattern, _replace, sentence, flags=re.IGNORECASE)
 
 # -----------------------------
 # Penn Treebank tag → simple POS
@@ -26,7 +45,7 @@ def penn_to_simple(tag: str, word: str) -> str:
         return "pronoun"
     if tag == "DT":
         return "determiner"
-    if tag == "IN":
+    if tag in ("IN", "RP"):
         return "preposition"
     if tag == "CC":
         return "conjunction"
@@ -84,6 +103,7 @@ def get_synonyms(word: str, pos: str, limit: int = 10) -> List[str]:
 
 
 def analyze_sentence(sentence: str) -> List[Dict]:
+    sentence = _words_to_numbers(sentence)
     tokens = nltk.word_tokenize(sentence)
     tagged = nltk.pos_tag(tokens)
 
