@@ -347,6 +347,41 @@ def _extract_switch_object_name(command: str) -> Optional[str]:
 
     return None
 
+def _extract_leading_switch_and_remainder(command: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Supports:
+      - switch to John and draw a circle
+      - change object to t2 then move forward 50
+      - use John, draw a circle
+
+    Returns:
+      (object_name, remainder_command)
+      or (None, None) if no leading switch command found.
+    """
+    s = (command or "").strip().rstrip(".")
+
+    patterns = [
+        r"^\s*switch\s+to\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*change\s+to\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*change\s+object\s+to\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*switch\s+object\s+to\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*set\s+active\s+object\s+to\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*use\s+object\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*use\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*select\s+object\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*select\s+turtle\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+        r"^\s*use\s+turtle\s+([A-Za-z_]\w*)\s*(?:,|\band\b|\bthen\b)?\s*(.*)$",
+    ]
+
+    for pat in patterns:
+        m = re.match(pat, s, flags=re.IGNORECASE)
+        if m:
+            obj_name = m.group(1)
+            remainder = (m.group(2) or "").strip()
+            return obj_name, remainder
+
+    return None, None
+
 def _extract_referenced_object(command: str, known_objects: Dict[str, Any]) -> Optional[str]:
     s = (command or "").strip().rstrip(".").lower()
     if not s or not known_objects:
@@ -1048,13 +1083,20 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
     # ------------------------------------------------------------
     # Universal object switch command
     # ------------------------------------------------------------
-    switch_name = _extract_switch_object_name(command)
-    if switch_name:
+    # ------------------------------------------------------------
+    # Universal object switch command
+    # Supports:
+    #   - "switch to John"
+    #   - "switch to John and draw a circle"
+    # ------------------------------------------------------------
+    leading_switch_name, remaining_after_switch = _extract_leading_switch_and_remainder(command)
+
+    if leading_switch_name:
         known_objects = state.get("objects", {}) or {}
 
         real_name = None
         for obj_name in known_objects.keys():
-            if obj_name.lower() == switch_name.lower():
+            if obj_name.lower() == leading_switch_name.lower():
                 real_name = obj_name
                 break
 
@@ -1068,7 +1110,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                     "success": False,
                     "status": "no_match",
                     "original_command": command,
-                    "suggestion_message": f'No object named "{switch_name}" exists.',
+                    "suggestion_message": f'No object named "{leading_switch_name}" exists.',
                     "method": None,
                     "parameters": {},
                     "confidence": 100.0,
@@ -1082,7 +1124,7 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                     "success": False,
                     "status": "no_match",
                     "original_command": command,
-                    "suggestion_message": f'No object named "{switch_name}" exists.',
+                    "suggestion_message": f'No object named "{leading_switch_name}" exists.',
                     "method": None,
                     "parameters": {},
                     "confidence": 100.0,
@@ -1094,34 +1136,116 @@ def analyze_command(payload: AnalyzeCommandRequest, db: Session = Depends(get_db
                 }],
             }
 
+        # update active object first
         state["active_object"] = real_name
         state["pending"] = None
         _save_state(session_dir, state)
 
-        formatted = {
-            "success": True,
-            "status": "matched",
-            "original_command": command,
-            "suggestion_message": None,
-            "method": "__set_active_object__",
-            "parameters": {"object_name": real_name},
-            "confidence": 100.0,
-            "executable": None,
-            "intent_type": "session_control",
-            "source": "state",
-            "explanation": f'Active object changed to "{real_name}".',
-            "breakdown": {"active_object": real_name},
-        }
+        # if this is only a switch command, return immediately
+        if not remaining_after_switch:
+            formatted = {
+                "success": True,
+                "status": "matched",
+                "original_command": command,
+                "suggestion_message": None,
+                "method": "__set_active_object__",
+                "parameters": {"object_name": real_name},
+                "confidence": 100.0,
+                "executable": None,
+                "intent_type": "session_control",
+                "source": "state",
+                "explanation": f'Active object changed to "{real_name}".',
+                "breakdown": {"active_object": real_name},
+            }
 
-        return {
-            "success": True,
-            "class_name": class_name,
-            "file_name": convo.file_name,
-            "command_count": 1,
-            "result": formatted,
-            "results": [formatted],
-        }
+            return {
+                "success": True,
+                "class_name": class_name,
+                "file_name": convo.file_name,
+                "command_count": 1,
+                "result": formatted,
+                "results": [formatted],
+            }
 
+        # if there is more command after switching, continue parsing the remainder
+        command = remaining_after_switch
+
+    else:
+        # fallback: pure switch command without remainder
+        switch_name = _extract_switch_object_name(command)
+        if switch_name:
+            known_objects = state.get("objects", {}) or {}
+
+            real_name = None
+            for obj_name in known_objects.keys():
+                if obj_name.lower() == switch_name.lower():
+                    real_name = obj_name
+                    break
+
+            if not real_name:
+                return {
+                    "success": True,
+                    "class_name": class_name,
+                    "file_name": convo.file_name,
+                    "command_count": 1,
+                    "result": {
+                        "success": False,
+                        "status": "no_match",
+                        "original_command": command,
+                        "suggestion_message": f'No object named "{switch_name}" exists.',
+                        "method": None,
+                        "parameters": {},
+                        "confidence": 100.0,
+                        "executable": None,
+                        "intent_type": "session_control",
+                        "source": "state",
+                        "explanation": "Requested object does not exist in session state.",
+                        "breakdown": {"known_objects": list(known_objects.keys())},
+                    },
+                    "results": [{
+                        "success": False,
+                        "status": "no_match",
+                        "original_command": command,
+                        "suggestion_message": f'No object named "{switch_name}" exists.',
+                        "method": None,
+                        "parameters": {},
+                        "confidence": 100.0,
+                        "executable": None,
+                        "intent_type": "session_control",
+                        "source": "state",
+                        "explanation": "Requested object does not exist in session state.",
+                        "breakdown": {"known_objects": list(known_objects.keys())},
+                    }],
+                }
+
+            state["active_object"] = real_name
+            state["pending"] = None
+            _save_state(session_dir, state)
+
+            formatted = {
+                "success": True,
+                "status": "matched",
+                "original_command": command,
+                "suggestion_message": None,
+                "method": "__set_active_object__",
+                "parameters": {"object_name": real_name},
+                "confidence": 100.0,
+                "executable": None,
+                "intent_type": "session_control",
+                "source": "state",
+                "explanation": f'Active object changed to "{real_name}".',
+                "breakdown": {"active_object": real_name},
+            }
+
+            return {
+                "success": True,
+                "class_name": class_name,
+                "file_name": convo.file_name,
+                "command_count": 1,
+                "result": formatted,
+                "results": [formatted],
+            }
+            
     # ------------------------------------------------------------
     # Undo snapshot: record at most once per request
     # ------------------------------------------------------------

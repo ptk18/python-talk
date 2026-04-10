@@ -238,6 +238,8 @@ class TurtleApp:
 
         Phrases: set fill color, change fill color, fill with red,
         use blue fill.
+        set feel color, change feel color,
+        set Phill color, change Phill color,
 
         Args:
             color_name: color name like "red", "blue", "black"
@@ -252,7 +254,9 @@ class TurtleApp:
 
         Phrases: begin fill, start fill, fill shape, 
         begin filling, start filling, start color inside,
-        start coloring inside.
+        start coloring inside,
+        begin phill, start phill,
+        
         """
         turtle.begin_fill()
 

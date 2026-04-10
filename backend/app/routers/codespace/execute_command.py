@@ -152,7 +152,8 @@ def execute_command(request: ExecuteCommandRequest, db: Session = Depends(get_db
         with open(runner_path, "w", encoding="utf-8") as f:
             f.write("import socket\n")
             f.write("socket.setdefaulttimeout(15)\n")
-            f.write(f"from {module_name} import {class_name}\n")
+            # f.write(f"from {module_name} import {class_name}\n")
+            f.write(f"from {module_name} import *\n")
             f.write("import sys\n")
             f.write("\n")
 

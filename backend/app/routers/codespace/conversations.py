@@ -156,7 +156,8 @@ def initialize_session(conversation_id: int, file_name: str, code: str):
     # runner starts with imports only
     # (user commands will append object creation lines later)
     runner_lines = [
-        f"from {module_name} import {class_name}\n" if class_name else f"import {module_name}\n",
+        # f"from {module_name} import {class_name}\n" if class_name else f"import {module_name}\n",
+        f"from {module_name} import *\n" if class_name else f"import {module_name}\n",
         "\n",
     ]
     (session_dir / "runner.py").write_text("".join(runner_lines), encoding="utf-8")
